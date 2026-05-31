@@ -23,7 +23,7 @@ function toast(msg, isError = false) {
   const el = document.createElement('div');
   el.className = 'toast';
   el.style.background = isError ? '#c62828' : '#333';
-  el.textContent = msg;
+  el.innerHTML = msg;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3100);
 }
