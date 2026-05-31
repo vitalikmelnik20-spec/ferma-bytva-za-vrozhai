@@ -1,36 +1,42 @@
--- Ферма: Битва за врожай — схема бази даних
+-- Ферма: Битва за врожай — повна актуальна схема БД
 
 CREATE TABLE IF NOT EXISTS players (
-  id               SERIAL PRIMARY KEY,
-  username         VARCHAR(20) UNIQUE NOT NULL,
-  password_hash    VARCHAR(255) NOT NULL,
-  faction          VARCHAR(10) NOT NULL CHECK (faction IN ('elves', 'orcs')),
-  gender           VARCHAR(10) NOT NULL CHECK (gender IN ('male', 'female')),
-  level            INTEGER DEFAULT 1,
-  experience       INTEGER DEFAULT 0,
-  exp_to_next      INTEGER DEFAULT 100,
-  greens           INTEGER DEFAULT 500,
-  gold             INTEGER DEFAULT 100,
-  diamonds         INTEGER DEFAULT 0,
-  glory            INTEGER DEFAULT 0,
-  hp               INTEGER DEFAULT 1000,
-  max_hp           INTEGER DEFAULT 1000,
-  hp_regen         INTEGER DEFAULT 100,
-  rating_points    INTEGER DEFAULT 0,
-  wins             INTEGER DEFAULT 0,
-  losses           INTEGER DEFAULT 0,
-  battles_today    INTEGER DEFAULT 0,
-  battles_max      INTEGER DEFAULT 60,
-  city_name        VARCHAR(50) DEFAULT 'Безіменне місто',
-  status_text      VARCHAR(100) DEFAULT '',
-  medals           INTEGER DEFAULT 0,
-  is_online        BOOLEAN DEFAULT false,
-  is_banned        BOOLEAN DEFAULT false,
-  ban_reason       TEXT,
-  is_admin         BOOLEAN DEFAULT false,
-  on_vacation      BOOLEAN DEFAULT false,
-  last_seen        TIMESTAMP DEFAULT NOW(),
-  created_at       TIMESTAMP DEFAULT NOW()
+  id                 SERIAL PRIMARY KEY,
+  username           VARCHAR(20) UNIQUE NOT NULL,
+  password_hash      VARCHAR(255) NOT NULL,
+  faction            VARCHAR(10) NOT NULL CHECK (faction IN ('elves','orcs')),
+  gender             VARCHAR(10) NOT NULL CHECK (gender IN ('male','female')),
+  level              INTEGER DEFAULT 1,
+  experience         INTEGER DEFAULT 0,
+  exp_to_next        INTEGER DEFAULT 100,
+  greens             INTEGER DEFAULT 500,
+  gold               INTEGER DEFAULT 100,
+  diamonds           INTEGER DEFAULT 0,
+  glory              INTEGER DEFAULT 0,
+  hp                 INTEGER DEFAULT 1000,
+  max_hp             INTEGER DEFAULT 1000,
+  hp_regen           INTEGER DEFAULT 100,
+  rating_points      INTEGER DEFAULT 0,
+  wins               INTEGER DEFAULT 0,
+  losses             INTEGER DEFAULT 0,
+  battles_today      INTEGER DEFAULT 0,
+  battles_max        INTEGER DEFAULT 60,
+  city_name          VARCHAR(50) DEFAULT 'Безіменне місто',
+  status_text        VARCHAR(100) DEFAULT '',
+  medals             INTEGER DEFAULT 0,
+  is_online          BOOLEAN DEFAULT false,
+  is_banned          BOOLEAN DEFAULT false,
+  ban_reason         TEXT,
+  is_admin           BOOLEAN DEFAULT false,
+  on_vacation        BOOLEAN DEFAULT false,
+  last_seen          TIMESTAMP DEFAULT NOW(),
+  created_at         TIMESTAMP DEFAULT NOW(),
+  plants_planted     INTEGER DEFAULT 0,
+  total_harvest      INTEGER DEFAULT 0,
+  plots_watered      INTEGER DEFAULT 0,
+  gold_earned_battle INTEGER DEFAULT 0,
+  gold_lost_battle   INTEGER DEFAULT 0,
+  avatar_url         TEXT
 );
 
 CREATE TABLE IF NOT EXISTS training (
@@ -76,15 +82,16 @@ CREATE TABLE IF NOT EXISTS plots (
 CREATE TABLE IF NOT EXISTS items (
   id               SERIAL PRIMARY KEY,
   name             VARCHAR(100) NOT NULL,
-  category         VARCHAR(20) NOT NULL CHECK (category IN ('weapon','armor','shield','helmet','potion','rune')),
+  category         VARCHAR(20) NOT NULL CHECK (category IN ('weapon','armor','shield','helmet','potion','rune','ring','talisman')),
   power_bonus      INTEGER DEFAULT 0,
   endurance_bonus  INTEGER DEFAULT 0,
   speed_bonus      INTEGER DEFAULT 0,
   accuracy_bonus   INTEGER DEFAULT 0,
-  price            INTEGER NOT NULL,
+  price            INTEGER NOT NULL DEFAULT 0,
   min_level        INTEGER DEFAULT 1,
   duration_hours   INTEGER,
-  is_active        BOOLEAN DEFAULT true
+  is_active        BOOLEAN DEFAULT true,
+  price_gold       INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
@@ -109,6 +116,61 @@ CREATE TABLE IF NOT EXISTS battles (
   greens_reward    INTEGER DEFAULT 0,
   log              JSONB,
   created_at       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ring_upgrades (
+  id               SERIAL PRIMARY KEY,
+  player_id        INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  item_id          INTEGER REFERENCES items(id),
+  inv_id           INTEGER UNIQUE REFERENCES inventory(id) ON DELETE CASCADE,
+  ring_level       INTEGER DEFAULT 1,
+  steal_chance     INTEGER DEFAULT 5,
+  max_steal_pct    NUMERIC(5,2) DEFAULT 2.5,
+  upgraded_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS theft_log (
+  id               SERIAL PRIMARY KEY,
+  battle_id        INTEGER,
+  thief_id         INTEGER REFERENCES players(id),
+  victim_id        INTEGER REFERENCES players(id),
+  gold_stolen      INTEGER,
+  steal_pct        NUMERIC(5,2),
+  ring_level       INTEGER,
+  created_at       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS talisman_upgrades (
+  id               SERIAL PRIMARY KEY,
+  player_id        INTEGER NOT NULL REFERENCES players(id),
+  item_id          INTEGER NOT NULL REFERENCES items(id),
+  inv_id           INTEGER NOT NULL REFERENCES inventory(id),
+  talisman_level   INTEGER NOT NULL DEFAULT 1,
+  bonus_pct        INTEGER NOT NULL DEFAULT 10,
+  upgraded_at      TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS caves (
+  id               SERIAL PRIMARY KEY,
+  player_id        INTEGER REFERENCES players(id),
+  total_mines      INTEGER,
+  mines_done       INTEGER DEFAULT 0,
+  mines_missed     INTEGER DEFAULT 0,
+  gold_earned      INTEGER DEFAULT 0,
+  exp_earned       INTEGER DEFAULT 0,
+  current_mine     INTEGER DEFAULT 1,
+  mine_appears_at  TIMESTAMP,
+  mine_expires_at  TIMESTAMP,
+  is_active        BOOLEAN DEFAULT false,
+  session_done     BOOLEAN DEFAULT false,
+  created_at       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS caves_stats (
+  player_id        INTEGER UNIQUE REFERENCES players(id),
+  total_sessions   INTEGER DEFAULT 0,
+  total_mines_done INTEGER DEFAULT 0,
+  total_gold       INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS clans (
@@ -189,7 +251,7 @@ CREATE TABLE IF NOT EXISTS session (
 );
 CREATE INDEX IF NOT EXISTS IDX_session_expire ON session (expire);
 
--- Довідник рослин
+-- Seed: рослини
 INSERT INTO plants (name, emoji, growth_minutes, greens_reward, exp_reward, seed_price, min_level) VALUES
   ('Пшениця',          '🌾', 5,    50,   10,  10,  1),
   ('Морква',           '🥕', 15,   120,  25,  25,  1),
@@ -203,7 +265,7 @@ INSERT INTO plants (name, emoji, growth_minutes, greens_reward, exp_reward, seed
   ('Чарівний гриб',    '🍄', 180,  500,  200, 500, 8)
 ON CONFLICT DO NOTHING;
 
--- Довідник предметів
+-- Seed: предмети
 INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, price, min_level) VALUES
   ('Дерев''яний кий',     'weapon',  5,  0,   0,  0,  100,  1),
   ('Залізний меч',        'weapon',  15, 0,   0,  5,  500,  3),
@@ -220,4 +282,9 @@ INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, ac
   ('Зілля швидкості',     'potion',  0,  0,   10, 0,  300,  1),
   ('Руна вогню',          'rune',    8,  0,   0,  5,  500,  4),
   ('Руна льоду',          'rune',    0,  8,   0,  5,  500,  4)
+ON CONFLICT DO NOTHING;
+
+INSERT INTO items (name, category, price, price_gold, min_level) VALUES
+  ('Кільце злодія',          'ring',     0, 400, 1),
+  ('Талісман золотошукача',  'talisman', 0, 300, 1)
 ON CONFLICT DO NOTHING;
