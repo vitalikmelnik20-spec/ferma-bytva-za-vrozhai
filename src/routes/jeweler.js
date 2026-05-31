@@ -7,11 +7,15 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const { rows: shopItems } = await pool.query(
-      `SELECT * FROM items WHERE category IN ('rune','ring','talisman') ORDER BY category, price_gold, price`
+      `SELECT id, name, category, price, price_gold, min_level,
+              power_bonus, endurance_bonus, speed_bonus, accuracy_bonus
+       FROM items WHERE category IN ('rune','ring','talisman') AND is_active=true
+       ORDER BY category, min_level`
     );
 
     const { rows: inventory } = await pool.query(
-      `SELECT inv.*, it.name, it.category, it.icon, it.description,
+      `SELECT inv.id, inv.item_id, inv.is_equipped, inv.upgrade_level,
+              it.name, it.category,
               it.power_bonus, it.endurance_bonus, it.speed_bonus, it.accuracy_bonus
        FROM inventory inv
        JOIN items it ON it.id = inv.item_id
@@ -19,7 +23,18 @@ router.get('/', async (req, res) => {
       [req.session.playerId]
     );
 
-    res.json({ shopItems, inventory });
+    const { rows: [player] } = await pool.query(
+      'SELECT gold, greens FROM players WHERE id=$1', [req.session.playerId]
+    );
+
+    res.json({
+      runes:    shopItems.filter(i => i.category === 'rune'),
+      rings:    shopItems.filter(i => i.category === 'ring'),
+      talismans: shopItems.filter(i => i.category === 'talisman'),
+      inventory,
+      playerGold:   player.gold,
+      playerGreens: player.greens,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

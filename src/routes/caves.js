@@ -131,7 +131,7 @@ router.post('/mine', async (req, res) => {
       return res.status(400).json({ error: 'Шахта вже зникла' });
 
     const baseGold = randomGold();
-    const exp  = 5;
+    const exp  = Math.floor(Math.random() * 16) + 5;
 
     // Talisman of the Gold Seeker bonus
     const { rows: [talisman] } = await pool.query(

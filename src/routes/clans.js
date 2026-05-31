@@ -190,7 +190,7 @@ router.post('/buildings/upgrade', async (req, res) => {
 
     if (existing) {
       await pool.query(
-        'UPDATE clan_buildings SET level = level + 1, upgraded_at = NOW() WHERE clan_id=$1 AND building_key=$2',
+        'UPDATE clan_buildings SET level = level + 1 WHERE clan_id=$1 AND building_key=$2',
         [membership.clan_id, buildingKey]
       );
     } else {

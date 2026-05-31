@@ -317,7 +317,7 @@ function renderPlots() {
         ${soilSVG}
         <div class="plot-name">${plot.plant_name}</div>
         <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>
-        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.gold(13)}${plot.exp_reward}</div>`;
+        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.exp(13)}${plot.exp_reward}</div>`;
       div.onclick = () => harvestPlot(plot.id);
     }
 
@@ -363,7 +363,7 @@ function openPlantModal(plotId) {
       <img src="/icons/plants/${(() => { const m={'Пшениця':'wheat','Морква':'carrot','Капуста':'cabbage','Соняшник':'sunflower','Гарбуз':'pumpkin','Диня':'melon','Виноград':'grapes','Зілля сили':'herb','Зілля спритності':'herb','Чарівний гриб':'mushroom'}; return m[p.name]||'herb'; })()}.svg" width="40" height="40" class="plant-emoji-big">
       <div class="plant-info">
         <div class="plant-info-name">${p.name}</div>
-        <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.gold(13)} +${p.exp_reward}</div>
+        <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.exp(13)} +${p.exp_reward}</div>
       </div>
       <div class="plant-price">${IC.greens(13)} ${p.seed_price}</div>
     </div>`).join('');
@@ -398,7 +398,7 @@ async function waterPlot(event, plotId) {
 async function harvestPlot(plotId) {
   try {
     const r = await API.post(`/api/garden/${plotId}/harvest`);
-    toast(`Зібрано! ${IC.greens(13)}+${r.greens} ${IC.gold(13)}+${r.exp}`);
+    toast(`Зібрано! ${IC.greens(13)}+${r.greens} ${IC.exp(13)}+${r.exp}`);
     if (r.levelUp) showLevelUpModal(r);
     await loadGarden();
     await refreshPlayer();
@@ -613,7 +613,7 @@ function showBattleResult(r) {
       <div style="font-size:15px;font-weight:600;color:${won?'#2e7d32':'#c62828'}">
         ${r.greensReward > 0 ? `${IC.greens(14)} ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
         ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ${IC.gold(14)} ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
-        ${won ? (r.attackerGlory > 0 ? '&nbsp; ${IC.glory(14)} +1 слава' : '') : `&nbsp; ${IC.down(14)} -5 рейтингу`}
+        ${won ? (r.attackerGlory > 0 ? `&nbsp; ${IC.glory(14)} +1 слава` : '') : `&nbsp; ${IC.down(14)} -5 рейтингу`}
       </div>
     </div>
 
@@ -766,7 +766,7 @@ function filterMarket(cat) {
       ? `<span class="text-muted" style="font-size:12px">${IC.check(14)} Є</span>`
       : `<button class="btn ${usesGold ? 'btn-orange' : 'btn-green'} btn-sm" onclick="buyMarketItem(${item.id},${isRing},${isTalisman})">Купити</button>`;
     const bonuses = (isRing || isTalisman)
-      ? `<div class="item-bonuses" style="color:#5d4037">${item.category === 'ring' ? IC.ring(13) : IC.talisman(13)} ${item.name}</div>`
+      ? `<div class="item-bonuses" style="color:#5d4037;font-size:12px">${JEWELER_INFO[item.name] || item.name}</div>`
       : `<div class="item-bonuses">${bonusStr(item)}</div>`;
     return `
     <div class="item-card">
@@ -1146,12 +1146,13 @@ async function loadProfile() {
     const p = r.player;
     const el = document.getElementById('profile-content');
 
+    const maxStat = Math.max(p.power_level, p.endurance_level, p.speed_level, p.accuracy_level, p.pet_power, p.pet_endurance, 1);
     const statRow = (icon, label, stat, key) => `
       <div class="stat-row">
         <span class="stat-icon">${icon}</span>
         <div class="stat-info">
           <div class="stat-name">${label}</div>
-          <div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(100, stat / 50 * 100)}%"></div></div>
+          <div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round(stat / maxStat * 100)}%"></div></div>
         </div>
         <span class="stat-level">Рів.${stat}</span>
         <span class="stat-cost">${IC.greens(13)}${fmtNum(r.trainCosts[key])}</span>
@@ -1723,21 +1724,35 @@ async function viewProfile(id) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function sendGift(targetId) {
-  const GIFT_NAMES = {
-    power_statue:    'Статуетка мощі (50🌿)',
-    endurance_seal:  'Печать стійкості (50🌿)',
-    accuracy_scroll: 'Манускрипт точності (50🌿)',
-    speed_flask:     'Флакон швидкості (50🌿)',
-    harvest_idol:    'Ідол врожаю (80🌿)',
-    luck_amulet:     'Амулет удачі (150🌿)',
-  };
-  const types = Object.keys(GIFT_NAMES);
-  const opts = types.map((t,i) => `${i+1}. ${GIFT_NAMES[t]}`).join('\n');
-  const choice = parseInt(prompt(`Виберіть подарунок:\n${opts}`));
-  if (!choice || !types[choice-1]) return;
+const GIFT_LIST = [
+  { type: 'power_statue',    name: 'Статуетка мощі',     stat: 'Мощь +10%',      cost: 50  },
+  { type: 'endurance_seal',  name: 'Печать стійкості',    stat: 'Стійкість +10%', cost: 50  },
+  { type: 'accuracy_scroll', name: 'Манускрипт точності', stat: 'Точність +10%',  cost: 50  },
+  { type: 'speed_flask',     name: 'Флакон швидкості',    stat: 'Швидкість +10%', cost: 50  },
+  { type: 'harvest_idol',    name: 'Ідол врожаю',         stat: 'Врожай +10%',    cost: 80  },
+  { type: 'luck_amulet',     name: 'Амулет удачі',        stat: 'Удача +10%',     cost: 150 },
+];
+
+function sendGift(targetId) {
+  window._giftTargetId = targetId;
+  document.getElementById('gift-modal-body').innerHTML = GIFT_LIST.map(g => `
+    <div class="gift-card" onclick="confirmSendGift('${g.type}')">
+      <div class="gift-card-icon">${IC.gift(28)}</div>
+      <div class="gift-card-name">${g.name}</div>
+      <div class="gift-card-stat">${g.stat}</div>
+      <div class="gift-card-cost">${IC.greens(13)} ${g.cost}</div>
+    </div>`).join('');
+  document.getElementById('gift-modal').style.display = 'flex';
+}
+
+function closeGiftModal() {
+  document.getElementById('gift-modal').style.display = 'none';
+}
+
+async function confirmSendGift(giftType) {
+  closeGiftModal();
   try {
-    await API.post('/api/gifts/send', { friendId: targetId, giftType: types[choice-1] });
+    await API.post('/api/gifts/send', { friendId: window._giftTargetId, giftType });
     toast(`${IC.gift(14)} Подарунок надіслано!`);
   } catch (e) { toast(e.message, true); }
 }
@@ -1941,7 +1956,7 @@ function renderCavesSession(s) {
         <div class="cave-timer ${secLeft <= 30 ? 'urgent' : ''}" id="cave-timer-active">${fmtCountdown(s.mine_expires_at)}</div>
         <div style="font-size:13px;color:#888;margin-bottom:12px">Час до зникнення</div>
         <button class="btn btn-green cave-mine-btn" onclick="mineShaft()">${IC.pickaxe(14)} Добути!</button>
-        <div class="cave-progress">Добуто: ${s.mines_done} з ${s.total_mines} шахт &nbsp;|&nbsp; ${IC.wins(14)} ${s.gold_earned} золота сьогодні</div>
+        <div class="cave-progress">Добуто: ${s.mines_done} з ${s.total_mines} шахт &nbsp;|&nbsp; ${IC.gold(14)} ${s.gold_earned} золота сьогодні</div>
       </div>`;
     startCavesCountdown(s.mine_expires_at, 'cave-timer-active');
 
@@ -1949,13 +1964,13 @@ function renderCavesSession(s) {
     // Waiting — countdown to next mine
     el.innerHTML = `
       <div class="cave-wait-box">
-        <div style="font-size:48px;margin-bottom:6px">⏳</div>
+        <div style="margin-bottom:6px">${IC.pickaxe(44)}</div>
         <div style="font-weight:700;font-size:15px;margin-bottom:4px">Наступна шахта з'явиться через:</div>
         <div class="cave-next-timer" id="cave-timer-next">${fmtCountdown(s.mine_appears_at)}</div>
         <div class="cave-progress">
           Шахта №${s.current_mine} з ${s.total_mines}
           &nbsp;|&nbsp; Добуто: ${s.mines_done} з ${s.total_mines}
-          &nbsp;|&nbsp; ${IC.wins(14)} ${s.gold_earned} золота
+          &nbsp;|&nbsp; ${IC.gold(14)} ${s.gold_earned} золота
         </div>
         <button class="btn btn-gray btn-sm" style="margin-top:14px" onclick="navigate('home')">← Вийти (сесія збережена)</button>
       </div>`;
@@ -1968,30 +1983,35 @@ async function mineShaft() {
   if (btn) btn.disabled = true;
   try {
     const r = await API.post('/api/caves/mine');
-    // Show reward briefly then re-render
+    window._caveNextSession = r.session;
     const el = document.getElementById('caves-content');
     el.innerHTML = `
-      <div style="text-align:center;padding:20px 0">
-        <div style="font-size:52px;margin-bottom:8px">${IC.gold(14)}</div>
-        <div style="font-size:22px;font-weight:700;color:#2e7d32">+${r.gold} золота &nbsp; +${r.exp} досвіду</div>
-        ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-top:4px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
-        ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-top:6px">${IC.celebrate(14)} Новий рівень ${r.newLevel}!</div>` : ''}
+      <div style="text-align:center;padding:24px 12px">
+        <div style="margin-bottom:10px">${IC.gold(44)}</div>
+        <div style="font-size:22px;font-weight:700;color:#2e7d32;margin-bottom:4px">${IC.gold(16)} +${r.gold} золота</div>
+        <div style="font-size:18px;font-weight:600;color:#1565c0;margin-bottom:12px">${IC.exp(16)} +${r.exp} досвіду</div>
+        ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
+        ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-bottom:10px">${IC.celebrate(14)} Новий рівень ${r.newLevel}!</div>` : ''}
+        <button class="btn btn-green" style="padding:10px 28px;font-size:16px" onclick="caveContinue()">Далі →</button>
       </div>`;
     if (r.levelUp) showLevelUpModal(r);
     await refreshPlayer();
-    setTimeout(() => {
-      if (r.session.session_done) {
-        stopCavesPolling();
-        renderCavesDone(r.session);
-      } else {
-        renderCavesSession(r.session);
-        if (!cavesPolling) startCavesPolling();
-      }
-    }, 1200);
   } catch (e) {
     toast(e.message, true);
     // Re-enable button if mine still active
     if (btn) btn.disabled = false;
+  }
+}
+
+function caveContinue() {
+  const s = window._caveNextSession;
+  if (!s) return;
+  if (s.session_done) {
+    stopCavesPolling();
+    renderCavesDone(s);
+  } else {
+    renderCavesSession(s);
+    if (!cavesPolling) startCavesPolling();
   }
 }
 
@@ -2004,8 +2024,8 @@ function renderCavesDone(s) {
       <div style="font-size:17px;font-weight:700;margin-bottom:4px">Печери на сьогодні завершено!</div>
       <div class="cave-result-stats">
         <div class="cave-result-row">${IC.pickaxe(14)} Шахт добуто: <b>${s.mines_done} з ${s.total_mines}</b> (${pct}%)</div>
-        <div class="cave-result-row">${IC.wins(14)} Золото отримано: <b>${s.gold_earned}</b></div>
-        <div class="cave-result-row">${IC.gold(14)} Досвід отримано: <b>${s.exp_earned}</b></div>
+        <div class="cave-result-row">${IC.gold(14)} Золото отримано: <b>${s.gold_earned}</b></div>
+        <div class="cave-result-row">${IC.exp(14)} Досвід отримано: <b>${s.exp_earned}</b></div>
         ${s.mines_missed > 0 ? `<div class="cave-result-row" style="color:#c62828">⏰ Пропущено шахт: <b>${s.mines_missed}</b></div>` : ''}
       </div>
       <div style="font-size:13px;color:#888;margin-bottom:14px">Печери відкриються знову о 00:00</div>
@@ -2055,27 +2075,52 @@ async function submitTgSetup() {
 }
 
 // ─── JEWELER ─────────────────────────────────────────────────────────────────
+const JEWELER_INFO = {
+  // Rings
+  'Кільце злодія':       'Краде золото при перемозі у бою',
+  'Кільце Жнеця':        'Прискорює збирання врожаю на 15%',
+  'Кільце Берсерка':     '+15% до атаки у кожному бою',
+  'Кільце Цілителя':     'Відновлює 5% HP після кожного бою',
+  'Кільце Удачі':        '+20% шанс критичного удару',
+  'Кільце Мудреця':      '+25% до досвіду з усіх джерел',
+  // Talismans
+  'Талісман золотошукача': '+10% до золота в печерних шахтах',
+  'Талісман Воїна':        '+10% до атаки у бою',
+  'Талісман Фермера':      '+10% до врожаю з грядок',
+  'Талісман Захисника':    '+10% до захисту у бою',
+  'Талісман Тіні':         '+15% шанс ухилення від удару',
+  'Талісман Полководця':   '+20% рейтингових очок за перемогу',
+  // Runes
+  'Руна вогню':     '+8 мощі, +5 точності',
+  'Руна льоду':     '+8 стійкості, +5 точності',
+  'Руна блискавки': '+10 швидкості, +5 точності',
+  'Руна землі':     '+10 стійкості, +5 мощі',
+  'Руна вітру':     '+12 швидкості',
+  'Руна тьми':      '+10 мощі, -5 стійкості ворога',
+  'Руна світла':    '+8 точності, +8 стійкості',
+  'Руна дракона':   '+15 мощі, +10 стійкості',
+};
+
 async function loadJeweler() {
   const el = document.getElementById('jeweler-content');
   if (!el) return;
   el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
   try {
     const r = await API.get('/api/jeweler');
+    window._jewelerData = r;
     const tabs = [
-      { key:'rune',     label:'Руни',       icon: IC.ring(14) },
-      { key:'ring',     label:'Кільця',     icon: IC.ring(14) },
-      { key:'talisman', label:'Таліcмани',  icon: IC.talisman(14) },
+      { key:'rune',     label:'Руни',      icon: IC.ring(14) },
+      { key:'ring',     label:'Кільця',    icon: IC.ring(14) },
+      { key:'talisman', label:'Талісмани', icon: IC.talisman(14) },
     ];
-    const groups = { rune: r.runes, ring: r.rings, talisman: r.talismans };
 
     el.innerHTML = `
       <div class="category-tabs" id="jeweler-tabs">
-        ${tabs.map(t => `<button class="cat-tab ${t.key==='rune'?'active':''}" onclick="filterJeweler('${t.key}')">${t.icon} ${t.label}</button>`).join('')}
+        ${tabs.map(t => `<button class="cat-tab" onclick="filterJeweler('${t.key}', this)">${t.icon} ${t.label}</button>`).join('')}
       </div>
       <div id="jeweler-items"></div>
       <div class="panel-header" style="margin-top:12px">${IC.inventory(14)} Вставити руну в предмет</div>
       <div id="rune-socket-ui">
-        <p class="text-muted">Виберіть предмет з інвентаря та руну</p>
         ${r.inventory.filter(i => ['weapon','armor','shield','helmet'].includes(i.category)).map(i => `
           <div class="item-card">
             ${itemIcon(i.name, 28)}
@@ -2083,37 +2128,48 @@ async function loadJeweler() {
             <button class="btn btn-orange btn-sm" onclick="openRuneInsert(${i.id})">Вставити</button>
           </div>`).join('') || '<p class="text-muted">Немає підходящого спорядження</p>'}
       </div>`;
-    filterJeweler('rune');
+
+    // Click first tab programmatically
+    const firstTab = document.querySelector('#jeweler-tabs .cat-tab');
+    if (firstTab) filterJeweler('rune', firstTab);
   } catch(e) { toast(e.message, true); }
 }
 
-function filterJeweler(cat) {
+function filterJeweler(cat, btnEl) {
   document.querySelectorAll('#jeweler-tabs .cat-tab').forEach(t => t.classList.remove('active'));
-  event?.target?.classList.add('active');
+  if (btnEl) btnEl.classList.add('active');
+  else if (event?.currentTarget) event.currentTarget.classList.add('active');
   if (!window._jewelerData) return;
-  const items = window._jewelerData[cat + 's'] || window._jewelerData[cat] || [];
-  renderJewelerItems(items, cat);
-}
-
-async function loadJewelerFull() {
-  const r = await API.get('/api/jeweler');
-  window._jewelerData = r;
-  return r;
+  const map = { rune: 'runes', ring: 'rings', talisman: 'talismans' };
+  renderJewelerItems(window._jewelerData[map[cat]] || [], cat);
 }
 
 function renderJewelerItems(items, cat) {
   const el = document.getElementById('jeweler-items');
   if (!el) return;
-  el.innerHTML = items.map(item => {
-    const usesGold = item.price_gold > 0;
-    const price = usesGold ? `${IC.gold(13)}${fmtNum(item.price_gold)}` : `${IC.greens(13)}${fmtNum(item.price)}`;
-    return `<div class="item-card">
-      ${itemIcon(item.name, 28)}
-      <div class="item-info">
-        <div class="item-name">${item.name}</div>
-        <div class="text-muted">Рів.${item.min_level}+</div>
+  // Deduplicate by name (keep lowest id)
+  const seen = new Set();
+  const unique = items.filter(item => {
+    if (seen.has(item.name)) return false;
+    seen.add(item.name);
+    return true;
+  });
+  el.innerHTML = unique.map(item => {
+    const price = `${IC.gold(13)} ${fmtNum(item.price_gold)}`;
+    const desc  = JEWELER_INFO[item.name] || '';
+    const ownedInv = (window._jewelerData?.inventory || []).find(i => i.item_id === item.id);
+    return `<div class="item-card" style="flex-direction:column;align-items:flex-start;gap:4px;padding:10px 12px">
+      <div style="display:flex;align-items:center;gap:8px;width:100%">
+        ${itemIcon(item.name, 28)}
+        <div class="item-info" style="flex:1">
+          <div class="item-name">${item.name}</div>
+          <div class="text-muted" style="font-size:11px">Рів.${item.min_level}+</div>
+        </div>
+        ${ownedInv
+          ? `<span class="badge" style="background:#e8f5e9;color:#2e7d32;font-size:11px;padding:2px 7px;border-radius:8px">Є</span>`
+          : `<div style="white-space:nowrap">${price} <button class="btn btn-orange btn-sm" onclick="buyJewelerItem(${item.id})">Купити</button></div>`}
       </div>
-      <div>${price} <button class="btn btn-orange btn-sm" onclick="buyJewelerItem(${item.id})">Купити</button></div>
+      ${desc ? `<div style="font-size:12px;color:#5d4037;padding-left:36px">${desc}</div>` : ''}
     </div>`;
   }).join('') || '<p class="text-muted">Немає</p>';
 }

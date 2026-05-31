@@ -984,3 +984,19 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
   border-bottom: 1px solid #eee;
   font-size: 14px;
 }
+
+/* ── Gift cards ── */
+.gift-card {
+  background: #fff8e1;
+  border: 1.5px solid #ffe082;
+  border-radius: 10px;
+  padding: 12px 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.gift-card:hover { background: #fff3cd; border-color: #ffc107; }
+.gift-card-icon { margin-bottom: 6px; }
+.gift-card-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; color: #4e342e; }
+.gift-card-stat { font-size: 11px; color: #795548; margin-bottom: 5px; }
+.gift-card-cost { font-size: 12px; font-weight: 600; color: #388e3c; }

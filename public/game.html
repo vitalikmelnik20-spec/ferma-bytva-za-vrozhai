@@ -415,6 +415,20 @@
   </div>
 </div>
 
+<!-- Gift modal -->
+<div class="modal-overlay" id="gift-modal" style="display:none" onclick="if(event.target===this)closeGiftModal()">
+  <div class="modal-box" style="max-width:380px;width:96%">
+    <div class="modal-header">
+      <img src="/icons/ui/gift.svg" width="16" height="16" style="vertical-align:middle"> Надіслати подарунок
+      <button class="modal-close" onclick="closeGiftModal()">✕</button>
+    </div>
+    <div style="padding:14px">
+      <p style="font-size:13px;color:#5d4037;margin:0 0 12px">Виберіть подарунок для друга. Бонус = 10% від вашого відповідного стату.</p>
+      <div id="gift-modal-body" style="display:grid;grid-template-columns:1fr 1fr;gap:8px"></div>
+    </div>
+  </div>
+</div>
+
 <!-- Cave mine notification -->
 <div id="cave-notif" style="display:none">
   <div class="cave-notif-icon"><img src="/icons/ui/pickaxe.svg" width="28" height="28" style="vertical-align:middle" alt="pickaxe"></div>
