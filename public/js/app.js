@@ -14,6 +14,33 @@ const IC = {
   accuracy:  (s=14) => `<img src="/icons/stats/accuracy.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
   clan:      (s=14) => `<img src="/icons/stats/clan.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
   exp:       (s=14) => `<img src="/icons/res/exp.svg"           width="${s}" height="${s}" style="vertical-align:middle">`,
+  home:      (s=14) => `<img src="/icons/ui/home.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  friends:   (s=14) => `<img src="/icons/ui/friends.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  settings:  (s=14) => `<img src="/icons/ui/settings.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  stats_ic:  (s=14) => `<img src="/icons/ui/stats.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  gift:      (s=14) => `<img src="/icons/ui/gift2.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  bell:      (s=14) => `<img src="/icons/ui/bell.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  check:     (s=14) => `<img src="/icons/ui/check.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  inventory: (s=14) => `<img src="/icons/ui/inventory.svg"  width="${s}" height="${s}" style="vertical-align:middle">`,
+  refresh:   (s=14) => `<img src="/icons/ui/refresh.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  levelup:   (s=14) => `<img src="/icons/ui/levelup.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  admin:     (s=14) => `<img src="/icons/ui/admin.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  celebrate: (s=14) => `<img src="/icons/ui/celebrate.svg"  width="${s}" height="${s}" style="vertical-align:middle">`,
+  pickaxe:   (s=14) => `<img src="/icons/ui/pickaxe.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  village:   (s=14) => `<img src="/icons/ui/village.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  vacation:  (s=14) => `<img src="/icons/ui/vacation.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  battle:    (s=14) => `<img src="/icons/menu/battle.png"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  market:    (s=14) => `<img src="/icons/menu/market.png"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  profile:   (s=14) => `<img src="/icons/menu/profile.png"  width="${s}" height="${s}" style="vertical-align:middle">`,
+  ring:      (s=14) => `<img src="/icons/items/ring.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  talisman:  (s=14) => `<img src="/icons/items/talisman.svg" width="${s}" height="${s}" style="vertical-align:middle">`,
+  water:     (s=14) => `<img src="/icons/ui/water.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  shield:    (s=14) => `<img src="/icons/items/iron-shield.svg" width="${s}" height="${s}" style="vertical-align:middle">`,
+  bow:       (s=14) => `<img src="/icons/stats/bow.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  helmet_ic: (s=14) => `<img src="/icons/items/helmet.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  legs:      (s=14) => `<img src="/icons/stats/legs.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  down:      (s=14) => `<img src="/icons/ui/down.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  package:   (s=14) => `<img src="/icons/ui/package.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
   wins:      (s=14) => `<img src="/icons/stats/wins.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
   skull:     (s=14) => `<img src="/icons/stats/skull.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
 };
@@ -191,7 +218,7 @@ function updateHomeProfile() {
       const btn = document.createElement('div');
       btn.id = 'admin-menu-btn';
       btn.className = 'menu-btn';
-      btn.innerHTML = '<span class="menu-icon">🔧</span><span class="menu-label">Адмін</span>';
+      btn.innerHTML = '<span class="menu-icon"><img src="/icons/ui/admin.svg" width="24" height="24"></span><span class="menu-label">Адмін</span>';
       btn.onclick = () => navigate('admin');
       grid.appendChild(btn);
     }
@@ -268,7 +295,7 @@ function renderPlots() {
         <span class="plot-status-badge badge-growing"><img src="/icons/ui/timer.svg" width="13" height="13" style="vertical-align:middle;filter:invert(1)"> Росте</span>
         ${!plot.watered
           ? `<button class="btn btn-blue btn-sm" onclick="waterPlot(event,${plot.id})"><img src="/icons/ui/water.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Полити</button>`
-          : '<span class="text-muted" style="font-size:11px">💧 Полито</span>'}`;
+          : `<span class="text-muted" style="font-size:11px">${IC.water(13)} Полито</span>`}`;
 
     } else if (plot.status === 'ready') {
       div.innerHTML = `
@@ -322,7 +349,7 @@ function openPlantModal(plotId) {
       <img src="/icons/plants/${(() => { const m={'Пшениця':'wheat','Морква':'carrot','Капуста':'cabbage','Соняшник':'sunflower','Гарбуз':'pumpkin','Диня':'melon','Виноград':'grapes','Зілля сили':'herb','Зілля спритності':'herb','Чарівний гриб':'mushroom'}; return m[p.name]||'herb'; })()}.svg" width="40" height="40" class="plant-emoji-big">
       <div class="plant-info">
         <div class="plant-info-name">${p.name}</div>
-        <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | 🌿 +${p.greens_reward} | ⭐ +${p.exp_reward}</div>
+        <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.gold(13)} +${p.exp_reward}</div>
       </div>
       <div class="plant-price">${IC.greens(13)} ${p.seed_price}</div>
     </div>`).join('');
@@ -349,7 +376,7 @@ async function waterPlot(event, plotId) {
   event.stopPropagation();
   try {
     await API.post(`/api/garden/${plotId}/water`);
-    toast('💧 Полито! -10% часу');
+    toast(`${IC.water(13)} Полито! -10% часу`);
     await loadGarden();
   } catch (e) { toast(e.message, true); }
 }
@@ -383,14 +410,14 @@ function showLevelUpModal(r) {
 
   document.getElementById('levelup-body').innerHTML = `
     <div class="levelup-icon-row">
-      <div class="levelup-icon">⬆️</div>
+      <div class="levelup-icon">${IC.levelup(14)}</div>
       <div class="levelup-icon-text">
         <div class="levelup-title">Новий рівень</div>
         <div class="levelup-text">Ти досяг <b>${r.newLevel}-го</b> рівня!</div>
       </div>
     </div>
     ${rewardParts.length ? `<div class="levelup-rewards">Ти отримав: ${rewardParts.join(' і ')}</div>` : ''}
-    <div class="levelup-next">Для наступного рівня треба: ✨ ${fmtNum(nextExp)} досвіду</div>
+    <div class="levelup-next">Для наступного рівня треба: ${IC.exp(13)} ${fmtNum(nextExp)} досвіду</div>
     ${perksHtml}
     <button class="btn btn-green btn-full" style="margin-top:14px" onclick="closeLevelUpModal()">Закрити</button>`;
   document.getElementById('levelup-modal').style.display = 'flex';
@@ -422,8 +449,8 @@ async function loadOpponents() {
 
     const TIER_STYLE = {
       lower:  { bg: '#f0f7ff', border: '#90caf9', badge: '#1565c0', icon: '⬇️' },
-      equal:  { bg: '#fff8e1', border: '#ffe082', badge: '#f57f17', icon: '⚔️' },
-      higher: { bg: '#fce4ec', border: '#f48fb1', badge: '#b71c1c', icon: '⬆️' },
+      equal:  { bg: '#fff8e1', border: '#ffe082', badge: '#f57f17', icon: '' },
+      higher: { bg: '#fce4ec', border: '#f48fb1', badge: '#b71c1c', icon: '${IC.levelup(14)}' },
     };
 
     list.innerHTML = r.opponents.map(op => {
@@ -447,13 +474,13 @@ async function loadOpponents() {
             </div>
             <div style="font-size:12px;color:#666;margin-bottom:4px">
               ${IC.power(13)}${op.power_level} &nbsp;${IC.endurance(13)}${op.endurance_level} &nbsp;${IC.speed(13)}${op.speed_level} &nbsp;${IC.accuracy(13)}${op.accuracy_level}
-              &nbsp;|&nbsp; ⭐ ${op.glory} слави
+              &nbsp;|&nbsp; ${IC.gold(13)} ${op.glory} слави
             </div>
             <div style="font-size:11px;color:#999;font-style:italic">"${op.slogan}"</div>
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}')">⚔️ Битись</button>
-            <button class="btn btn-blue btn-sm" onclick="viewProfile(${op.id})">👤 Профіль</button>
+            <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}')">${IC.battle(14)} Битись</button>
+            <button class="btn btn-blue btn-sm" onclick="viewProfile(${op.id})">${IC.profile(14)} Профіль</button>
           </div>
         </div>`;
     }).join('<div style="height:8px"></div>');
@@ -466,7 +493,7 @@ function showOpponents() {
   document.getElementById('battle-result-view').style.display = 'none';
 }
 
-const ZONE_LABELS = { head: '🪖 Голова', body: '🛡️ Корпус', legs: '🦵 Ноги' };
+const ZONE_LABELS = { head: `${IC.helmet_ic(14)} Голова`, body: `${IC.shield(14)} Корпус`, legs: `${IC.legs(14)} Ноги` };
 const ZONE_UA     = { head: 'голову',   body: 'корпус',    legs: 'ноги'   };
 
 function startFight(opponentId, opponentName) {
@@ -567,12 +594,12 @@ function showBattleResult(r) {
   document.getElementById('battle-result-body').innerHTML = `
     <div style="background:${won?'#e8f5e9':'#ffebee'};border:1px solid ${won?'#a5d6a7':'#ef9a9a'};border-radius:12px;padding:14px;margin-bottom:10px;text-align:center">
       <div style="font-size:20px;font-weight:700;color:${won?'#2e7d32':'#c62828'};margin-bottom:6px">
-        ${won ? '🏆 Перемога' : '💀 Поразка'}
+        ${won ? `${IC.glory(16)} Перемога` : `${IC.skull(16)} Поразка`}
       </div>
       <div style="font-size:15px;font-weight:600;color:${won?'#2e7d32':'#c62828'}">
         ${r.greensReward > 0 ? `${IC.greens(14)} ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
         ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ${IC.gold(14)} ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
-        ${won ? (r.attackerGlory > 0 ? '&nbsp; 🏆 +1 слава' : '') : '&nbsp; 📉 -5 рейтингу'}
+        ${won ? (r.attackerGlory > 0 ? '&nbsp; ${IC.glory(14)} +1 слава' : '') : `&nbsp; ${IC.down(14)} -5 рейтингу`}
       </div>
     </div>
 
@@ -597,7 +624,7 @@ function showBattleResult(r) {
     ${r.ringEffect && r.ringEffect.triggered ? `
     <div style="${bs}">
       <div style="font-size:13px;line-height:1.8">
-        💍 <b>Кільце злодія спрацювало!</b><br>
+        ${IC.ring(14)} <b>Кільце злодія спрацювало!</b><br>
         Ти вкрав <b>${IC.gold(14)} ${fmtNum(r.ringEffect.stolenGold)} золота</b> у ${r.ringEffect.victimName}
       </div>
     </div>` : ''}
@@ -637,7 +664,7 @@ const ITEM_ICONS = {
 };
 function itemIcon(name, size=36) {
   const file = ITEM_ICONS[name];
-  if (!file) return '📦';
+  if (!file) return IC.package(14);
   return `<img src="/icons/items/${file}.svg" width="${size}" height="${size}" style="display:block">`;
 }
 let currentMarketFilter = 'all';
@@ -692,10 +719,10 @@ function filterMarket(cat) {
 
 function bonusStr(item) {
   const parts = [];
-  if (item.power_bonus)    parts.push(`⚡+${item.power_bonus}`);
-  if (item.endurance_bonus) parts.push(`🛡️+${item.endurance_bonus}`);
-  if (item.speed_bonus)    parts.push(`💨+${item.speed_bonus}`);
-  if (item.accuracy_bonus) parts.push(`🎯+${item.accuracy_bonus}`);
+  if (item.power_bonus)    parts.push(`${IC.power(13)}+${item.power_bonus}`);
+  if (item.endurance_bonus) parts.push(`${IC.endurance(13)}+${item.endurance_bonus}`);
+  if (item.speed_bonus)    parts.push(`${IC.speed(13)}+${item.speed_bonus}`);
+  if (item.accuracy_bonus) parts.push(`${IC.accuracy(13)}+${item.accuracy_bonus}`);
   return parts.join(' ') || '—';
 }
 
@@ -712,14 +739,14 @@ function renderInventory() {
           : `<div class="item-bonuses">${bonusStr(inv)}</div>`;
       const actions = isRing
         ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-             <button class="btn btn-orange btn-sm" onclick="openRingModal(${inv.id})">💍 Прокачка</button>
+             <button class="btn btn-orange btn-sm" onclick="openRingModal(${inv.id})">${IC.ring(14)} Прокачка</button>
              ${inv.is_equipped
                ? `<button class="btn btn-gray btn-sm" onclick="unequipItem(${inv.id})">Зняти</button>`
                : `<button class="btn btn-blue btn-sm" onclick="equipItem(${inv.id})">Одягти</button>`}
            </div>`
         : isTalisman
           ? `<div style="display:flex;flex-direction:column;gap:4px;align-items:flex-end">
-               <button class="btn btn-orange btn-sm" onclick="openTalismanModal(${inv.id})">🏺 Прокачка</button>
+               <button class="btn btn-orange btn-sm" onclick="openTalismanModal(${inv.id})">${IC.talisman(14)} Прокачка</button>
                ${inv.is_equipped
                  ? `<button class="btn btn-gray btn-sm" onclick="unequipItem(${inv.id})">Зняти</button>`
                  : `<button class="btn btn-blue btn-sm" onclick="equipItem(${inv.id})">Одягти</button>`}
@@ -784,7 +811,7 @@ async function unequipItem(invId) {
 async function buyRing() {
   try {
     await API.post('/api/rings/buy');
-    toast('💍 Кільце злодія куплено!');
+    toast('${IC.ring(14)} Кільце злодія куплено!');
     await loadMarket();
     await refreshPlayer();
   } catch (e) { toast(e.message, true); }
@@ -800,14 +827,14 @@ async function openRingModal(invId) {
     const progressPct = lvl / 10 * 100;
     body.innerHTML = `
       <div style="text-align:center;margin-bottom:12px">
-        <div style="font-size:48px">💍</div>
+        <div style="font-size:48px">${IC.ring(14)}</div>
         <div class="ring-level-badge">Рівень ${lvl} / 10</div>
       </div>
       <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${progressPct}%"></div></div>
       <div class="ring-stats">
         <div class="ring-stat-row"><span>Шанс спрацювання</span><b>${ru.steal_chance}%</b></div>
         <div class="ring-stat-row"><span>Макс. крадіжка</span><b>${ru.max_steal_pct}% золота</b></div>
-        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>⭐ ${fmtNum(r.nextCost)}</b></div>` : ''}
+        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${IC.gold(13)} ${fmtNum(r.nextCost)}</b></div>` : ''}
       </div>
       <div style="font-size:13px;color:#888;margin:10px 0 14px">
         Кільце спрацьовує тільки при перемозі в PvP бою. Жертва отримує сповіщення.
@@ -815,7 +842,7 @@ async function openRingModal(invId) {
       ${maxed
         ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px">✨ Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" onclick="upgradeRing(${invId})">
-             ⬆️ Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
+             ${IC.levelup(14)} Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
            </button>`}`;
     document.getElementById('ring-modal').style.display = 'flex';
   } catch (e) { toast(e.message, true); }
@@ -829,7 +856,7 @@ function closeRingModal(e) {
 async function upgradeRing(invId) {
   try {
     const r = await API.post(`/api/rings/upgrade/${invId}`);
-    toast(`💍 Кільце покращено до рівня ${r.newLevel}!`);
+    toast(`${IC.ring(14)} Кільце покращено до рівня ${r.newLevel}!`);
     await refreshPlayer();
     openRingModal(invId);
     await loadMarket();
@@ -841,7 +868,7 @@ async function upgradeRing(invId) {
 async function buyTalisman() {
   try {
     await API.post('/api/talismans/buy');
-    toast('🏺 Талісман золотошукача куплено!');
+    toast('${IC.talisman(14)} Талісман золотошукача куплено!');
     await refreshPlayer();
     await loadMarket();
   } catch (e) { toast(e.message, true); }
@@ -862,10 +889,10 @@ async function openTalismanModal(invId) {
       <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${progressPct}%"></div></div>
       <div class="ring-stats">
         <div class="ring-stat-row"><span>Бонус до золота з шахт</span><b>+${tu.bonus_pct}%</b></div>
-        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>⭐ ${fmtNum(r.nextCost)}</b></div>` : ''}
+        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${IC.gold(13)} ${fmtNum(r.nextCost)}</b></div>` : ''}
       </div>
       ${maxed
-        ? `<div style="color:#2e7d32;font-weight:700;text-align:center;margin-top:10px">✅ Максимальний рівень!</div>`
+        ? `<div style="color:#2e7d32;font-weight:700;text-align:center;margin-top:10px">${IC.check(14)} Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" style="margin-top:12px" onclick="upgradeTalisman(${invId})">
              Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
            </button>`}`;
@@ -881,7 +908,7 @@ function closeTalismanModal(e) {
 async function upgradeTalisman(invId) {
   try {
     const r = await API.post(`/api/talismans/upgrade/${invId}`);
-    toast(`🏺 Талісман покращено до рівня ${r.newLevel}! Бонус: +${r.newBonus}%`);
+    toast(`${IC.talisman(14)} Талісман покращено до рівня ${r.newLevel}! Бонус: +${r.newBonus}%`);
     await refreshPlayer();
     openTalismanModal(invId);
     await loadMarket();
@@ -1041,7 +1068,7 @@ async function loadProfile() {
           <div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.min(100, stat / 50 * 100)}%"></div></div>
         </div>
         <span class="stat-level">Рів.${stat}</span>
-        <span class="stat-cost">🌿${fmtNum(r.trainCosts[key])}</span>
+        <span class="stat-cost">${IC.greens(13)}${fmtNum(r.trainCosts[key])}</span>
         <button class="btn btn-orange btn-sm" onclick="trainStat('${key}')">▲</button>
       </div>`;
 
@@ -1055,31 +1082,31 @@ async function loadProfile() {
         </div>
         ${buildDoll(equipped, p.avatar_url, p.faction, p.gender, true)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-          <button class="btn btn-blue btn-sm" onclick="navigate('stats')">📊 Статистика</button>
+          <button class="btn btn-blue btn-sm" onclick="navigate('stats')">${IC.stats_ic(14)} Статистика</button>
           <button class="btn btn-orange btn-sm" onclick="toggleVacation(${p.on_vacation})">
-            ${p.on_vacation ? '🏖 Канікули ON' : '🏖 Канікули OFF'}
+            ${p.on_vacation ? `${IC.vacation(14)} Канікули ON` : `${IC.vacation(14)} Канікули OFF`}
           </button>
           <button class="btn btn-gray btn-sm" onclick="doLogout()">Вихід</button>
         </div>
       </div>
 
       <div class="panel mb-12">
-        <div class="panel-header">📋 Інформація</div>
+        <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
         ${infoRow(p.is_online ? '🟢' : '⚫', 'Статус', p.is_online ? 'Зараз онлайн' : 'Офлайн')}
-        ${infoRow('⬆️', 'Рівень', p.level)}
-        ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
-        ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
+        ${infoRow(IC.levelup(14), 'Рівень', p.level)}
+        ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
+        ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
-        ${infoRow('🏘️', 'Місто', p.city_name || '—', `<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>`)}
+        ${infoRow(IC.village(14), 'Місто', p.city_name || '—', `<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>`)}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
       </div>
 
       <div class="panel mb-12">
-        <div class="panel-header">💪 Тренування</div>
+        <div class="panel-header">${IC.power(14)} Тренування</div>
         <div class="panel-body">
           ${statRow(IC.power(14), 'Мощь',     p.power_level,     'power')}
           ${statRow(IC.endurance(14), 'Стійкість', p.endurance_level, 'endurance')}
@@ -1093,7 +1120,7 @@ async function loadProfile() {
       </div>
 
       <div class="panel mb-12">
-        <div class="panel-header">📬 Пошта</div>
+        <div class="panel-header">${IC.bell(14)} Пошта</div>
         <div class="panel-body">
           <button class="btn btn-blue btn-sm mb-8" onclick="loadMail()">Відкрити пошту</button>
           <div id="mail-section"></div>
@@ -1101,7 +1128,7 @@ async function loadProfile() {
       </div>
 
       <div class="panel">
-        <div class="panel-header">⚙️ Налаштування</div>
+        <div class="panel-header">${IC.settings(14)} Налаштування</div>
         <div class="panel-body">
           <div class="form-group">
             <label>Статус-рядок</label>
@@ -1130,37 +1157,37 @@ async function loadStats() {
 
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
-        <div class="stats-section-title">⚙️ Параметри</div>
+        <div class="stats-section-title">${IC.settings(14)} Параметри</div>
         ${eqRow(IC.power(14), 'Сила',      p.power_level,     p.equip_power)}
         ${eqRow(IC.endurance(14), 'Захист',    p.endurance_level, p.equip_endurance)}
         ${eqRow(IC.speed(14), 'Швидкість', p.speed_level,     p.equip_speed)}
         ${eqRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy)}
         ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${row('💗', "Макс. здоров'я",  fmtNum(p.max_hp))}
-        ${row('💓', 'Регенерація',     `${p.hp_regen} в хв`)}
+        ${row(IC.hp(14), "Макс. здоров'я",  fmtNum(p.max_hp))}
+        ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
       </div>
       <div class="stats-section">
-        <div class="stats-section-title">📋 Інше</div>
-        ${row('⬆️', 'Рівень',         p.level)}
+        <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
+        ${row('${IC.levelup(14)}', 'Рівень',         p.level)}
         ${row(IC.exp(14), 'Досвід',          fmtNum(p.experience))}
         ${row('↗️', 'Наст. рівень',    fmtNum(p.exp_to_next))}
         ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
         ${row('🏰', 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
-        ${row('📊', 'Рейтинг',         `#${r.gloryRank}`)}
-        ${row('👥', 'Друзів',          r.friendsCount)}
-        ${row('⚔️', 'Боїв сьогодні',  `${p.battles_today} / ${p.battles_max}`)}
+        ${row('${IC.stats_ic(14)}', 'Рейтинг',         `#${r.gloryRank}`)}
+        ${row(IC.friends(14), 'Друзів',          r.friendsCount)}
+        ${row(IC.battle(14), 'Боїв сьогодні',  `${p.battles_today} / ${p.battles_max}`)}
         ${row(IC.wins(14), 'Перемог',         fmtNum(p.wins))}
-        ${row('💀', 'Поразок',         fmtNum(p.losses))}
+        ${row(IC.skull(14), 'Поразок',         fmtNum(p.losses))}
       </div>
       <div class="stats-section">
-        <div class="stats-section-title">📊 Статистика</div>
+        <div class="stats-section-title">${IC.stats_ic(14)} Статистика</div>
         ${row('🟢', 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
         ${row('🔴', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
-        ${row('🌱', 'Посаджено рослин', fmtNum(p.plants_planted))}
-        ${row('💧', 'Полито рослин',    fmtNum(p.plots_watered))}
-        ${row('🌾', 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
-        ${row('⛏️', 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
-        ${row('🏅', 'Добуто в печерах', `${fmtNum(r.cavesGold)} золота`)}
+        ${row(IC.levelup(14), 'Посаджено рослин', fmtNum(p.plants_planted))}
+        ${row(IC.water(14), 'Полито рослин',    fmtNum(p.plots_watered))}
+        ${row(IC.greens(14), 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
+        ${row(IC.pickaxe(14), 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
+        ${row(IC.pickaxe(14), 'Добуто в печерах', `${fmtNum(r.cavesGold)} золота`)}
       </div>`;
   } catch (e) { toast(e.message, true); }
 }
@@ -1177,7 +1204,7 @@ async function trainStat(stat) {
 async function toggleVacation(current) {
   try {
     const r = await API.put('/api/profile/vacation');
-    toast(r.on_vacation ? '🏖 Канікули увімкнено' : '⚔️ Канікули вимкнено');
+    toast(r.on_vacation ? `${IC.vacation(13)} Канікули увімкнено` : `${IC.battle(13)} Канікули вимкнено`);
     await refreshPlayer();
     loadProfile();
   } catch (e) { toast(e.message, true); }
@@ -1199,7 +1226,7 @@ async function loadMail() {
     el.innerHTML = r.mail.map(m => `
       <div class="item-card ${m.is_read ? '' : 'unread'}" style="flex-direction:column;align-items:flex-start">
         <div class="flex-between" style="width:100%">
-          <b>${m.is_system ? '🔔 Система' : `✉️ ${m.sender_name}`}</b>
+          <b>${m.is_system ? '${IC.bell(14)} Система' : `✉️ ${m.sender_name}`}</b>
           <button class="btn btn-red btn-sm" onclick="deleteMail(${m.id})">✕</button>
         </div>
         <div style="font-weight:700">${m.subject || '(без теми)'}</div>
@@ -1269,7 +1296,7 @@ async function loadFriends() {
         <div class="opponent-avatar">${f.friend_online ? '🟢' : '⚫'}</div>
         <div class="opponent-info">
           <div class="opponent-name ${f.friend_faction}">${f.friend_name} <span class="text-muted">Рів.${f.friend_level}</span></div>
-          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : '📩 Новий запит') : '✅ Друг'}</div>
+          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : '${IC.bell(14)} Новий запит') : '${IC.check(14)} Друг'}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           ${f.status === 'pending' && f.requester_id !== player.id
@@ -1346,7 +1373,7 @@ async function loadRating() {
         <span class="rating-pos ${cls}">${pos}</span>
         <div class="rating-info">
           <div class="rating-name ${p.faction}">${p.username} <span class="text-muted">Рів.${p.level}</span></div>
-          <div class="rating-sub">${p.clan_name ? `[${p.clan_tag}] ${p.clan_name} | ` : ''}🏆${p.wins}W</div>
+          <div class="rating-sub">${p.clan_name ? `[${p.clan_tag}] ${p.clan_name} | ` : ''}${IC.glory(14)}${p.wins}W</div>
         </div>
         <span class="rating-pts">${fmtNum(p.rating_points)} pts</span>
       </div>`;
@@ -1364,7 +1391,7 @@ async function loadClans() {
         <div class="opponent-info">
           <div style="font-weight:700">${c.name}</div>
           <div class="text-muted">Лідер: ${c.leader_name} | ${c.member_count}/20 учасників</div>
-          <div class="text-muted">⭐${fmtNum(c.rating_points)} балів</div>
+          <div class="text-muted">${IC.gold(13)}${fmtNum(c.rating_points)} балів</div>
         </div>
         <button class="btn btn-blue btn-sm" onclick="joinClan(${c.id})">Вступити</button>
       </div>`).join('') || '<p class="text-muted">Кланів ще немає</p>';
@@ -1400,7 +1427,7 @@ async function viewProfile(id) {
     const el = document.getElementById('pubprofile-content');
 
     const friendBtn = r.friendshipStatus === 'accepted'
-      ? `<button class="btn btn-gray btn-sm" disabled>✅ Вже друг</button>`
+      ? `<button class="btn btn-gray btn-sm" disabled>${IC.check(14)} Вже друг</button>`
       : r.friendshipStatus === 'pending'
       ? `<button class="btn btn-gray btn-sm" disabled>⏳ Очікує</button>`
       : `<button class="btn btn-green btn-sm" onclick="addFriend(${p.id})">+ До друзів</button>`;
@@ -1413,34 +1440,34 @@ async function viewProfile(id) {
         </div>
         ${buildDoll(r.equipment, p.avatar_url, p.faction, p.gender, false)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
-          <button class="btn btn-red btn-sm" onclick="navigate('battle')">⚔️ Битися</button>
+          <button class="btn btn-red btn-sm" onclick="navigate('battle')">${IC.battle(14)} Битися</button>
           ${friendBtn}
-          <button class="btn btn-orange btn-sm" onclick="sendGift(${p.id})">🎁 Подарунок</button>
+          <button class="btn btn-orange btn-sm" onclick="sendGift(${p.id})">${IC.gift(14)} Подарунок</button>
         </div>
       </div>
 
       <div class="panel mb-12">
-        <div class="panel-header">📋 Інформація</div>
-        ${infoRow('⬆️', 'Рівень', p.level)}
-        ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
-        ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
+        <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
+        ${infoRow(IC.levelup(14), 'Рівень', p.level)}
+        ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
+        ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
-        ${p.city_name ? infoRow('🏘️', 'Місто', p.city_name) : ''}
+        ${p.city_name ? infoRow(IC.village(14), 'Місто', p.city_name) : ''}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
-        ${p.status_text ? infoRow('💬', 'Статус', p.status_text) : ''}
+        ${p.status_text ? infoRow(IC.bell(14), 'Статус', p.status_text) : ''}
       </div>
 
       <div class="panel mb-12">
-        <div class="panel-header">📊 Характеристики</div>
+        <div class="panel-header">${IC.stats_ic(14)} Характеристики</div>
         <div class="panel-body">
           <div class="flex-row" style="flex-wrap:wrap;gap:10px">
             <span>⚡ Мощь: <b>${p.power_level}</b></span>
-            <span>🛡️ Стійкість: <b>${p.endurance_level}</b></span>
-            <span>💨 Швидкість: <b>${p.speed_level}</b></span>
+            <span>${IC.shield(14)} Стійкість: <b>${p.endurance_level}</b></span>
+            <span>${IC.speed(13)} Швидкість: <b>${p.speed_level}</b></span>
             <span>🎯 Точність: <b>${p.accuracy_level}</b></span>
           </div>
         </div>
@@ -1453,11 +1480,11 @@ async function viewProfile(id) {
 async function sendGift(targetId) {
   try {
     const gifts = await API.get('/api/social/gifts');
-    const opts = gifts.gifts.map((g,i)=>`${i+1}. ${g.name} (${bonusStr(g)}) — 🌿${g.price}`).join('\n');
+    const opts = gifts.gifts.map((g,i)=>`${i+1}. ${g.name} (${bonusStr(g)}) — ${IC.greens(13)}${g.price}`).join('\n');
     const choice = parseInt(prompt(`Виберіть подарунок:\n${opts}`));
     if (!choice || !gifts.gifts[choice-1]) return;
     await API.post(`/api/social/gifts/send/${targetId}`, { giftId: gifts.gifts[choice-1].id });
-    toast('🎁 Подарунок надіслано!');
+    toast(`${IC.gift(14)} Подарунок надіслано!`);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1490,7 +1517,7 @@ async function adminSearch() {
           ${p.is_banned
             ? `<button class="btn btn-green btn-sm" onclick="adminUnban(${p.id})">Розбан</button>`
             : `<button class="btn btn-red btn-sm" onclick="adminBan(${p.id})">Бан</button>`}
-          <button class="btn btn-orange btn-sm" onclick="adminGive(${p.id})">💰</button>
+          <button class="btn btn-orange btn-sm" onclick="adminGive(${p.id})">${IC.gold(14)}</button>
         </div>
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
@@ -1540,16 +1567,16 @@ function initSocket() {
   });
 
   socket.on('notification', ({ type, message }) => {
-    toast(`🔔 ${message}`);
+    toast(`${IC.bell(14)} ${message}`);
   });
 
   socket.on('caves:open', () => {
-    toast('⛏️ Печери відкрились! Поспішай добути золото!');
+    toast('Печери відкрились! Поспішай добути золото!');
     if (document.getElementById('page-caves')?.classList.contains('active')) loadCaves();
   });
 
   socket.on('ring:stolen', ({ fromName, amount, goldLeft }) => {
-    toast(`💍 ${fromName} вкрав у тебе ${IC.gold(13)} ${amount} золота!`, true);
+    toast(`${IC.ring(14)} ${fromName} вкрав у тебе ${IC.gold(13)} ${amount} золота!`, true);
     refreshPlayer();
   });
 
@@ -1629,10 +1656,10 @@ function renderCavesLobby(session) {
   const hint = NPC_HINTS[Math.floor(Math.random() * NPC_HINTS.length)];
   document.getElementById('caves-content').innerHTML = `
     <div class="cave-lobby">
-      <div style="font-size:64px;margin-bottom:8px">⛏️</div>
+      <div style="font-size:64px;margin-bottom:8px">${IC.pickaxe(14)}</div>
       <div class="cave-npc-speech">🧙 ${hint}</div>
       <button class="btn btn-green btn-full" style="font-size:17px;padding:14px" onclick="startCaveSession()">
-        🪨 Увійти в печеру
+        ${IC.pickaxe(16)} Увійти в печеру
       </button>
     </div>`;
 }
@@ -1655,12 +1682,12 @@ function renderCavesSession(s) {
     const secLeft = Math.max(0, Math.floor((new Date(s.mine_expires_at) - Date.now()) / 1000));
     el.innerHTML = `
       <div class="cave-mine-box">
-        <div style="font-weight:700;font-size:15px;margin-bottom:4px">⛏️ Шахта №${mineNum} з ${s.total_mines}</div>
-        <div class="cave-mine-icon">🪨</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${IC.pickaxe(14)} Шахта №${mineNum} з ${s.total_mines}</div>
+        <div class="cave-mine-icon">${IC.pickaxe(28)}</div>
         <div class="cave-timer ${secLeft <= 30 ? 'urgent' : ''}" id="cave-timer-active">${fmtCountdown(s.mine_expires_at)}</div>
         <div style="font-size:13px;color:#888;margin-bottom:12px">Час до зникнення</div>
-        <button class="btn btn-green cave-mine-btn" onclick="mineShaft()">⛏️ Добути!</button>
-        <div class="cave-progress">Добуто: ${s.mines_done} з ${s.total_mines} шахт &nbsp;|&nbsp; 🏅 ${s.gold_earned} золота сьогодні</div>
+        <button class="btn btn-green cave-mine-btn" onclick="mineShaft()">${IC.pickaxe(14)} Добути!</button>
+        <div class="cave-progress">Добуто: ${s.mines_done} з ${s.total_mines} шахт &nbsp;|&nbsp; ${IC.wins(14)} ${s.gold_earned} золота сьогодні</div>
       </div>`;
     startCavesCountdown(s.mine_expires_at, 'cave-timer-active');
 
@@ -1674,7 +1701,7 @@ function renderCavesSession(s) {
         <div class="cave-progress">
           Шахта №${s.current_mine} з ${s.total_mines}
           &nbsp;|&nbsp; Добуто: ${s.mines_done} з ${s.total_mines}
-          &nbsp;|&nbsp; 🏅 ${s.gold_earned} золота
+          &nbsp;|&nbsp; ${IC.wins(14)} ${s.gold_earned} золота
         </div>
         <button class="btn btn-gray btn-sm" style="margin-top:14px" onclick="navigate('home')">← Вийти (сесія збережена)</button>
       </div>`;
@@ -1691,9 +1718,9 @@ async function mineShaft() {
     const el = document.getElementById('caves-content');
     el.innerHTML = `
       <div style="text-align:center;padding:20px 0">
-        <div style="font-size:52px;margin-bottom:8px">💰</div>
+        <div style="font-size:52px;margin-bottom:8px">${IC.gold(14)}</div>
         <div style="font-size:22px;font-weight:700;color:#2e7d32">+${r.gold} золота &nbsp; +${r.exp} досвіду</div>
-        ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-top:4px">🏺 +${r.talismanBonus} від талісмана</div>` : ''}
+        ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-top:4px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
         ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-top:6px">🎉 Новий рівень ${r.newLevel}!</div>` : ''}
       </div>`;
     if (r.levelUp) showLevelUpModal(r);
@@ -1719,11 +1746,11 @@ function renderCavesDone(s) {
   const pct = s.total_mines > 0 ? Math.round(s.mines_done / s.total_mines * 100) : 0;
   document.getElementById('caves-content').innerHTML = `
     <div class="cave-result-box">
-      <div class="cave-result-icon">${IC.glory(28)}</div>
+      <div class="cave-result-icon">${IC.pickaxe(28)}</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:4px">Печери на сьогодні завершено!</div>
       <div class="cave-result-stats">
-        <div class="cave-result-row">⛏️ Шахт добуто: <b>${s.mines_done} з ${s.total_mines}</b> (${pct}%)</div>
-        <div class="cave-result-row">🏅 Золото отримано: <b>${s.gold_earned}</b></div>
+        <div class="cave-result-row">${IC.pickaxe(14)} Шахт добуто: <b>${s.mines_done} з ${s.total_mines}</b> (${pct}%)</div>
+        <div class="cave-result-row">${IC.wins(14)} Золото отримано: <b>${s.gold_earned}</b></div>
         <div class="cave-result-row">${IC.gold(14)} Досвід отримано: <b>${s.exp_earned}</b></div>
         ${s.mines_missed > 0 ? `<div class="cave-result-row" style="color:#c62828">⏰ Пропущено шахт: <b>${s.mines_missed}</b></div>` : ''}
       </div>
