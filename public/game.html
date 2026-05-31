@@ -360,6 +360,46 @@
   <button class="cave-notif-close" onclick="closeCaveNotif()">✕</button>
 </div>
 
+<!-- Telegram setup modal (faction + gender for new TG users) -->
+<div class="modal-overlay" id="tg-setup-modal" style="display:none">
+  <div class="modal-box" style="max-width:360px;width:94%;padding:0">
+    <div class="modal-header" style="font-size:16px">
+      ✈️ Ласкаво просимо до ФЕРМИ!
+    </div>
+    <div style="padding:16px">
+      <p style="text-align:center;color:#5d4037;margin:0 0 14px;font-size:14px">
+        Перш ніж почати — обери свою сторону і стать персонажа
+      </p>
+      <div style="font-weight:700;margin-bottom:8px;color:#5d4037">Твоя сторона:</div>
+      <div class="faction-choice" style="margin-bottom:14px">
+        <label class="faction-btn elves" id="tg-btn-elves">
+          <input type="radio" name="tg-faction" value="elves" onchange="tgSetupSelectFaction('elves')">
+          <div class="faction-icon">🧝</div>
+          <div>Ельфи</div>
+          <div style="font-size:11px;opacity:0.8">Магія і хитрість</div>
+        </label>
+        <label class="faction-btn orcs" id="tg-btn-orcs">
+          <input type="radio" name="tg-faction" value="orcs" onchange="tgSetupSelectFaction('orcs')">
+          <div class="faction-icon">👹</div>
+          <div>Орки</div>
+          <div style="font-size:11px;opacity:0.8">Сила і ярість</div>
+        </label>
+      </div>
+      <div style="font-weight:700;margin-bottom:8px;color:#5d4037">Стать персонажа:</div>
+      <div class="gender-choice" style="margin-bottom:16px">
+        <label class="gender-btn">
+          <input type="radio" name="tg-gender" value="male"> ♂ Чоловіча
+        </label>
+        <label class="gender-btn">
+          <input type="radio" name="tg-gender" value="female"> ♀ Жіноча
+        </label>
+      </div>
+      <div id="tg-setup-error" style="color:#c62828;font-size:13px;margin-bottom:8px;text-align:center"></div>
+      <button class="btn btn-green btn-full" onclick="submitTgSetup()">🌾 Розпочати гру!</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/api.js"></script>

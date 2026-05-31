@@ -65,6 +65,12 @@ let socket = null;
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
     });
+    const tgData = await r.json();
+    if (tgData.needsSetup) {
+      // New TG user — show faction/gender picker, halt init
+      document.getElementById('tg-setup-modal').style.display = 'flex';
+      return;
+    }
     if (!r.ok) { window.location.href = '/'; return; }
   }
 
@@ -1759,4 +1765,45 @@ function renderCavesDone(s) {
       <div style="font-size:13px;color:#888;margin-bottom:14px">Печери відкриються знову о 00:00</div>
       <button class="btn btn-orange btn-full" onclick="navigate('home')">← Повернутись до гри</button>
     </div>`;
+}
+
+// ─── Telegram first-time setup ──────────────────────────────────────────────
+function tgSetupSelectFaction(f) {
+  document.getElementById('tg-btn-elves').classList.toggle('selected', f === 'elves');
+  document.getElementById('tg-btn-orcs').classList.toggle('selected', f === 'orcs');
+}
+
+async function submitTgSetup() {
+  const faction = document.querySelector('input[name="tg-faction"]:checked')?.value;
+  const gender  = document.querySelector('input[name="tg-gender"]:checked')?.value;
+  const err = document.getElementById('tg-setup-error');
+  err.textContent = '';
+  if (!faction) { err.textContent = 'Виберіть фракцію'; return; }
+  if (!gender)  { err.textContent = 'Виберіть стать'; return; }
+
+  const btn = document.querySelector('#tg-setup-modal .btn-green');
+  btn.disabled = true;
+  btn.textContent = '⏳ Завантаження...';
+
+  const r = await fetch('/api/auth/telegram-webapp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initData: window.Telegram.WebApp.initData, faction, gender })
+  });
+  const d = await r.json();
+  if (d.success) {
+    document.getElementById('tg-setup-modal').style.display = 'none';
+    // Continue init
+    const data = await API.get('/api/auth/me');
+    if (!data.player) { window.location.href = '/'; return; }
+    player = data.player;
+    updateHeader();
+    updateHomeProfile();
+    initSocket();
+    navigate('home');
+  } else {
+    err.textContent = d.error || 'Помилка';
+    btn.disabled = false;
+    btn.textContent = '🌾 Розпочати гру!';
+  }
 }
