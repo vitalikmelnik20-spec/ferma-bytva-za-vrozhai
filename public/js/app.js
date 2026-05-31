@@ -186,6 +186,8 @@ function navigate(page) {
   if (page === 'friends')    loadFriends();
   if (page === 'rating')     loadRating();
   if (page === 'clans')      loadClans();
+  if (page === 'jeweler')    loadJeweler();
+  if (page === 'alchemist')  loadAlchemist();
   if (page === 'admin')      loadAdmin();
   if (page === 'stats')      loadStats();
   if (page === 'caves')      { closeCaveNotif(); loadCaves(); }
@@ -670,9 +672,65 @@ const ITEM_ICONS = {
   // Runes
   'Руна вогню':        'rune-fire',
   'Руна льоду':        'rune-ice',
+  // New weapons
+  'Рунічний клинок':   'sword',
+  'Молот Бурі':        'axe',
+  'Ельфійський лук':   'bow',
+  'Орківський тесак':  'axe',
+  'Клинок Світанку':   'sword',
+  'Серп Жнеця':        'scythe',
+  'Залізо Хаосу':      'axe',
+  'Меч Легенди':       'sword',
+  'Коса Вічності':     'scythe',
+  // New armor
+  'Шкіра Дракона':     'chainmail',
+  'Панцир Воїна':      'chainmail',
+  'Сталева Пластина':  'plate-armor',
+  'Броня Берсерка':    'plate-armor',
+  'Хітон Вічності':    'chainmail',
+  'Доспіх Богів':      'plate-armor',
+  // New helmets
+  'Шкіряна шапка':     'helmet',
+  'Рогатий шолом':     'helmet',
+  'Маска вбивці':      'helmet',
+  'Корона шипів':      'helmet',
+  'Шолом Берсерка':    'helmet',
+  'Шолом Дракона':     'helmet',
+  'Діадема Мудреця':   'helmet',
+  'Корона Богів':      'helmet',
+  // New shields
+  'Щит Лицаря':        'iron-shield',
+  'Щит Дракона':       'iron-shield',
+  'Рунічний щит':      'iron-shield',
+  'Щит Велетня':       'wood-shield',
+  'Дзеркало Воїна':    'iron-shield',
+  'Щит Богів':         'iron-shield',
+  // New runes
+  'Руна Блискавки':    'rune-fire',
+  'Руна Землі':        'rune-ice',
+  'Руна Вітру':        'rune-fire',
+  'Руна Тьми':         'rune-ice',
+  'Руна Світла':       'rune-fire',
+  'Руна Дракона':      'rune-ice',
+  // New potions
+  'Зілля точності':    'potion-base',
+  'Зілля лікування':   'potion-base',
+  'Зілля врожаю':      'potion-base',
+  'Велике зілля сили': 'potion-power',
+  'Зілля невразливості':'potion-endurance',
   // Special
   'Кільце злодія':     'ring',
+  'Кільце Жнеця':      'ring',
+  'Кільце Берсерка':   'ring',
+  'Кільце Цілителя':   'ring',
+  'Кільце Удачі':      'ring',
+  'Кільце Мудреця':    'ring',
   'Талісман золотошукача': 'talisman',
+  'Талісман Воїна':    'talisman',
+  'Талісман Фермера':  'talisman',
+  'Талісман Захисника':'talisman',
+  'Талісман Тіні':     'talisman',
+  'Талісман Полководця':'talisman',
 };
 function itemIcon(name, size=36) {
   const file = ITEM_ICONS[name];
@@ -699,20 +757,17 @@ function filterMarket(cat) {
   document.getElementById('market-items').innerHTML = items.map(item => {
     const isRing     = item.category === 'ring';
     const isTalisman = item.category === 'talisman';
-    const isGoldItem = isRing || isTalisman;
-    const priceHtml = isGoldItem
+    const usesGold   = item.price_gold > 0;
+    const priceHtml  = usesGold
       ? `<div class="item-price">${IC.gold(14)} ${fmtNum(item.price_gold)}</div>`
       : `<div class="item-price">${IC.greens(14)} ${fmtNum(item.price)}</div>`;
-    const buyBtn = isRing
-      ? `<button class="btn btn-orange btn-sm" onclick="buyRing(${item.id})">Купити</button>`
-      : isTalisman
-        ? `<button class="btn btn-orange btn-sm" onclick="buyTalisman(${item.id})">Купити</button>`
-        : `<button class="btn btn-green btn-sm" onclick="buyItem(${item.id})">Купити</button>`;
-    const bonuses = isRing
-      ? `<div class="item-bonuses" style="color:#e65100">Шанс крадіжки золота після бою</div>`
-      : isTalisman
-        ? `<div class="item-bonuses" style="color:#5d4037">+10% до золота з шахт за рівень</div>`
-        : `<div class="item-bonuses">${bonusStr(item)}</div>`;
+    const ownedInInv = marketData.inventory.some(i => i.item_id === item.id || i.name === item.name);
+    const buyBtn = ownedInInv
+      ? `<span class="text-muted" style="font-size:12px">${IC.check(14)} Є</span>`
+      : `<button class="btn ${usesGold ? 'btn-orange' : 'btn-green'} btn-sm" onclick="buyMarketItem(${item.id},${isRing},${isTalisman})">Купити</button>`;
+    const bonuses = (isRing || isTalisman)
+      ? `<div class="item-bonuses" style="color:#5d4037">${item.category === 'ring' ? IC.ring(13) : IC.talisman(13)} ${item.name}</div>`
+      : `<div class="item-bonuses">${bonusStr(item)}</div>`;
     return `
     <div class="item-card">
       ${itemIcon(item.name)}
@@ -820,10 +875,27 @@ async function unequipItem(invId) {
 }
 
 // ─── RING OF THE THIEF ───────────────────────────────────────────────────────
+async function buyMarketItem(itemId, isRing, isTalisman) {
+  try {
+    if (isRing) {
+      await API.post('/api/jeweler/buy/' + itemId);
+      toast(`${IC.ring(14)} Куплено!`);
+    } else if (isTalisman) {
+      await API.post('/api/jeweler/buy/' + itemId);
+      toast(`${IC.talisman(14)} Куплено!`);
+    } else {
+      await API.post('/api/market/buy/' + itemId);
+      toast('Куплено!');
+    }
+    await loadMarket();
+    await refreshPlayer();
+  } catch (e) { toast(e.message, true); }
+}
+
 async function buyRing() {
   try {
     await API.post('/api/rings/buy');
-    toast('${IC.ring(14)} Кільце злодія куплено!');
+    toast(`${IC.ring(14)} Кільце злодія куплено!`);
     await loadMarket();
     await refreshPlayer();
   } catch (e) { toast(e.message, true); }
@@ -880,7 +952,7 @@ async function upgradeRing(invId) {
 async function buyTalisman() {
   try {
     await API.post('/api/talismans/buy');
-    toast('${IC.talisman(14)} Талісман золотошукача куплено!');
+    toast(`${IC.talisman(14)} Талісман золотошукача куплено!`);
     await refreshPlayer();
     await loadMarket();
   } catch (e) { toast(e.message, true); }
@@ -940,8 +1012,10 @@ async function loadVillage() {
             <div class="text-muted">${npc.desc}</div>
           </div>
         </div>
-        ${npc.id === 'healer' ? `<button class="btn btn-green btn-sm" onclick="healPlayer()">Лікувати</button>` : ''}
-        ${npc.id === 'smith' ? `<button class="btn btn-orange btn-sm" onclick="navigate('profile')">Кузня</button>` : ''}
+        ${npc.id === 'healer'   ? `<button class="btn btn-green btn-sm"  onclick="healPlayer()">Лікувати</button>` : ''}
+        ${npc.id === 'jeweler'  ? `<button class="btn btn-orange btn-sm" onclick="navigate('jeweler')">${IC.ring(14)} Зайти</button>` : ''}
+        ${npc.id === 'alchemist'? `<button class="btn btn-blue btn-sm"   onclick="navigate('alchemist')">${IC.inventory(14)} Зайти</button>` : ''}
+        ${npc.id === 'smith'    ? `<button class="btn btn-orange btn-sm" onclick="openEnchantPage()">${IC.levelup(14)} Зачарувати</button>` : ''}
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
 }
@@ -1308,7 +1382,7 @@ async function loadFriends() {
         <div class="opponent-avatar">${f.friend_online ? '🟢' : '⚫'}</div>
         <div class="opponent-info">
           <div class="opponent-name ${f.friend_faction}">${f.friend_name} <span class="text-muted">Рів.${f.friend_level}</span></div>
-          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : '${IC.bell(14)} Новий запит') : '${IC.check(14)} Друг'}</div>
+          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : `${IC.bell(14)} Новий запит`) : `${IC.check(14)} Друг`}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           ${f.status === 'pending' && f.requester_id !== player.id
@@ -1394,25 +1468,117 @@ async function loadRating() {
 }
 
 // ─── CLANS ───────────────────────────────────────────────────────────────────
+const BUILDING_LABELS = {
+  farm:    { name: 'Велика Ферма',    icon: 'greens',   currency: 'greens' },
+  smithy:  { name: 'Кузня Клану',     icon: 'battle',   currency: 'gold' },
+  tower:   { name: 'Вежа Захисту',    icon: 'shield',   currency: 'gold' },
+  academy: { name: 'Академія',        icon: 'exp',      currency: 'greens' },
+  mine:    { name: 'Шахта Клану',     icon: 'pickaxe',  currency: 'gold' },
+  hall:    { name: 'Зал Слави',       icon: 'glory',    currency: 'greens' },
+};
+const BUILDING_COSTS = {
+  farm:    [500,1000,2000,3500,5000],
+  smithy:  [300,600,1200,2000,3000],
+  tower:   [300,600,1200,2000,3000],
+  academy: [400,800,1600,2800,4000],
+  mine:    [200,400,800,1400,2000],
+  hall:    [1000,3000,5000],
+};
+
 async function loadClans() {
+  const el = document.getElementById('clans-list');
   try {
-    const r = await API.get('/api/social/clans');
-    document.getElementById('clans-list').innerHTML = r.clans.map(c => `
-      <div class="opponent-card">
-        <div class="opponent-avatar" style="font-size:28px">[${c.tag}]</div>
-        <div class="opponent-info">
-          <div style="font-weight:700">${c.name}</div>
-          <div class="text-muted">Лідер: ${c.leader_name} | ${c.member_count}/20 учасників</div>
-          <div class="text-muted">${IC.gold(13)}${fmtNum(c.rating_points)} балів</div>
-        </div>
-        <button class="btn btn-blue btn-sm" onclick="joinClan(${c.id})">Вступити</button>
-      </div>`).join('') || '<p class="text-muted">Кланів ще немає</p>';
+    // Check if player is in a clan
+    if (player.clan_name) {
+      await renderMyClan(el);
+    } else {
+      await renderClanList(el);
+    }
   } catch (e) { toast(e.message, true); }
+}
+
+async function renderMyClan(el) {
+  const r = await API.get('/api/clans/my');
+  const c = r.clan;
+  const mem = r.members;
+  const buildings = r.buildings || [];
+  const isLeader = r.myRole === 'leader';
+  const isSenior = ['leader','senior'].includes(r.myRole);
+
+  const buildingHtml = Object.entries(BUILDING_LABELS).map(([key, info]) => {
+    const b = buildings.find(b => b.building_key === key) || { level: 0 };
+    const costs = BUILDING_COSTS[key];
+    const maxLvl = costs.length;
+    const canUp = b.level < maxLvl && isSenior;
+    const nextCost = b.level < maxLvl ? costs[b.level] : null;
+    const currIcon = IC[info.currency] ? IC[info.currency](13) : '';
+    return `<div class="building-row">
+      <span>${IC[info.icon] ? IC[info.icon](16) : ''} ${info.name}</span>
+      <span class="text-muted">Рів.${b.level}/${maxLvl}</span>
+      ${canUp ? `<button class="btn btn-orange btn-sm" onclick="upgradeBuilding('${key}')">${currIcon}${fmtNum(nextCost)}</button>` : '<span></span>'}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="clan-header">
+      <div style="font-size:22px;font-weight:700">[${c.tag}] ${c.name}</div>
+      <div class="text-muted">${c.description || ''}</div>
+      <div style="margin-top:6px;display:flex;gap:12px;font-size:13px">
+        <span>${IC.glory(13)} ${fmtNum(c.rating_points)} балів</span>
+        <span>${IC.greens(13)} ${fmtNum(c.treasury_greens)}</span>
+        <span>${IC.gold(13)} ${fmtNum(c.treasury_gold)}</span>
+      </div>
+    </div>
+
+    <div class="panel-header" style="margin-top:12px">${IC.village(14)} Будівлі</div>
+    <div class="buildings-grid">${buildingHtml}</div>
+
+    <div class="panel-header" style="margin-top:12px">${IC.friends(14)} Учасники (${mem.length})</div>
+    <div>${mem.map(m => `
+      <div class="opponent-card">
+        <div class="opponent-avatar">${m.is_online ? '🟢' : '⚫'}</div>
+        <div class="opponent-info">
+          <div class="opponent-name ${m.faction}">${m.username} <span class="text-muted">Рів.${m.level}</span></div>
+          <div class="text-muted">${roleName(m.role)}</div>
+        </div>
+        ${isLeader && m.player_id !== player.id ? `
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn btn-red btn-sm" onclick="clanKick(${m.player_id})">Кік</button>
+          </div>` : ''}
+      </div>`).join('')}</div>
+
+    <div class="panel-header" style="margin-top:12px">${IC.greens(14)} Скарбниця</div>
+    <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+      <button class="btn btn-green btn-sm" onclick="clanDeposit('greens')">Внести зелень</button>
+      <button class="btn btn-orange btn-sm" onclick="clanDeposit('gold')">Внести золото</button>
+      ${isSenior ? `<button class="btn btn-red btn-sm" onclick="clanWithdraw()">Вивести</button>` : ''}
+    </div>
+
+    <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
+      ${isLeader ? `<button class="btn btn-red btn-sm" onclick="dissolveClan()">Розпустити клан</button>` : `<button class="btn btn-gray btn-sm" onclick="leaveClan()">Покинути клан</button>`}
+    </div>`;
+}
+
+async function renderClanList(el) {
+  const r = await API.get('/api/clans');
+  el.innerHTML = r.clans.map(c => `
+    <div class="opponent-card">
+      <div class="opponent-avatar" style="font-weight:700;font-size:14px">[${c.tag}]</div>
+      <div class="opponent-info">
+        <div style="font-weight:700">${c.name} <span class="text-muted badge-faction ${c.faction}">${c.faction === 'elves' ? 'Ельфи' : 'Орки'}</span></div>
+        <div class="text-muted">${c.member_count}/50 учасників | ${IC.glory(13)}${fmtNum(c.rating_points)}</div>
+      </div>
+      <button class="btn btn-blue btn-sm" onclick="joinClan(${c.id})">Вступити</button>
+    </div>`).join('') || '<p class="text-muted">Кланів ще немає</p>';
+}
+
+function roleName(r) {
+  return { leader:'Отаман', senior:'Старший Фермер', officer:'Козак', member:'Новобранець' }[r] || r;
 }
 
 async function joinClan(id) {
   try {
-    await API.post(`/api/social/clans/${id}/join`);
+    await API.post(`/api/clans/join/${id}`);
     toast('Ви вступили до клану!');
     await refreshPlayer();
     loadClans();
@@ -1420,14 +1586,82 @@ async function joinClan(id) {
 }
 
 function showCreateClan() {
-  const name = prompt('Назва клану (мінімум 3 символи):');
-  if (!name) return;
-  const tag = prompt('Тег клану (до 3 символів):');
-  if (!tag) return;
-  const desc = prompt('Опис (необов\'язково):') || '';
-  API.post('/api/social/clans', { name, tag, description: desc })
-    .then(() => { toast('Клан створено!'); loadClans(); refreshPlayer(); })
-    .catch(e => toast(e.message, true));
+  document.getElementById('create-clan-modal').style.display = 'flex';
+}
+
+async function submitCreateClan() {
+  const name = document.getElementById('clan-name-input').value.trim();
+  const tag  = document.getElementById('clan-tag-input').value.trim().toUpperCase();
+  const desc = document.getElementById('clan-desc-input').value.trim();
+  if (!name || !tag) { toast('Заповніть назву і тег', true); return; }
+  try {
+    await API.post('/api/clans/create', { name, tag, description: desc });
+    toast('Клан створено!');
+    document.getElementById('create-clan-modal').style.display = 'none';
+    await refreshPlayer();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function upgradeBuilding(key) {
+  try {
+    await API.post('/api/clans/buildings/upgrade', { buildingKey: key });
+    toast(`${IC.levelup(14)} ${BUILDING_LABELS[key].name} покращено!`);
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function clanDeposit(currency) {
+  const amt = parseInt(prompt(`Скільки ${currency === 'greens' ? 'зелені' : 'золота'} внести?`));
+  if (!amt || amt <= 0) return;
+  try {
+    await API.post('/api/clans/treasury/deposit', { amount: amt, currency });
+    toast('Внесено до скарбниці!');
+    await refreshPlayer();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function clanWithdraw() {
+  const currency = prompt('Валюта (greens/gold):');
+  if (!['greens','gold'].includes(currency)) return;
+  const amt = parseInt(prompt('Скільки вивести?'));
+  if (!amt || amt <= 0) return;
+  try {
+    await API.post('/api/clans/treasury/withdraw', { amount: amt, currency });
+    toast('Виведено зі скарбниці!');
+    await refreshPlayer();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function clanKick(memberId) {
+  if (!confirm('Виключити учасника?')) return;
+  try {
+    await API.post(`/api/clans/kick/${memberId}`);
+    toast('Учасника виключено');
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function leaveClan() {
+  if (!confirm('Покинути клан?')) return;
+  try {
+    await API.post('/api/clans/leave');
+    toast('Ви покинули клан');
+    await refreshPlayer();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function dissolveClan() {
+  if (!confirm('Розпустити клан? Це незворотно!')) return;
+  try {
+    await API.post('/api/clans/dissolve');
+    toast('Клан розпущено');
+    await refreshPlayer();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
 }
 
 // ─── PUBLIC PROFILE ───────────────────────────────────────────────────────────
@@ -1490,12 +1724,20 @@ async function viewProfile(id) {
 }
 
 async function sendGift(targetId) {
+  const GIFT_NAMES = {
+    power_statue:    'Статуетка мощі (50🌿)',
+    endurance_seal:  'Печать стійкості (50🌿)',
+    accuracy_scroll: 'Манускрипт точності (50🌿)',
+    speed_flask:     'Флакон швидкості (50🌿)',
+    harvest_idol:    'Ідол врожаю (80🌿)',
+    luck_amulet:     'Амулет удачі (150🌿)',
+  };
+  const types = Object.keys(GIFT_NAMES);
+  const opts = types.map((t,i) => `${i+1}. ${GIFT_NAMES[t]}`).join('\n');
+  const choice = parseInt(prompt(`Виберіть подарунок:\n${opts}`));
+  if (!choice || !types[choice-1]) return;
   try {
-    const gifts = await API.get('/api/social/gifts');
-    const opts = gifts.gifts.map((g,i)=>`${i+1}. ${g.name} (${bonusStr(g)}) — ${IC.greens(13)}${g.price}`).join('\n');
-    const choice = parseInt(prompt(`Виберіть подарунок:\n${opts}`));
-    if (!choice || !gifts.gifts[choice-1]) return;
-    await API.post(`/api/social/gifts/send/${targetId}`, { giftId: gifts.gifts[choice-1].id });
+    await API.post('/api/gifts/send', { friendId: targetId, giftType: types[choice-1] });
     toast(`${IC.gift(14)} Подарунок надіслано!`);
   } catch (e) { toast(e.message, true); }
 }
@@ -1810,4 +2052,216 @@ async function submitTgSetup() {
     btn.disabled = false;
     btn.innerHTML = IC.greens(14) + ' Розпочати гру!';
   }
+}
+
+// ─── JEWELER ─────────────────────────────────────────────────────────────────
+async function loadJeweler() {
+  const el = document.getElementById('jeweler-content');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/jeweler');
+    const tabs = [
+      { key:'rune',     label:'Руни',       icon: IC.ring(14) },
+      { key:'ring',     label:'Кільця',     icon: IC.ring(14) },
+      { key:'talisman', label:'Таліcмани',  icon: IC.talisman(14) },
+    ];
+    const groups = { rune: r.runes, ring: r.rings, talisman: r.talismans };
+
+    el.innerHTML = `
+      <div class="category-tabs" id="jeweler-tabs">
+        ${tabs.map(t => `<button class="cat-tab ${t.key==='rune'?'active':''}" onclick="filterJeweler('${t.key}')">${t.icon} ${t.label}</button>`).join('')}
+      </div>
+      <div id="jeweler-items"></div>
+      <div class="panel-header" style="margin-top:12px">${IC.inventory(14)} Вставити руну в предмет</div>
+      <div id="rune-socket-ui">
+        <p class="text-muted">Виберіть предмет з інвентаря та руну</p>
+        ${r.inventory.filter(i => ['weapon','armor','shield','helmet'].includes(i.category)).map(i => `
+          <div class="item-card">
+            ${itemIcon(i.name, 28)}
+            <div class="item-info"><div class="item-name">${i.name}${i.upgrade_level?` +${i.upgrade_level}`:''}</div></div>
+            <button class="btn btn-orange btn-sm" onclick="openRuneInsert(${i.id})">Вставити</button>
+          </div>`).join('') || '<p class="text-muted">Немає підходящого спорядження</p>'}
+      </div>`;
+    filterJeweler('rune');
+  } catch(e) { toast(e.message, true); }
+}
+
+function filterJeweler(cat) {
+  document.querySelectorAll('#jeweler-tabs .cat-tab').forEach(t => t.classList.remove('active'));
+  event?.target?.classList.add('active');
+  if (!window._jewelerData) return;
+  const items = window._jewelerData[cat + 's'] || window._jewelerData[cat] || [];
+  renderJewelerItems(items, cat);
+}
+
+async function loadJewelerFull() {
+  const r = await API.get('/api/jeweler');
+  window._jewelerData = r;
+  return r;
+}
+
+function renderJewelerItems(items, cat) {
+  const el = document.getElementById('jeweler-items');
+  if (!el) return;
+  el.innerHTML = items.map(item => {
+    const usesGold = item.price_gold > 0;
+    const price = usesGold ? `${IC.gold(13)}${fmtNum(item.price_gold)}` : `${IC.greens(13)}${fmtNum(item.price)}`;
+    return `<div class="item-card">
+      ${itemIcon(item.name, 28)}
+      <div class="item-info">
+        <div class="item-name">${item.name}</div>
+        <div class="text-muted">Рів.${item.min_level}+</div>
+      </div>
+      <div>${price} <button class="btn btn-orange btn-sm" onclick="buyJewelerItem(${item.id})">Купити</button></div>
+    </div>`;
+  }).join('') || '<p class="text-muted">Немає</p>';
+}
+
+async function buyJewelerItem(itemId) {
+  try {
+    await API.post('/api/jeweler/buy/' + itemId);
+    toast('Куплено!');
+    await refreshPlayer();
+    loadJeweler();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function openRuneInsert(targetInvId) {
+  if (!window._jewelerData) await loadJewelerFull();
+  const runes = (window._jewelerData.inventory || []).filter(i => i.category === 'rune');
+  if (!runes.length) { toast('Немає рун в інвентарі', true); return; }
+  const opts = runes.map((r,i) => `${i+1}. ${r.name}`).join('\n');
+  const choice = parseInt(prompt(`Виберіть руну для вставки:\n${opts}`));
+  if (!choice || !runes[choice-1]) return;
+  const slotStr = prompt('Слот (0, 1 або 2):');
+  const slot = parseInt(slotStr);
+  if (isNaN(slot) || slot < 0 || slot > 2) { toast('Невірний слот', true); return; }
+  try {
+    await API.post('/api/jeweler/rune/insert', { invId: targetInvId, runeInvId: runes[choice-1].id, slot });
+    toast(`${IC.ring(14)} Руну вставлено!`);
+    loadJeweler();
+  } catch(e) { toast(e.message, true); }
+}
+
+// ─── ALCHEMIST ────────────────────────────────────────────────────────────────
+async function loadAlchemist() {
+  const el = document.getElementById('alchemist-content');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/alchemist');
+    const myIng = r.ingredients || [];
+
+    el.innerHTML = `
+      <div class="category-tabs">
+        <button class="cat-tab active" onclick="showAlchTab('buy',this)">Купити</button>
+        <button class="cat-tab" onclick="showAlchTab('craft',this)">Крафт</button>
+        <button class="cat-tab" onclick="showAlchTab('ingredients',this)">Інгредієнти</button>
+      </div>
+      <div id="alch-buy">
+        ${r.potions.map(p => `<div class="item-card">
+          ${itemIcon(p.name, 28)}
+          <div class="item-info">
+            <div class="item-name">${p.name}</div>
+            <div class="item-bonuses">${bonusStr(p)}</div>
+            <div class="text-muted">Рів.${p.min_level}+</div>
+          </div>
+          <div>${IC.greens(13)}${fmtNum(p.price)} <button class="btn btn-green btn-sm" onclick="buyAlchPotion(${p.id})">Купити</button></div>
+        </div>`).join('') || '<p class="text-muted">Немає</p>'}
+      </div>
+      <div id="alch-craft" style="display:none">
+        ${r.recipes.map(rc => {
+          const hasAll = rc.ingredients.every(ing => {
+            const have = myIng.find(i => i.ingredient_name === ing.name);
+            return have && have.quantity >= ing.qty;
+          });
+          return `<div class="item-card">
+            <div class="item-info" style="flex:1">
+              <div class="item-name">${rc.potion_name}</div>
+              <div class="text-muted">${rc.ingredients.map(i => `${i.name}×${i.qty}`).join(', ')}</div>
+            </div>
+            <button class="btn ${hasAll?'btn-green':'btn-gray'} btn-sm" ${hasAll?`onclick="craftPotion(${rc.id})"`:'disabled'}>Зварити</button>
+          </div>`;
+        }).join('') || '<p class="text-muted">Немає рецептів</p>'}
+      </div>
+      <div id="alch-ingredients" style="display:none">
+        ${myIng.length ? myIng.map(i => `<div class="flex-between" style="padding:6px 0;border-bottom:1px solid #eee">
+          <span>${i.ingredient_name}</span><b>×${i.quantity}</b></div>`).join('')
+        : '<p class="text-muted">Інгредієнтів немає</p>'}
+      </div>`;
+  } catch(e) { toast(e.message, true); }
+}
+
+function showAlchTab(tab, btn) {
+  ['buy','craft','ingredients'].forEach(t => {
+    const el = document.getElementById('alch-' + t);
+    if (el) el.style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('.category-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+}
+
+async function buyAlchPotion(itemId) {
+  try {
+    await API.post('/api/alchemist/buy/' + itemId);
+    toast('Куплено!');
+    await refreshPlayer();
+    loadAlchemist();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function craftPotion(recipeId) {
+  try {
+    await API.post('/api/alchemist/craft/' + recipeId);
+    toast('Зілля зварено!');
+    loadAlchemist();
+  } catch(e) { toast(e.message, true); }
+}
+
+// ─── ENCHANT ─────────────────────────────────────────────────────────────────
+function openEnchantPage() {
+  document.getElementById('enchant-modal').style.display = 'flex';
+  loadEnchantItems();
+}
+
+function closeEnchantModal(e) {
+  if (!e || e.target === document.getElementById('enchant-modal'))
+    document.getElementById('enchant-modal').style.display = 'none';
+}
+
+async function loadEnchantItems() {
+  const el = document.getElementById('enchant-items');
+  if (!el) return;
+  if (!marketData) await loadMarket();
+  const equippable = (marketData?.inventory || []).filter(i =>
+    !['potion','rune','ring','talisman'].includes(i.category)
+  );
+  el.innerHTML = equippable.map(i => `
+    <div class="item-card">
+      ${itemIcon(i.name, 28)}
+      <div class="item-info">
+        <div class="item-name">${i.name}${i.upgrade_level?` <span style="color:#e65100">+${i.upgrade_level}</span>`:''}</div>
+        <div class="text-muted">${bonusStr(i)}</div>
+      </div>
+      <button class="btn btn-orange btn-sm" onclick="enchantItem(${i.id})">${IC.levelup(13)} Зачар.</button>
+    </div>`).join('') || '<p class="text-muted">Немає предметів для зачарування</p>';
+}
+
+async function enchantItem(invId) {
+  try {
+    const info = await API.get('/api/village/enchant/info/' + invId);
+    if (info.currentLevel >= info.maxLevel) { toast('Максимальне зачарування!'); return; }
+    const warn = info.nextChance < 100 ? `\n⚠️ Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.` : '';
+    if (!confirm(`Зачарувати до +${info.currentLevel+1}?\nВартість: ${info.nextCost} золота${warn}`)) return;
+    const r = await API.post('/api/village/enchant/' + invId);
+    if (r.success) {
+      toast(`${IC.levelup(14)} Зачарування успішне! +${r.newLevel}`);
+    } else {
+      toast(`${IC.skull(14)} Провал! Зачарування скинулось до 0.`, true);
+    }
+    await refreshPlayer();
+    loadEnchantItems();
+    if (marketData) { await loadMarket(); }
+  } catch(e) { toast(e.message, true); }
 }

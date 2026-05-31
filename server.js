@@ -38,6 +38,10 @@ app.use('/api/rating',  require('./src/routes/rating'));
 app.use('/api/caves',   require('./src/routes/caves'));
 app.use('/api/rings',     require('./src/routes/rings'));
 app.use('/api/talismans', require('./src/routes/talismans'));
+app.use('/api/clans',     require('./src/routes/clans'));
+app.use('/api/jeweler',   require('./src/routes/jeweler'));
+app.use('/api/alchemist', require('./src/routes/alchemist'));
+app.use('/api/gifts',     require('./src/routes/gifts'));
 
 app.locals.io = io;
 setupSocket(io);

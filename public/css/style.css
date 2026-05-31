@@ -948,3 +948,39 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
   border-bottom: 1px solid #ffe082;
 }
 .ring-stat-row:last-child { border-bottom: none; }
+
+/* ── Clan UI ── */
+.clan-header {
+  padding: 12px;
+  background: linear-gradient(135deg, #fff8e1, #fff3e0);
+  border-radius: 10px;
+  margin-bottom: 4px;
+}
+.buildings-grid { padding: 4px 0; }
+.building-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  border-bottom: 1px solid #ffe082;
+  gap: 8px;
+  font-size: 14px;
+}
+.building-row:last-child { border-bottom: none; }
+.badge-faction {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #eee;
+}
+.badge-faction.elves { background: #e8f5e9; color: #2e7d32; }
+.badge-faction.orcs  { background: #fbe9e7; color: #bf360c; }
+
+/* ── Alchemist ingredient row ── */
+.alch-ing-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 4px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}

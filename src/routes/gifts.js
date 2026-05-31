@@ -1,0 +1,139 @@
+const router = require('express').Router();
+const requireAuth = require('../middleware/requireAuth');
+const { pool } = require('../db');
+
+router.use(requireAuth);
+
+const GIFT_TYPES = {
+  power_statue:    { cost: 50,  stat: 'power_level',     field: 'power_bonus',     name: 'Статуетка мощі',       minLevel: 1  },
+  endurance_seal:  { cost: 50,  stat: 'endurance_level', field: 'endurance_bonus', name: 'Печать стійкості',     minLevel: 1  },
+  accuracy_scroll: { cost: 50,  stat: 'accuracy_level',  field: 'accuracy_bonus',  name: 'Манускрипт точності',  minLevel: 3  },
+  speed_flask:     { cost: 50,  stat: 'speed_level',     field: 'speed_bonus',     name: 'Флакон швидкості',     minLevel: 3  },
+  harvest_idol:    { cost: 80,  stat: null,              field: null,              name: 'Ідол врожаю',          minLevel: 5  },
+  luck_amulet:     { cost: 150, stat: null,              field: null,              name: 'Амулет удачі',         minLevel: 10 },
+};
+
+router.post('/send', async (req, res) => {
+  const { friendId, giftType } = req.body;
+  const gift = GIFT_TYPES[giftType];
+  if (!gift) return res.status(400).json({ error: 'Невідомий тип подарунку' });
+
+  try {
+    const { rows: [sender] } = await pool.query(
+      `SELECT greens, level, ${gift.stat ? gift.stat + ',' : ''} username FROM players WHERE id=$1`,
+      [req.session.playerId]
+    );
+    if (sender.level < gift.minLevel)
+      return res.status(400).json({ error: `Потрібен рівень ${gift.minLevel}` });
+    if (sender.greens < gift.cost)
+      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${gift.cost}` });
+
+    const { rows: [friendship] } = await pool.query(
+      `SELECT id FROM friends
+       WHERE status='accepted'
+         AND ((requester_id=$1 AND addressee_id=$2) OR (requester_id=$2 AND addressee_id=$1))`,
+      [req.session.playerId, friendId]
+    );
+    if (!friendship) return res.status(403).json({ error: 'Цей гравець не є вашим другом' });
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const { rows: alreadySent } = await pool.query(
+      `SELECT id FROM active_gifts
+       WHERE giver_id=$1 AND receiver_id=$2 AND created_at >= $3`,
+      [req.session.playerId, friendId, today]
+    );
+    if (alreadySent.length > 0)
+      return res.status(400).json({ error: 'Ви вже надіслали подарунок цьому другу сьогодні' });
+
+    const bonus = gift.stat ? Math.floor(sender[gift.stat] * 0.1) : 0;
+    const expiresAt = new Date(Date.now() + 24 * 3600000);
+
+    const bonusFields = {
+      power_bonus: gift.field === 'power_bonus' ? bonus : 0,
+      endurance_bonus: gift.field === 'endurance_bonus' ? bonus : 0,
+      speed_bonus: gift.field === 'speed_bonus' ? bonus : 0,
+      accuracy_bonus: gift.field === 'accuracy_bonus' ? bonus : 0,
+    };
+
+    await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [gift.cost, req.session.playerId]);
+
+    const { rows: [newGift] } = await pool.query(
+      `INSERT INTO active_gifts
+         (giver_id, receiver_id, gift_name, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+      [req.session.playerId, friendId, gift.name,
+       bonusFields.power_bonus, bonusFields.endurance_bonus,
+       bonusFields.speed_bonus, bonusFields.accuracy_bonus, expiresAt]
+    );
+
+    const io = req.app.locals.io;
+    if (io) {
+      io.to(String(friendId)).emit('gift:received', {
+        giftId: newGift.id,
+        giftName: gift.name,
+        fromUsername: sender.username,
+        ...bonusFields,
+        expiresAt,
+      });
+    }
+
+    res.json({ success: true, giftId: newGift.id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.get('/active', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT ag.*, p.username as giver_username
+       FROM active_gifts ag
+       JOIN players p ON p.id = ag.giver_id
+       WHERE ag.receiver_id=$1 AND ag.expires_at > NOW()
+       ORDER BY ag.created_at DESC`,
+      [req.session.playerId]
+    );
+    res.json({ gifts: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.get('/sent', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const { rows } = await pool.query(
+      `SELECT ag.*, p.username as receiver_username
+       FROM active_gifts ag
+       JOIN players p ON p.id = ag.receiver_id
+       WHERE ag.giver_id=$1 AND ag.created_at >= $2
+       ORDER BY ag.created_at DESC`,
+      [req.session.playerId, today]
+    );
+    res.json({ gifts: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.delete('/:giftId', async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      'DELETE FROM active_gifts WHERE id=$1 AND receiver_id=$2',
+      [req.params.giftId, req.session.playerId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'Подарунок не знайдено' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+module.exports = router;

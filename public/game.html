@@ -239,6 +239,32 @@
       </div>
     </section>
 
+    <!-- JEWELER -->
+    <section class="page" id="page-jeweler">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          <span><img src="/icons/items/ring.svg" width="16" height="16" style="vertical-align:middle"> Ювелір</span>
+          <button class="btn btn-gray btn-sm" onclick="navigate('village')">← Назад</button>
+        </div>
+        <div class="panel-body" id="jeweler-content">
+          <p class="text-muted text-center">Завантаження...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ALCHEMIST -->
+    <section class="page" id="page-alchemist">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          <span><img src="/icons/ui/inventory.svg" width="16" height="16" style="vertical-align:middle"> Алхімік</span>
+          <button class="btn btn-gray btn-sm" onclick="navigate('village')">← Назад</button>
+        </div>
+        <div class="panel-body" id="alchemist-content">
+          <p class="text-muted text-center">Завантаження...</p>
+        </div>
+      </div>
+    </section>
+
     <!-- STATISTICS -->
     <section class="page" id="page-stats">
       <div style="padding:12px 0 4px">
@@ -346,6 +372,46 @@
       <button class="modal-close" onclick="closeRingModal()">✕</button>
     </div>
     <div style="padding:14px" id="ring-modal-body"></div>
+  </div>
+</div>
+
+<!-- Create clan modal -->
+<div class="modal-overlay" id="create-clan-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-box" style="max-width:360px;width:94%">
+    <div class="modal-header">
+      <img src="/icons/menu/clans.png" width="16" height="16" style="vertical-align:middle"> Створити клан
+      <button class="modal-close" onclick="document.getElementById('create-clan-modal').style.display='none'">✕</button>
+    </div>
+    <div style="padding:14px">
+      <div style="margin-bottom:10px">
+        <label style="font-size:13px;font-weight:600">Назва клану (3–30 символів)</label>
+        <input type="text" id="clan-name-input" maxlength="30" placeholder="Назва..." style="width:100%;padding:8px;border:1.5px solid #ccc;border-radius:6px;margin-top:4px">
+      </div>
+      <div style="margin-bottom:10px">
+        <label style="font-size:13px;font-weight:600">Тег [3 символи]</label>
+        <input type="text" id="clan-tag-input" maxlength="3" placeholder="TAG" style="width:100%;padding:8px;border:1.5px solid #ccc;border-radius:6px;margin-top:4px;text-transform:uppercase">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:13px;font-weight:600">Опис (необов'язково)</label>
+        <textarea id="clan-desc-input" maxlength="200" placeholder="Опис..." style="width:100%;padding:8px;border:1.5px solid #ccc;border-radius:6px;margin-top:4px;height:60px;resize:none"></textarea>
+      </div>
+      <div style="font-size:12px;color:#888;margin-bottom:10px"><img src="/icons/res/greens.png" width="12" height="12"> Вартість створення: 1 000 зелені</div>
+      <button class="btn btn-green btn-full" onclick="submitCreateClan()">Створити</button>
+    </div>
+  </div>
+</div>
+
+<!-- Enchant modal -->
+<div class="modal-overlay" id="enchant-modal" style="display:none" onclick="closeEnchantModal(event)">
+  <div class="modal-box" style="max-width:380px;width:96%">
+    <div class="modal-header">
+      <img src="/icons/ui/levelup.svg" width="16" height="16" style="vertical-align:middle"> Коваль — Зачарування
+      <button class="modal-close" onclick="closeEnchantModal()">✕</button>
+    </div>
+    <div style="padding:14px">
+      <p style="font-size:13px;color:#5d4037;margin:0 0 10px">Вибери предмет для зачарування. При +3 і вище є шанс провалу — зачарування скидається до 0.</p>
+      <div id="enchant-items"><p class="text-muted">Завантаження...</p></div>
+    </div>
   </div>
 </div>
 

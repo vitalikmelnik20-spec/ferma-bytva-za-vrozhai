@@ -73,3 +73,7 @@ CREATE TABLE IF NOT EXISTS clan_tasks (
   resets_at   TIMESTAMP,
   completed   BOOLEAN DEFAULT false
 );
+
+-- Add missing columns to clans table
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS faction VARCHAR(10) DEFAULT 'elves';
+ALTER TABLE clans ADD COLUMN IF NOT EXISTS mode VARCHAR(10) DEFAULT 'open' CHECK (mode IN ('open','closed'));
