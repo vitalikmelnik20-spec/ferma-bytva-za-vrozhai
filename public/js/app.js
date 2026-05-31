@@ -13,6 +13,8 @@ const IC = {
   speed:     (s=14) => `<img src="/icons/stats/speed.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   accuracy:  (s=14) => `<img src="/icons/stats/accuracy.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
   clan:      (s=14) => `<img src="/icons/stats/clan.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  exp:       (s=14) => `<img src="/icons/res/exp.svg"           width="${s}" height="${s}" style="vertical-align:middle">`,
+  wins:      (s=14) => `<img src="/icons/stats/wins.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
   skull:     (s=14) => `<img src="/icons/stats/skull.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
 };
 
@@ -959,10 +961,10 @@ function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
           ${getAvatarHtml(avatarUrl, faction, gender)}
           ${isOwn ? '<div class="avatar-edit-badge">✏️</div>' : ''}
         </div>
+        ${slot('rune')}
       </div>
       <div class="doll-col">
         ${slot('shield')}
-        ${slot('rune')}
         ${slot('ring')}
         ${slot('talisman')}
       </div>
@@ -1067,12 +1069,12 @@ async function loadProfile() {
         ${infoRow('⬆️', 'Рівень', p.level)}
         ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
         ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow(IC.gold(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${infoRow('🏘️', 'Місто', p.city_name || '—', `<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>`)}
-        ${infoRow(IC.glory(14), 'Перемог', p.wins)}
+        ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
       </div>
 
@@ -1140,14 +1142,14 @@ async function loadStats() {
       <div class="stats-section">
         <div class="stats-section-title">📋 Інше</div>
         ${row('⬆️', 'Рівень',         p.level)}
-        ${row(IC.gold(14), 'Досвід',          fmtNum(p.experience))}
+        ${row(IC.exp(14), 'Досвід',          fmtNum(p.experience))}
         ${row('↗️', 'Наст. рівень',    fmtNum(p.exp_to_next))}
         ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
         ${row('🏰', 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${row('📊', 'Рейтинг',         `#${r.gloryRank}`)}
         ${row('👥', 'Друзів',          r.friendsCount)}
         ${row('⚔️', 'Боїв сьогодні',  `${p.battles_today} / ${p.battles_max}`)}
-        ${row(IC.glory(14), 'Перемог',         fmtNum(p.wins))}
+        ${row(IC.wins(14), 'Перемог',         fmtNum(p.wins))}
         ${row('💀', 'Поразок',         fmtNum(p.losses))}
       </div>
       <div class="stats-section">
@@ -1422,12 +1424,12 @@ async function viewProfile(id) {
         ${infoRow('⬆️', 'Рівень', p.level)}
         ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
         ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow(IC.gold(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${p.city_name ? infoRow('🏘️', 'Місто', p.city_name) : ''}
-        ${infoRow(IC.glory(14), 'Перемог', p.wins)}
+        ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
         ${p.status_text ? infoRow('💬', 'Статус', p.status_text) : ''}
       </div>

@@ -819,9 +819,9 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
 
 /* ─── PROFILE DOLL ───────────────────────────────────────── */
 .profile-nick-header { font-size:17px; font-weight:700; letter-spacing:.3px; }
-.profile-doll { display:flex; align-items:center; justify-content:center; gap:10px; padding:16px 10px; background:linear-gradient(180deg,#fff8e1,#fffde7); }
-.doll-col { display:flex; flex-direction:column; gap:8px; }
-.doll-center { display:flex; flex-direction:column; align-items:center; gap:6px; }
+.profile-doll { display:flex; align-items:stretch; justify-content:center; gap:10px; padding:16px 10px; background:linear-gradient(180deg,#fff8e1,#fffde7); }
+.doll-col { display:flex; flex-direction:column; gap:8px; justify-content:space-between; }
+.doll-center { display:flex; flex-direction:column; align-items:center; gap:6px; justify-content:space-between; }
 .equip-slot { width:58px; height:58px; background:rgba(255,143,0,.12); border:2px solid #ffb300; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:22px; position:relative; overflow:hidden; }
 .equip-slot.empty { border-style:dashed; border-color:#ddd; background:rgba(0,0,0,.03); }
 .equip-slot-name { font-size:8px; color:#795548; text-align:center; line-height:1.1; padding:0 2px; max-width:54px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
