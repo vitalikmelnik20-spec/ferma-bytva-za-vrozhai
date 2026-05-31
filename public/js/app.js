@@ -570,7 +570,7 @@ function showBattleResult(r) {
 
     <div style="${bs}">
       <div style="font-size:13px;line-height:1.8">
-        <b>Нанесений урон:</b><br>
+        <b>Нанесена шкода:</b><br>
         ${r.attackerName}: <b>${r.attackerDamageDealt}</b> &nbsp;|&nbsp; ${r.defenderName}: <b>${r.defenderDamageDealt}</b>
       </div>
     </div>
