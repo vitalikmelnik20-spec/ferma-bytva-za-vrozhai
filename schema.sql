@@ -36,7 +36,9 @@ CREATE TABLE IF NOT EXISTS players (
   plots_watered      INTEGER DEFAULT 0,
   gold_earned_battle INTEGER DEFAULT 0,
   gold_lost_battle   INTEGER DEFAULT 0,
-  avatar_url         TEXT
+  avatar_url         TEXT,
+  telegram_id        BIGINT UNIQUE,
+  telegram_username  VARCHAR(100)
 );
 
 CREATE TABLE IF NOT EXISTS training (
