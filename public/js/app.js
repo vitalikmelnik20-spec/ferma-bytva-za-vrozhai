@@ -1168,12 +1168,12 @@ async function loadStats() {
       </div>
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
-        ${row('${IC.levelup(14)}', 'Рівень',         p.level)}
+        ${row(IC.levelup(14), 'Рівень',         p.level)}
         ${row(IC.exp(14), 'Досвід',          fmtNum(p.experience))}
-        ${row('↗️', 'Наст. рівень',    fmtNum(p.exp_to_next))}
+        ${row(IC.exp(14), 'Наст. рівень',    fmtNum(p.exp_to_next))}
         ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
-        ${row('🏰', 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
-        ${row('${IC.stats_ic(14)}', 'Рейтинг',         `#${r.gloryRank}`)}
+        ${row(IC.clan(14), 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
+        ${row(IC.wins(14), 'Рейтинг',         `#${r.gloryRank}`)}
         ${row(IC.friends(14), 'Друзів',          r.friendsCount)}
         ${row(IC.battle(14), 'Боїв сьогодні',  `${p.battles_today} / ${p.battles_max}`)}
         ${row(IC.wins(14), 'Перемог',         fmtNum(p.wins))}
