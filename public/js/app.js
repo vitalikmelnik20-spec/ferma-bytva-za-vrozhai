@@ -1,5 +1,21 @@
 // ─── STATE ───────────────────────────────────────────────────────────────────
 let player = null;
+
+// ── Icon helpers (consistent across all pages) ──
+const IC = {
+  greens:    (s=14) => `<img src="/icons/res/greens.png"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  gold:      (s=14) => `<img src="/icons/res/gold.png"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  glory:     (s=14) => `<img src="/icons/res/glory.png"        width="${s}" height="${s}" style="vertical-align:middle">`,
+  hp:        (s=14) => `<img src="/icons/res/hp.svg"           width="${s}" height="${s}" style="vertical-align:middle">`,
+  diamonds:  (s=14) => `<img src="/icons/res/diamonds.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  power:     (s=14) => `<img src="/icons/stats/power.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  endurance: (s=14) => `<img src="/icons/stats/endurance.svg"  width="${s}" height="${s}" style="vertical-align:middle">`,
+  speed:     (s=14) => `<img src="/icons/stats/speed.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  accuracy:  (s=14) => `<img src="/icons/stats/accuracy.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  clan:      (s=14) => `<img src="/icons/stats/clan.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  skull:     (s=14) => `<img src="/icons/stats/skull.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+};
+
 let gardenData = null;
 let marketData = null;
 let currentPickRound = 1;
@@ -258,7 +274,7 @@ function renderPlots() {
         ${soilSVG}
         <div class="plot-name">${plot.plant_name}</div>
         <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>
-        <div class="text-muted" style="font-size:12px">🌿${plot.greens_reward} ⭐${plot.exp_reward}</div>`;
+        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.gold(13)}${plot.exp_reward}</div>`;
       div.onclick = () => harvestPlot(plot.id);
     }
 
@@ -306,7 +322,7 @@ function openPlantModal(plotId) {
         <div class="plant-info-name">${p.name}</div>
         <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | 🌿 +${p.greens_reward} | ⭐ +${p.exp_reward}</div>
       </div>
-      <div class="plant-price">🌿 ${p.seed_price}</div>
+      <div class="plant-price">${IC.greens(13)} ${p.seed_price}</div>
     </div>`).join('');
   document.getElementById('plant-modal').style.display = 'flex';
 }
@@ -339,7 +355,7 @@ async function waterPlot(event, plotId) {
 async function harvestPlot(plotId) {
   try {
     const r = await API.post(`/api/garden/${plotId}/harvest`);
-    toast(`Зібрано! 🌿+${r.greens} ⭐+${r.exp}`);
+    toast(`Зібрано! ${IC.greens(13)}+${r.greens} ${IC.gold(13)}+${r.exp}`);
     if (r.levelUp) showLevelUpModal(r);
     await loadGarden();
     await refreshPlayer();
@@ -360,8 +376,8 @@ function showLevelUpModal(r) {
     : '';
 
   const rewardParts = [];
-  if (greensReward > 0) rewardParts.push(`🌿 ${fmtNum(greensReward)}`);
-  if (goldReward   > 0) rewardParts.push(`⭐ ${fmtNum(goldReward)}`);
+  if (greensReward > 0) rewardParts.push(`${IC.greens(14)} ${fmtNum(greensReward)}`);
+  if (goldReward   > 0) rewardParts.push(`${IC.gold(14)} ${fmtNum(goldReward)}`);
 
   document.getElementById('levelup-body').innerHTML = `
     <div class="levelup-icon-row">
@@ -387,7 +403,7 @@ function closeLevelUpModal(e) {
 async function buyPlot() {
   try {
     const r = await API.post('/api/garden/buy');
-    toast(`Куплено нову грядку за ⭐${r.cost}`);
+    toast(`Куплено нову грядку за ${IC.gold(13)}${r.cost}`);
     await loadGarden();
     await refreshPlayer();
   } catch (e) { toast(e.message, true); }
@@ -428,7 +444,7 @@ async function loadOpponents() {
               <span style="color:#888;font-size:12px">Рів.${op.level}</span>
             </div>
             <div style="font-size:12px;color:#666;margin-bottom:4px">
-              ⚡${op.power_level} &nbsp;🛡️${op.endurance_level} &nbsp;💨${op.speed_level} &nbsp;🎯${op.accuracy_level}
+              ${IC.power(13)}${op.power_level} &nbsp;${IC.endurance(13)}${op.endurance_level} &nbsp;${IC.speed(13)}${op.speed_level} &nbsp;${IC.accuracy(13)}${op.accuracy_level}
               &nbsp;|&nbsp; ⭐ ${op.glory} слави
             </div>
             <div style="font-size:11px;color:#999;font-style:italic">"${op.slogan}"</div>
@@ -552,8 +568,8 @@ function showBattleResult(r) {
         ${won ? '🏆 Перемога' : '💀 Поразка'}
       </div>
       <div style="font-size:15px;font-weight:600;color:${won?'#2e7d32':'#c62828'}">
-        ${r.greensReward > 0 ? `🌿 ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
-        ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ⭐ ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
+        ${r.greensReward > 0 ? `${IC.greens(14)} ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
+        ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ${IC.gold(14)} ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
         ${won ? (r.attackerGlory > 0 ? '&nbsp; 🏆 +1 слава' : '') : '&nbsp; 📉 -5 рейтингу'}
       </div>
     </div>
@@ -580,7 +596,7 @@ function showBattleResult(r) {
     <div style="${bs}">
       <div style="font-size:13px;line-height:1.8">
         💍 <b>Кільце злодія спрацювало!</b><br>
-        Ти вкрав <b>⭐ ${fmtNum(r.ringEffect.stolenGold)} золота</b> у ${r.ringEffect.victimName}
+        Ти вкрав <b>${IC.gold(14)} ${fmtNum(r.ringEffect.stolenGold)} золота</b> у ${r.ringEffect.victimName}
       </div>
     </div>` : ''}
 
@@ -644,8 +660,8 @@ function filterMarket(cat) {
     const isTalisman = item.category === 'talisman';
     const isGoldItem = isRing || isTalisman;
     const priceHtml = isGoldItem
-      ? `<div class="item-price">⭐ ${fmtNum(item.price_gold)}</div>`
-      : `<div class="item-price">🌿 ${fmtNum(item.price)}</div>`;
+      ? `<div class="item-price">${IC.gold(14)} ${fmtNum(item.price_gold)}</div>`
+      : `<div class="item-price">${IC.greens(14)} ${fmtNum(item.price)}</div>`;
     const buyBtn = isRing
       ? `<button class="btn btn-orange btn-sm" onclick="buyRing(${item.id})">Купити</button>`
       : isTalisman
@@ -797,7 +813,7 @@ async function openRingModal(invId) {
       ${maxed
         ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px">✨ Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" onclick="upgradeRing(${invId})">
-             ⬆️ Покращити до рівня ${lvl + 1} — ⭐ ${fmtNum(r.nextCost)}
+             ⬆️ Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
            </button>`}`;
     document.getElementById('ring-modal').style.display = 'flex';
   } catch (e) { toast(e.message, true); }
@@ -849,7 +865,7 @@ async function openTalismanModal(invId) {
       ${maxed
         ? `<div style="color:#2e7d32;font-weight:700;text-align:center;margin-top:10px">✅ Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" style="margin-top:12px" onclick="upgradeTalisman(${invId})">
-             Покращити до рівня ${lvl + 1} — ⭐ ${fmtNum(r.nextCost)}
+             Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
            </button>`}`;
     document.getElementById('talisman-modal').style.display = 'flex';
   } catch (e) { toast(e.message, true); }
@@ -892,7 +908,7 @@ async function loadVillage() {
 async function healPlayer() {
   try {
     const r = await API.post('/api/village/heal');
-    toast(`❤️ Вилікувано +${r.healed} HP за 🌿${r.cost}`);
+    toast(`${IC.hp(13)} Вилікувано +${r.healed} HP за ${IC.greens(13)}${r.cost}`);
     await refreshPlayer();
     loadVillage();
   } catch (e) { toast(e.message, true); }
@@ -903,7 +919,7 @@ async function healPlayer() {
 // Preset avatar list
 const PRESET_AVATARS = ['🧝','🧙','🏹','⚔️','🛡️','🗡️','🔮','🌿','👑','🐉','🦊','🐺','🦁','🧟','🧛','🔥'];
 
-const SLOT_ICONS = { weapon:'⚔️', armor:'🛡️', potion:'🧪', helmet:'🪖', shield:'🔰', rune:'🔮', ring:'💍', talisman:'🏺' };
+// SLOT_ICONS replaced by itemIcon() for consistency
 
 function getAvatarHtml(url, faction, gender) {
   if (url && url.startsWith('preset:')) {
@@ -924,10 +940,10 @@ function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
     const e = eq[cat];
     return e
       ? `<div class="equip-slot" title="${e.name}" ${isOwn ? `onclick="goToInventoryItem(${e.id})" style="cursor:pointer"` : ''}>
-           <div>${SLOT_ICONS[cat]}</div>
+           <div>${itemIcon(eq[cat]?.name || '', 28)}</div>
            <div class="equip-slot-name">${e.name}</div>
          </div>`
-      : `<div class="equip-slot empty"><div style="opacity:.28">${SLOT_ICONS[cat]}</div></div>`;
+      : `<div class="equip-slot empty"><div style="opacity:.3">${itemIcon(cat === 'weapon' ? 'Залізний меч' : cat === 'armor' ? 'Кольчуга' : cat === 'helmet' ? 'Шолом воїна' : cat === 'shield' ? 'Залізний щит' : cat === 'rune' ? 'Руна вогню' : cat === 'ring' ? 'Кільце злодія' : cat === 'talisman' ? 'Талісман золотошукача' : 'Зілля сили', 24)}</div></div>`;
   };
 
   return `
@@ -1051,26 +1067,26 @@ async function loadProfile() {
         ${infoRow('⬆️', 'Рівень', p.level)}
         ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
         ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow('⭐', 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
-        ${infoRow('❤️', "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${infoRow('🏰', 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
-        ${infoRow('🏆', 'Слава', fmtNum(p.glory))}
+        ${infoRow(IC.gold(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
+        ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${infoRow('🏘️', 'Місто', p.city_name || '—', `<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>`)}
-        ${infoRow('🏆', 'Перемог', p.wins)}
-        ${infoRow('💀', 'Поразок', p.losses)}
+        ${infoRow(IC.glory(14), 'Перемог', p.wins)}
+        ${infoRow(IC.skull(14), 'Поразок', p.losses)}
       </div>
 
       <div class="panel mb-12">
         <div class="panel-header">💪 Тренування</div>
         <div class="panel-body">
-          ${statRow('⚡', 'Мощь',     p.power_level,     'power')}
-          ${statRow('🛡️', 'Стійкість', p.endurance_level, 'endurance')}
-          ${statRow('💨', 'Швидкість', p.speed_level,     'speed')}
-          ${statRow('🎯', 'Точність',  p.accuracy_level,  'accuracy')}
+          ${statRow(IC.power(14), 'Мощь',     p.power_level,     'power')}
+          ${statRow(IC.endurance(14), 'Стійкість', p.endurance_level, 'endurance')}
+          ${statRow(IC.speed(14), 'Швидкість', p.speed_level,     'speed')}
+          ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  'accuracy')}
           <div class="divider"></div>
           <div style="font-weight:700;margin-bottom:6px">🐾 Питомець</div>
-          ${statRow('⚡', 'Мощь пит.',    p.pet_power,     'pet_power')}
-          ${statRow('🛡️', 'Стійк. пит.', p.pet_endurance, 'pet_endurance')}
+          ${statRow(IC.power(14), 'Мощь пит.',    p.pet_power,     'pet_power')}
+          ${statRow(IC.endurance(14), 'Стійк. пит.', p.pet_endurance, 'pet_endurance')}
         </div>
       </div>
 
@@ -1113,34 +1129,34 @@ async function loadStats() {
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
         <div class="stats-section-title">⚙️ Параметри</div>
-        ${eqRow('⚡', 'Сила',      p.power_level,     p.equip_power)}
-        ${eqRow('🛡️', 'Захист',    p.endurance_level, p.equip_endurance)}
-        ${eqRow('💨', 'Швидкість', p.speed_level,     p.equip_speed)}
-        ${eqRow('🎯', 'Точність',  p.accuracy_level,  p.equip_accuracy)}
-        ${row('❤️', "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${eqRow(IC.power(14), 'Сила',      p.power_level,     p.equip_power)}
+        ${eqRow(IC.endurance(14), 'Захист',    p.endurance_level, p.equip_endurance)}
+        ${eqRow(IC.speed(14), 'Швидкість', p.speed_level,     p.equip_speed)}
+        ${eqRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy)}
+        ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${row('💗', "Макс. здоров'я",  fmtNum(p.max_hp))}
         ${row('💓', 'Регенерація',     `${p.hp_regen} в хв`)}
       </div>
       <div class="stats-section">
         <div class="stats-section-title">📋 Інше</div>
         ${row('⬆️', 'Рівень',         p.level)}
-        ${row('⭐', 'Досвід',          fmtNum(p.experience))}
+        ${row(IC.gold(14), 'Досвід',          fmtNum(p.experience))}
         ${row('↗️', 'Наст. рівень',    fmtNum(p.exp_to_next))}
-        ${row('🏆', 'Слава',           fmtNum(p.glory))}
+        ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
         ${row('🏰', 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${row('📊', 'Рейтинг',         `#${r.gloryRank}`)}
         ${row('👥', 'Друзів',          r.friendsCount)}
         ${row('⚔️', 'Боїв сьогодні',  `${p.battles_today} / ${p.battles_max}`)}
-        ${row('🏆', 'Перемог',         fmtNum(p.wins))}
+        ${row(IC.glory(14), 'Перемог',         fmtNum(p.wins))}
         ${row('💀', 'Поразок',         fmtNum(p.losses))}
       </div>
       <div class="stats-section">
         <div class="stats-section-title">📊 Статистика</div>
-        ${row('🟢', 'Здобич у боях',   `🌿 ${fmtNum(r.greensEarned)} ⭐ ${fmtNum(p.gold_earned_battle)}`)}
-        ${row('🔴', 'Втрати у боях',   `🌿 ${fmtNum(r.greensLost)} ⭐ ${fmtNum(p.gold_lost_battle)}`)}
+        ${row('🟢', 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
+        ${row('🔴', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
         ${row('🌱', 'Посаджено рослин', fmtNum(p.plants_planted))}
         ${row('💧', 'Полито рослин',    fmtNum(p.plots_watered))}
-        ${row('🌾', 'Зібрано врожаю',  `🌿 ${fmtNum(p.total_harvest)}`)}
+        ${row('🌾', 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
         ${row('⛏️', 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
         ${row('🏅', 'Добуто в печерах', `${fmtNum(r.cavesGold)} золота`)}
       </div>`;
@@ -1406,13 +1422,13 @@ async function viewProfile(id) {
         ${infoRow('⬆️', 'Рівень', p.level)}
         ${infoRow('⚔️', 'Фракція', factionLabel(p.faction))}
         ${infoRow('👤', 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow('⭐', 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
-        ${infoRow('❤️', "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${infoRow('🏰', 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
-        ${infoRow('🏆', 'Слава', fmtNum(p.glory))}
+        ${infoRow(IC.gold(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
+        ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${p.city_name ? infoRow('🏘️', 'Місто', p.city_name) : ''}
-        ${infoRow('🏆', 'Перемог', p.wins)}
-        ${infoRow('💀', 'Поразок', p.losses)}
+        ${infoRow(IC.glory(14), 'Перемог', p.wins)}
+        ${infoRow(IC.skull(14), 'Поразок', p.losses)}
         ${p.status_text ? infoRow('💬', 'Статус', p.status_text) : ''}
       </div>
 
@@ -1466,7 +1482,7 @@ async function adminSearch() {
         <div style="flex:1">
           <b>${p.username}</b> Рів.${p.level} ${p.is_online ? '🟢' : '⚫'}
           ${p.is_banned ? `<span class="badge-notif">БАН</span>` : ''}
-          <div class="text-muted">🌿${fmtNum(p.greens)} ⭐${fmtNum(p.gold)}</div>
+          <div class="text-muted">${IC.greens(13)}${fmtNum(p.greens)} ${IC.gold(13)}${fmtNum(p.gold)}</div>
         </div>
         <div style="display:flex;gap:4px">
           ${p.is_banned
@@ -1531,7 +1547,7 @@ function initSocket() {
   });
 
   socket.on('ring:stolen', ({ fromName, amount, goldLeft }) => {
-    toast(`💍 ${fromName} вкрав у тебе ⭐ ${amount} золота!`, true);
+    toast(`💍 ${fromName} вкрав у тебе ${IC.gold(13)} ${amount} золота!`, true);
     refreshPlayer();
   });
 
@@ -1701,12 +1717,12 @@ function renderCavesDone(s) {
   const pct = s.total_mines > 0 ? Math.round(s.mines_done / s.total_mines * 100) : 0;
   document.getElementById('caves-content').innerHTML = `
     <div class="cave-result-box">
-      <div class="cave-result-icon">🏆</div>
+      <div class="cave-result-icon">${IC.glory(28)}</div>
       <div style="font-size:17px;font-weight:700;margin-bottom:4px">Печери на сьогодні завершено!</div>
       <div class="cave-result-stats">
         <div class="cave-result-row">⛏️ Шахт добуто: <b>${s.mines_done} з ${s.total_mines}</b> (${pct}%)</div>
         <div class="cave-result-row">🏅 Золото отримано: <b>${s.gold_earned}</b></div>
-        <div class="cave-result-row">⭐ Досвід отримано: <b>${s.exp_earned}</b></div>
+        <div class="cave-result-row">${IC.gold(14)} Досвід отримано: <b>${s.exp_earned}</b></div>
         ${s.mines_missed > 0 ? `<div class="cave-result-row" style="color:#c62828">⏰ Пропущено шахт: <b>${s.mines_missed}</b></div>` : ''}
       </div>
       <div style="font-size:13px;color:#888;margin-bottom:14px">Печери відкриються знову о 00:00</div>
