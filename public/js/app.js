@@ -348,7 +348,6 @@ async function harvestPlot(plotId) {
 }
 
 function showLevelUpModal(r) {
-  const CAT_ICONS = { weapon:'⚔️', armor:'🛡️', shield:'🔰', helmet:'🪖', potion:'🧪', rune:'🔮', ring:'💍', talisman:'🏺' };
   const greensReward = r.levelReward || 0;
   const goldReward   = r.goldReward  || r.goldBonus || 0;
   const nextExp      = r.newExpToNext || 0;
@@ -356,7 +355,7 @@ function showLevelUpModal(r) {
   const perksHtml = r.unlockedItems && r.unlockedItems.length
     ? `<div class="levelup-perks-title">Переваги цього рівня:</div>
        ${r.unlockedItems.map(u =>
-         `<div class="levelup-perk">- ${u.type === 'plant' ? u.emoji : (CAT_ICONS[u.category] || '✨')} ${u.name}</div>`
+         `<div class="levelup-perk">- ${u.type === 'plant' ? u.emoji : itemIcon(u.name, 18)} ${u.name}</div>`
        ).join('')}`
     : '';
 
@@ -592,7 +591,37 @@ function showBattleResult(r) {
 }
 
 // ─── MARKET ──────────────────────────────────────────────────────────────────
-const CAT_ICONS = { weapon:'⚔️', armor:'🛡️', shield:'🔰', helmet:'🪖', potion:'🧪', rune:'🔮', ring:'💍', talisman:'🏺' };
+const ITEM_ICONS = {
+  // Weapons
+  "Дерев'яний кий":    'club',
+  'Залізний меч':      'sword',
+  'Сталевий топір':    'axe',
+  'Коса смерті':       'scythe',
+  // Armor
+  'Шкіряний жилет':   'vest',
+  'Кольчуга':          'chainmail',
+  'Лицарська броня':   'plate-armor',
+  // Shields
+  "Дерев'яний щит":   'wood-shield',
+  'Залізний щит':      'iron-shield',
+  // Helmet
+  'Шолом воїна':       'helmet',
+  // Potions
+  'Зілля сили':        'potion-power',
+  'Зілля витривалості':'potion-endurance',
+  'Зілля швидкості':   'potion-speed',
+  // Runes
+  'Руна вогню':        'rune-fire',
+  'Руна льоду':        'rune-ice',
+  // Special
+  'Кільце злодія':     'ring',
+  'Талісман золотошукача': 'talisman',
+};
+function itemIcon(name, size=36) {
+  const file = ITEM_ICONS[name];
+  if (!file) return '📦';
+  return `<img src="/icons/items/${file}.svg" width="${size}" height="${size}" style="display:block">`;
+}
 let currentMarketFilter = 'all';
 
 async function loadMarket() {
@@ -629,7 +658,7 @@ function filterMarket(cat) {
         : `<div class="item-bonuses">${bonusStr(item)}</div>`;
     return `
     <div class="item-card">
-      <span class="item-cat-icon">${CAT_ICONS[item.category] || '📦'}</span>
+      ${itemIcon(item.name)}
       <div class="item-info">
         <div class="item-name">${item.name}</div>
         ${bonuses}
@@ -682,7 +711,7 @@ function renderInventory() {
               : `<button class="btn btn-orange btn-sm" onclick="equipItem(${inv.id})">Одягти</button>`}`;
       return `
       <div class="item-card ${inv.is_equipped ? 'item-equipped' : ''}" data-inv-id="${inv.id}">
-        <span class="item-cat-icon">${CAT_ICONS[inv.category] || '📦'}</span>
+        ${itemIcon(inv.name)}
         <div class="item-info">
           <div class="item-name">${inv.name}${inv.upgrade_level > 0 ? ` +${inv.upgrade_level}` : ''}</div>
           ${bonuses}
