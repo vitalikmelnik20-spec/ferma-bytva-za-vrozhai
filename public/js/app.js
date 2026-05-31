@@ -184,31 +184,22 @@ function updateHomeProfile() {
 
 // SVG plant illustrations for each growth stage
 function plantSVG(name, stage) {
-  // stage: 'seedling' | 'growing' | 'ready'
-  const plants = {
-    'Пшениця': {
-      seedling: `<svg viewBox="0 0 40 44" width="44"><line x1="20" y1="42" x2="20" y2="18" stroke="#8bc34a" stroke-width="2.5"/><ellipse cx="20" cy="16" rx="5" ry="7" fill="#aed581" transform="rotate(-10 20 16)"/></svg>`,
-      growing:  `<svg viewBox="0 0 40 48" width="44"><line x1="20" y1="46" x2="20" y2="12" stroke="#7cb342" stroke-width="2.5"/><ellipse cx="20" cy="10" rx="5" ry="9" fill="#cddc39"/><ellipse cx="13" cy="22" rx="4" ry="7" fill="#8bc34a" transform="rotate(-30 13 22)"/><ellipse cx="27" cy="20" rx="4" ry="7" fill="#8bc34a" transform="rotate(30 27 20)"/></svg>`,
-      ready:    `<svg viewBox="0 0 40 48" width="44"><line x1="20" y1="46" x2="20" y2="10" stroke="#7cb342" stroke-width="2.5"/><ellipse cx="20" cy="8" rx="5" ry="10" fill="#fdd835"/><circle cx="20" cy="8" r="4" fill="#f9a825"/><ellipse cx="12" cy="20" rx="4" ry="8" fill="#dce775" transform="rotate(-25 12 20)"/><ellipse cx="28" cy="18" rx="4" ry="8" fill="#dce775" transform="rotate(25 28 18)"/></svg>`,
-    },
-    'Морква': {
-      seedling: `<svg viewBox="0 0 40 44" width="44"><line x1="20" y1="42" x2="20" y2="24" stroke="#66bb6a" stroke-width="2"/><circle cx="20" cy="22" r="6" fill="#a5d6a7"/></svg>`,
-      growing:  `<svg viewBox="0 0 40 48" width="44"><line x1="20" y1="46" x2="20" y2="26" stroke="#388e3c" stroke-width="2.5"/><line x1="20" y1="30" x2="14" y2="20" stroke="#66bb6a" stroke-width="2"/><line x1="20" y1="30" x2="26" y2="20" stroke="#66bb6a" stroke-width="2"/><line x1="20" y1="28" x2="20" y2="16" stroke="#81c784" stroke-width="2"/><ellipse cx="20" cy="38" rx="7" ry="11" fill="#ff7043" transform="rotate(180 20 38)"/></svg>`,
-      ready:    `<svg viewBox="0 0 40 50" width="44"><line x1="20" y1="48" x2="20" y2="24" stroke="#2e7d32" stroke-width="2.5"/><line x1="20" y1="28" x2="12" y2="16" stroke="#4caf50" stroke-width="2.5"/><line x1="20" y1="28" x2="28" y2="16" stroke="#4caf50" stroke-width="2.5"/><line x1="20" y1="26" x2="20" y2="13" stroke="#81c784" stroke-width="2"/><ellipse cx="20" cy="40" rx="8" ry="13" fill="#ff5722" transform="rotate(180 20 40)"/><ellipse cx="20" cy="33" rx="8" ry="5" fill="#ff7043" transform="rotate(180 20 33)"/></svg>`,
-    },
-    'Соняшник': {
-      seedling: `<svg viewBox="0 0 40 44" width="44"><line x1="20" y1="42" x2="20" y2="22" stroke="#66bb6a" stroke-width="2.5"/><circle cx="20" cy="19" r="7" fill="#aed581"/></svg>`,
-      growing:  `<svg viewBox="0 0 44 50" width="44"><line x1="22" y1="48" x2="22" y2="20" stroke="#558b2f" stroke-width="3"/><ellipse cx="16" cy="34" rx="5" ry="9" fill="#8bc34a" transform="rotate(-30 16 34)"/><circle cx="22" cy="14" r="9" fill="#fdd835"/><circle cx="22" cy="14" r="6" fill="#795548"/></svg>`,
-      ready:    `<svg viewBox="0 0 48 54" width="48"><line x1="24" y1="52" x2="24" y2="22" stroke="#33691e" stroke-width="3"/><ellipse cx="16" cy="36" rx="5" ry="10" fill="#558b2f" transform="rotate(-30 16 36)"/><ellipse cx="32" cy="34" rx="5" ry="10" fill="#558b2f" transform="rotate(30 32 34)"/><g fill="#fdd835"><ellipse cx="24" cy="10" rx="6" ry="4"/><ellipse cx="24" cy="10" rx="6" ry="4" transform="rotate(45 24 14)"/><ellipse cx="24" cy="10" rx="6" ry="4" transform="rotate(90 24 14)"/><ellipse cx="24" cy="10" rx="6" ry="4" transform="rotate(135 24 14)"/></g><circle cx="24" cy="14" r="7" fill="#5d4037"/><circle cx="22" cy="12" r="2" fill="#8d6e63"/></svg>`,
-    },
-    'default': {
-      seedling: `<svg viewBox="0 0 40 40" width="40"><line x1="20" y1="38" x2="20" y2="22" stroke="#66bb6a" stroke-width="2.5"/><circle cx="20" cy="19" r="7" fill="#a5d6a7"/></svg>`,
-      growing:  `<svg viewBox="0 0 40 44" width="40"><line x1="20" y1="42" x2="20" y2="16" stroke="#4caf50" stroke-width="2.5"/><circle cx="20" cy="13" r="9" fill="#81c784"/><circle cx="12" cy="22" r="6" fill="#66bb6a"/><circle cx="28" cy="20" r="6" fill="#66bb6a"/></svg>`,
-      ready:    `<svg viewBox="0 0 40 44" width="40"><line x1="20" y1="42" x2="20" y2="14" stroke="#2e7d32" stroke-width="2.5"/><circle cx="20" cy="11" r="10" fill="#4caf50"/><circle cx="12" cy="20" r="7" fill="#66bb6a"/><circle cx="28" cy="19" r="7" fill="#388e3c"/></svg>`,
-    }
+  const map = {
+    'Пшениця':           'wheat',
+    'Морква':            'carrot',
+    'Капуста':           'cabbage',
+    'Соняшник':          'sunflower',
+    'Гарбуз':            'pumpkin',
+    'Диня':              'melon',
+    'Виноград':          'grapes',
+    'Зілля сили':        'herb',
+    'Зілля спритності':  'herb',
+    'Чарівний гриб':     'mushroom',
   };
-  const p = plants[name] || plants['default'];
-  return p[stage] || p.ready;
+  const file = map[name] || 'herb';
+  const opacity = stage === 'seedling' ? '0.45' : stage === 'growing' ? '0.75' : '1';
+  const size    = stage === 'seedling' ? '32' : stage === 'growing' ? '42' : '52';
+  return `<img src="/icons/plants/${file}.svg" width="${size}" height="${size}" style="opacity:${opacity}">`;
 }
 
 // Soil strip SVG
@@ -243,7 +234,7 @@ function renderPlots() {
       div.innerHTML = `
         ${soilSVG}
         <div class="plot-name" style="color:#8d6e3a">Порожня грядка</div>
-        <span class="plot-status-badge badge-empty">+ Посадити</span>`;
+        <span class="plot-status-badge badge-empty"><img src="/icons/ui/plant.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Посадити</span>`;
       div.onclick = () => openPlantModal(plot.id);
 
     } else if (plot.status === 'growing') {
@@ -256,9 +247,9 @@ function renderPlots() {
         ${soilSVG}
         <div class="plot-name">${plot.plant_name}</div>
         <div class="plot-timer" data-secs="${secs}">${fmtTime(secs)}</div>
-        <span class="plot-status-badge badge-growing">🌿 Росте</span>
+        <span class="plot-status-badge badge-growing"><img src="/icons/ui/timer.svg" width="13" height="13" style="vertical-align:middle;filter:invert(1)"> Росте</span>
         ${!plot.watered
-          ? `<button class="btn btn-blue btn-sm" onclick="waterPlot(event,${plot.id})">💧 Полити</button>`
+          ? `<button class="btn btn-blue btn-sm" onclick="waterPlot(event,${plot.id})"><img src="/icons/ui/water.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Полити</button>`
           : '<span class="text-muted" style="font-size:11px">💧 Полито</span>'}`;
 
     } else if (plot.status === 'ready') {
@@ -266,7 +257,7 @@ function renderPlots() {
         <div class="plot-plant">${plantSVG(plot.plant_name, 'ready')}</div>
         ${soilSVG}
         <div class="plot-name">${plot.plant_name}</div>
-        <span class="plot-status-badge badge-ready">Готово!</span>
+        <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>
         <div class="text-muted" style="font-size:12px">🌿${plot.greens_reward} ⭐${plot.exp_reward}</div>`;
       div.onclick = () => harvestPlot(plot.id);
     }
@@ -296,7 +287,7 @@ function startPlotTimers() {
             <div class="plot-plant">${plantSVG(plantName, 'ready')}</div>
             ${soilSVG}
             <div class="plot-name">${plantName}</div>
-            <span class="plot-status-badge badge-ready">Готово!</span>`;
+            <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>`;
           card.onclick = () => harvestPlot(plotId);
         }
       }
@@ -310,7 +301,7 @@ function openPlantModal(plotId) {
   const list = document.getElementById('plant-list');
   list.innerHTML = gardenData.plants.map(p => `
     <div class="plant-item" onclick="plantSeed(${p.id})">
-      <span class="plant-emoji-big">${p.emoji}</span>
+      <img src="/icons/plants/${(() => { const m={'Пшениця':'wheat','Морква':'carrot','Капуста':'cabbage','Соняшник':'sunflower','Гарбуз':'pumpkin','Диня':'melon','Виноград':'grapes','Зілля сили':'herb','Зілля спритності':'herb','Чарівний гриб':'mushroom'}; return m[p.name]||'herb'; })()}.svg" width="40" height="40" class="plant-emoji-big">
       <div class="plant-info">
         <div class="plant-info-name">${p.name}</div>
         <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | 🌿 +${p.greens_reward} | ⭐ +${p.exp_reward}</div>
