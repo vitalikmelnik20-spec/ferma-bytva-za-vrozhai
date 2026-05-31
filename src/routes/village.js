@@ -79,13 +79,13 @@ router.get('/', async (req, res) => {
     player: { hp: player.hp, max_hp: player.max_hp, greens: player.greens, gold: player.gold },
     healCost,
     npcs: [
-      { id: 'general',  name: 'Генерал',   emoji: '⚔️',  desc: 'Кланові війни та союзні бої' },
-      { id: 'witch',    name: 'Колдунья',  emoji: '🧙',  desc: 'Настої та захисні зілля для питомця' },
-      { id: 'jeweler',  name: 'Ювелір',    emoji: '💎',  desc: 'Руни, прикраси, кільця' },
-      { id: 'alchemist',name: 'Алхімік',   emoji: '⚗️',  desc: 'Рецепти зілля та крафт настоїв' },
-      { id: 'smith',    name: 'Коваль',    emoji: '🔨',  desc: 'Покращує зброю/броню (+2 до всіх статів за 500 золота)' },
-      { id: 'trader',   name: 'Торговець', emoji: '🛒',  desc: 'Рідкісні товари за алмази' },
-      { id: 'healer',   name: 'Цілитель',  emoji: '💊',  desc: `Відновлює здоров'я (${healCost} зелені)` }
+      { id: 'general',  name: 'Генерал',   icon: 'battle',    desc: 'Кланові війни та союзні бої' },
+      { id: 'witch',    name: 'Колдунья',  icon: 'package',   desc: 'Настої та захисні зілля для питомця' },
+      { id: 'jeweler',  name: 'Ювелір',    icon: 'ring',      desc: 'Руни, прикраси, кільця і талісмани' },
+      { id: 'alchemist',name: 'Алхімік',   icon: 'inventory', desc: 'Рецепти зілля та крафт настоїв' },
+      { id: 'smith',    name: 'Коваль',    icon: 'levelup',   desc: 'Покращує зброю/броню (+2 до всіх статів за 500 золота)' },
+      { id: 'trader',   name: 'Торговець', icon: 'market',    desc: 'Рідкісні товари за алмази' },
+      { id: 'healer',   name: 'Цілитель',  icon: 'hp',        desc: `Відновлює здоров'я (${healCost} зелені)` }
     ]
   });
 });

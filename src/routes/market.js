@@ -8,7 +8,7 @@ router.use(requireAuth);
 router.get('/', async (req, res) => {
   try {
     const { rows: [player] } = await pool.query(
-      'SELECT level, greens FROM players WHERE id=$1',
+      'SELECT level, greens, gold FROM players WHERE id=$1',
       [req.session.playerId]
     );
 
@@ -29,7 +29,8 @@ router.get('/', async (req, res) => {
       items: items.rows,
       inventory: inventory.rows,
       playerLevel: player.level,
-      playerGreens: player.greens
+      playerGreens: player.greens,
+      playerGold: player.gold
     });
   } catch (err) {
     console.error(err);
@@ -46,17 +47,26 @@ router.post('/buy/:itemId', async (req, res) => {
     );
     if (!item) return res.status(404).json({ error: 'Предмет не знайдено' });
 
+    const usesGold = item.price_gold > 0;
+    const price    = usesGold ? item.price_gold : item.price;
+
     const { rows: [player] } = await pool.query(
-      'SELECT greens, level FROM players WHERE id=$1',
+      'SELECT greens, gold, level FROM players WHERE id=$1',
       [req.session.playerId]
     );
 
     if (player.level < item.min_level)
       return res.status(400).json({ error: `Потрібен рівень ${item.min_level}` });
-    if (player.greens < item.price)
-      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${item.price}` });
 
-    await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [item.price, req.session.playerId]);
+    if (usesGold) {
+      if (player.gold < price)
+        return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${price}` });
+      await pool.query('UPDATE players SET gold = gold - $1 WHERE id=$2', [price, req.session.playerId]);
+    } else {
+      if (player.greens < price)
+        return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${price}` });
+      await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [price, req.session.playerId]);
+    }
 
     let expiresAt = null;
     if (item.duration_hours) {

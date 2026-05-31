@@ -45,6 +45,10 @@ const IC = {
   package:   (s=14) => `<img src="/icons/ui/package.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
   wins:      (s=14) => `<img src="/icons/stats/wins.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
   skull:     (s=14) => `<img src="/icons/stats/skull.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  mail:      (s=14) => `<img src="/icons/ui/mail.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
+  star:      (s=14) => `<img src="/icons/ui/star.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
+  paw:       (s=14) => `<img src="/icons/ui/paw.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  camera:    (s=14) => `<img src="/icons/ui/camera.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
 };
 
 let gardenData = null;
@@ -848,7 +852,7 @@ async function openRingModal(invId) {
         Кільце спрацьовує тільки при перемозі в PvP бою. Жертва отримує сповіщення.
       </div>
       ${maxed
-        ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px">✨ Максимальний рівень!</div>`
+        ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px">${IC.star(14)} Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" onclick="upgradeRing(${invId})">
              ${IC.levelup(14)} Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
            </button>`}`;
@@ -930,7 +934,7 @@ async function loadVillage() {
     document.getElementById('village-npcs').innerHTML = r.npcs.map(npc => `
       <div class="flex-between" style="padding:10px 0;border-bottom:1px solid #eee">
         <div class="flex-row">
-          <span style="font-size:28px">${npc.emoji}</span>
+          ${IC[npc.icon] ? IC[npc.icon](28) : ''}
           <div>
             <div style="font-weight:700">${npc.name}</div>
             <div class="text-muted">${npc.desc}</div>
@@ -994,7 +998,7 @@ function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
         ${slot('helmet')}
         <div class="avatar-frame" ${isOwn ? 'onclick="openAvatarModal()"' : ''}>
           ${getAvatarHtml(avatarUrl, faction, gender)}
-          ${isOwn ? '<div class="avatar-edit-badge">✏️</div>' : ''}
+          ${isOwn ? `<div class="avatar-edit-badge">${IC.camera(14)}</div>` : ''}
         </div>
         ${slot('rune')}
       </div>
@@ -1121,7 +1125,7 @@ async function loadProfile() {
           ${statRow(IC.speed(14), 'Швидкість', p.speed_level,     'speed')}
           ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  'accuracy')}
           <div class="divider"></div>
-          <div style="font-weight:700;margin-bottom:6px">🐾 Питомець</div>
+          <div style="font-weight:700;margin-bottom:6px">${IC.paw(14)} Питомець</div>
           ${statRow(IC.power(14), 'Мощь пит.',    p.pet_power,     'pet_power')}
           ${statRow(IC.endurance(14), 'Стійк. пит.', p.pet_endurance, 'pet_endurance')}
         </div>
@@ -1234,7 +1238,7 @@ async function loadMail() {
     el.innerHTML = r.mail.map(m => `
       <div class="item-card ${m.is_read ? '' : 'unread'}" style="flex-direction:column;align-items:flex-start">
         <div class="flex-between" style="width:100%">
-          <b>${m.is_system ? '${IC.bell(14)} Система' : `✉️ ${m.sender_name}`}</b>
+          <b>${m.is_system ? `${IC.bell(14)} Система` : `${IC.mail(14)} ${m.sender_name}`}</b>
           <button class="btn btn-red btn-sm" onclick="deleteMail(${m.id})">✕</button>
         </div>
         <div style="font-weight:700">${m.subject || '(без теми)'}</div>
@@ -1473,10 +1477,10 @@ async function viewProfile(id) {
         <div class="panel-header">${IC.stats_ic(14)} Характеристики</div>
         <div class="panel-body">
           <div class="flex-row" style="flex-wrap:wrap;gap:10px">
-            <span>⚡ Мощь: <b>${p.power_level}</b></span>
+            <span>${IC.power(14)} Мощь: <b>${p.power_level}</b></span>
             <span>${IC.shield(14)} Стійкість: <b>${p.endurance_level}</b></span>
             <span>${IC.speed(13)} Швидкість: <b>${p.speed_level}</b></span>
-            <span>🎯 Точність: <b>${p.accuracy_level}</b></span>
+            <span>${IC.accuracy(14)} Точність: <b>${p.accuracy_level}</b></span>
           </div>
         </div>
       </div>
@@ -1729,7 +1733,7 @@ async function mineShaft() {
         <div style="font-size:52px;margin-bottom:8px">${IC.gold(14)}</div>
         <div style="font-size:22px;font-weight:700;color:#2e7d32">+${r.gold} золота &nbsp; +${r.exp} досвіду</div>
         ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-top:4px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
-        ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-top:6px">🎉 Новий рівень ${r.newLevel}!</div>` : ''}
+        ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-top:6px">${IC.celebrate(14)} Новий рівень ${r.newLevel}!</div>` : ''}
       </div>`;
     if (r.levelUp) showLevelUpModal(r);
     await refreshPlayer();
@@ -1804,6 +1808,6 @@ async function submitTgSetup() {
   } else {
     err.textContent = d.error || 'Помилка';
     btn.disabled = false;
-    btn.textContent = '🌾 Розпочати гру!';
+    btn.innerHTML = IC.greens(14) + ' Розпочати гру!';
   }
 }

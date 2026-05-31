@@ -184,6 +184,8 @@ CREATE TABLE IF NOT EXISTS clans (
   rating_points    INTEGER DEFAULT 0,
   wars_won         INTEGER DEFAULT 0,
   wars_lost        INTEGER DEFAULT 0,
+  treasury_greens  INTEGER DEFAULT 0,
+  treasury_gold    INTEGER DEFAULT 0,
   created_at       TIMESTAMP DEFAULT NOW()
 );
 
@@ -191,8 +193,52 @@ CREATE TABLE IF NOT EXISTS clan_members (
   id               SERIAL PRIMARY KEY,
   clan_id          INTEGER REFERENCES clans(id) ON DELETE CASCADE,
   player_id        INTEGER UNIQUE REFERENCES players(id) ON DELETE CASCADE,
-  role             VARCHAR(20) DEFAULT 'member' CHECK (role IN ('leader','officer','member')),
+  role             VARCHAR(20) DEFAULT 'member' CHECK (role IN ('leader','senior','officer','member')),
   joined_at        TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS clan_buildings (
+  id           SERIAL PRIMARY KEY,
+  clan_id      INTEGER REFERENCES clans(id) ON DELETE CASCADE,
+  building_key VARCHAR(30) NOT NULL,
+  level        INTEGER DEFAULT 0,
+  UNIQUE(clan_id, building_key)
+);
+
+CREATE TABLE IF NOT EXISTS clan_treasury_log (
+  id         SERIAL PRIMARY KEY,
+  clan_id    INTEGER REFERENCES clans(id) ON DELETE CASCADE,
+  player_id  INTEGER REFERENCES players(id),
+  amount     INTEGER NOT NULL,
+  currency   VARCHAR(10) NOT NULL CHECK (currency IN ('greens','gold')),
+  action     VARCHAR(10) NOT NULL CHECK (action IN ('deposit','withdraw')),
+  note       VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS clan_wars (
+  id             SERIAL PRIMARY KEY,
+  attacker_id    INTEGER REFERENCES clans(id),
+  defender_id    INTEGER REFERENCES clans(id),
+  started_at     TIMESTAMP DEFAULT NOW(),
+  ends_at        TIMESTAMP,
+  status         VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active','finished')),
+  winner_id      INTEGER REFERENCES clans(id),
+  attacker_dmg   INTEGER DEFAULT 0,
+  defender_dmg   INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS clan_tasks (
+  id            SERIAL PRIMARY KEY,
+  clan_id       INTEGER REFERENCES clans(id) ON DELETE CASCADE,
+  task_type     VARCHAR(20) NOT NULL CHECK (task_type IN ('daily','weekly')),
+  description   VARCHAR(200),
+  goal          INTEGER NOT NULL,
+  progress      INTEGER DEFAULT 0,
+  reward_greens INTEGER DEFAULT 0,
+  reward_gold   INTEGER DEFAULT 0,
+  resets_at     TIMESTAMP,
+  completed     BOOLEAN DEFAULT false
 );
 
 CREATE TABLE IF NOT EXISTS friends (
@@ -287,6 +333,16 @@ INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, ac
 ON CONFLICT DO NOTHING;
 
 INSERT INTO items (name, category, price, price_gold, min_level) VALUES
-  ('Кільце злодія',          'ring',     0, 400, 1),
-  ('Талісман золотошукача',  'talisman', 0, 300, 1)
+  ('Кільце злодія',         'ring',     0,    400, 1),
+  ('Кільце Жнеця',          'ring',     300,  0,   5),
+  ('Кільце Берсерка',       'ring',     0,    600, 10),
+  ('Кільце Цілителя',       'ring',     500,  0,   15),
+  ('Кільце Удачі',          'ring',     0,    800, 20),
+  ('Кільце Мудреця',        'ring',     1000, 0,   25),
+  ('Талісман золотошукача', 'talisman', 0,    300, 1),
+  ('Талісман Воїна',        'talisman', 400,  0,   5),
+  ('Талісман Фермера',      'talisman', 350,  0,   8),
+  ('Талісман Захисника',    'talisman', 400,  0,   12),
+  ('Талісман Тіні',         'talisman', 0,    700, 18),
+  ('Талісман Полководця',   'talisman', 0,    600, 22)
 ON CONFLICT DO NOTHING;
