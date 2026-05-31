@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const { pool } = require('../db');
 
 router.post('/register', async (req, res) => {
@@ -115,6 +116,77 @@ router.get('/me', async (req, res) => {
     );
     if (!rows[0]) return res.json({ player: null });
     res.json({ player: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// POST /api/auth/telegram-webapp — auth via Telegram Mini App initData
+router.post('/telegram-webapp', async (req, res) => {
+  try {
+    const { initData } = req.body;
+    if (!initData) return res.status(400).json({ error: 'Немає initData' });
+
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
+    urlParams.delete('hash');
+
+    const dataCheckString = [...urlParams.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => `${k}=${v}`)
+      .join('\n');
+
+    const secretKey = crypto.createHmac('sha256', 'WebAppData')
+      .update(process.env.TELEGRAM_BOT_TOKEN).digest();
+    const computedHash = crypto.createHmac('sha256', secretKey)
+      .update(dataCheckString).digest('hex');
+
+    if (computedHash !== hash)
+      return res.status(401).json({ error: 'Невірний підпис Telegram' });
+
+    const authDate = parseInt(urlParams.get('auth_date') || '0');
+    if (Date.now() / 1000 - authDate > 86400)
+      return res.status(401).json({ error: 'Дані застаріли' });
+
+    const tgUser = JSON.parse(urlParams.get('user') || 'null');
+    if (!tgUser) return res.status(400).json({ error: 'Немає даних користувача' });
+
+    // Find existing player by telegram_id
+    let { rows: [player] } = await pool.query(
+      'SELECT id FROM players WHERE telegram_id=$1', [tgUser.id]
+    );
+
+    if (!player) {
+      // Pick a unique username
+      let username = (tgUser.username || `tg${tgUser.id}`).slice(0, 20);
+      const { rows: [conflict] } = await pool.query(
+        'SELECT id FROM players WHERE username=$1', [username]
+      );
+      if (conflict) username = `tg${tgUser.id}`;
+
+      const faction = Math.random() < 0.5 ? 'elves' : 'orcs';
+      const gender  = Math.random() < 0.5 ? 'male'  : 'female';
+
+      const { rows: [newPlayer] } = await pool.query(
+        `INSERT INTO players (username, password_hash, faction, gender, telegram_id, telegram_username)
+         VALUES ($1,'telegram_auth',$2,$3,$4,$5) RETURNING id`,
+        [username, faction, gender, tgUser.id, tgUser.username || null]
+      );
+      await pool.query('INSERT INTO training (player_id) VALUES ($1)', [newPlayer.id]);
+      await pool.query('INSERT INTO pets (player_id) VALUES ($1)',     [newPlayer.id]);
+      await pool.query(
+        'INSERT INTO plots (player_id, slot_index) VALUES ($1,0),($1,1)', [newPlayer.id]
+      );
+      player = newPlayer;
+    }
+
+    req.session.playerId = player.id;
+    await pool.query(
+      'UPDATE players SET is_online=true, telegram_username=$1 WHERE id=$2',
+      [tgUser.username || null, player.id]
+    );
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

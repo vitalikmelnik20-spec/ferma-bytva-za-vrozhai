@@ -9,6 +9,18 @@ let socket = null;
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 (async function init() {
+  // Telegram Mini App: auto-auth if running inside Telegram
+  if (window.Telegram?.WebApp?.initData) {
+    window.Telegram.WebApp.ready();
+    window.Telegram.WebApp.expand();
+    const r = await fetch('/api/auth/telegram-webapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
+    });
+    if (!r.ok) { window.location.href = '/'; return; }
+  }
+
   const data = await API.get('/api/auth/me');
   if (!data.player) { window.location.href = '/'; return; }
   player = data.player;

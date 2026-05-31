@@ -376,6 +376,15 @@
     Всього гравців: <b id="stat-total">...</b> &nbsp;|&nbsp; Зараз у грі: <b id="stat-online">...</b>
   </div>
 
+  <!-- Telegram login -->
+  <div id="tg-login-block" style="display:none;margin-bottom:8px">
+    <button class="btn btn-full" id="tg-login-btn"
+            style="background:#2AABEE;color:#fff;font-size:15px;font-weight:700;padding:12px;border-radius:10px;border:none;cursor:pointer"
+            onclick="doTelegramLogin()">
+      <span style="font-size:18px">✈️</span> Увійти через Telegram
+    </button>
+  </div>
+
   <!-- Auth tabs -->
   <div class="auth-tabs">
     <button class="auth-tab active" onclick="showTab('login')">Увійти в гру</button>
@@ -446,7 +455,26 @@
 
 </div>
 
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
+  // Auto-auth if opened inside Telegram Mini App
+  (async () => {
+    if (window.Telegram?.WebApp?.initData) {
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      const r = await fetch('/api/auth/telegram-webapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: window.Telegram.WebApp.initData })
+      });
+      if (r.ok) { window.location.href = '/game'; return; }
+    }
+    // Show Telegram button only when initDataUnsafe has user (opened via Telegram but not Mini App context)
+    if (window.Telegram?.WebApp?.initDataUnsafe?.user) {
+      document.getElementById('tg-login-block').style.display = '';
+    }
+  })();
+
   fetch('/api/auth/me').then(r=>r.json()).then(d=>{ if(d.player) window.location.href='/game'; });
   fetch('/api/auth/stats').then(r=>r.json()).then(d=>{
     document.getElementById('stat-total').textContent  = d.total;
@@ -491,6 +519,22 @@
       if(loginVisible) doLogin(); else doRegister();
     }
   });
+
+  async function doTelegramLogin() {
+    const btn = document.getElementById('tg-login-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Підключення...';
+    const initData = window.Telegram?.WebApp?.initData;
+    if (!initData) { btn.textContent = '❌ Помилка: немає даних Telegram'; return; }
+    const r = await fetch('/api/auth/telegram-webapp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ initData })
+    });
+    const d = await r.json();
+    if (d.success) window.location.href = '/game';
+    else { btn.disabled = false; btn.innerHTML = '<span style="font-size:18px">✈️</span> Увійти через Telegram'; alert(d.error); }
+  }
 </script>
 </body>
 </html>
