@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>ФЕРМА: Битва за врожай</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Ubuntu:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<div class="game-wrap">
+
+  <!-- Header -->
+  <header class="game-header">
+    <span class="header-logo">🌾 ФЕРМА</span>
+    <span class="header-stat">❤️ <span id="hdr-hp">-</span></span>
+    <span class="header-stat">🌿 <span id="hdr-greens">-</span></span>
+    <span class="header-stat">⭐ <span id="hdr-gold">-</span></span>
+    <span class="header-stat">💎 <span id="hdr-diamonds">-</span></span>
+  </header>
+
+  <!-- Content -->
+  <main class="game-content">
+
+    <!-- HOME -->
+    <section class="page active" id="page-home">
+      <div class="npc-block" id="npc-block">
+        <div class="npc-avatar" id="npc-avatar">🧝</div>
+        <div class="npc-speech" id="npc-speech">Ласкаво просимо до ферми!</div>
+      </div>
+      <div class="panel mini-profile" id="mini-profile">
+        <div class="panel-body">
+          <div class="mini-avatar" id="mini-avatar">🌾</div>
+          <div class="mini-name" id="mini-name">Завантаження...</div>
+          <div class="mini-level" id="mini-level">Рівень 1 | Слава: 0</div>
+          <div class="exp-bar-wrap"><div class="exp-bar" id="exp-bar" style="width:0%"></div></div>
+          <div class="exp-label" id="exp-label">0 / 100 досвіду</div>
+        </div>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-btn" onclick="navigate('garden')">
+          <span class="menu-icon">🌱</span><span class="menu-label">Огород</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('battle')">
+          <span class="menu-icon">⚔️</span><span class="menu-label">Битва</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('market')">
+          <span class="menu-icon">🛒</span><span class="menu-label">Ринок</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('village')">
+          <span class="menu-icon">🏘️</span><span class="menu-label">Деревня</span>
+        </div>
+      </div>
+      <div class="menu-grid">
+        <div class="menu-btn" onclick="navigate('rating')">
+          <span class="menu-icon">🏆</span><span class="menu-label">Рейтинг</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('friends')">
+          <span class="menu-icon">👥</span><span class="menu-label">Друзі</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('search')">
+          <span class="menu-icon">🔍</span><span class="menu-label">Пошук</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('clans')">
+          <span class="menu-icon">⚡</span><span class="menu-label">Клани</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- GARDEN -->
+    <section class="page" id="page-garden">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          🌱 Огород
+          <button class="btn btn-green btn-sm" onclick="buyPlot()">+ Грядка</button>
+        </div>
+        <div class="panel-body">
+          <div class="plots-grid" id="plots-grid"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BATTLE -->
+    <section class="page" id="page-battle">
+      <div id="battle-opponents-view">
+        <div class="panel mb-12">
+          <div class="panel-header flex-between">
+            ⚔️ Битва
+            <button class="btn btn-blue btn-sm" onclick="loadOpponents()">🔄 Оновити</button>
+          </div>
+          <div class="panel-body">
+            <div id="battle-limit-bar" class="text-muted mb-8"></div>
+            <div id="opponents-list"></div>
+          </div>
+        </div>
+      </div>
+      <div id="battle-fight-view" style="display:none">
+        <div class="panel mb-12">
+          <div class="panel-header">⚔️ Бій!</div>
+          <div class="panel-body">
+            <div id="fight-opponent-info" class="text-center mb-12"></div>
+            <div id="round-progress" class="text-center mb-8" style="font-weight:600;font-size:15px"></div>
+            <div class="zone-picker" id="zone-picker">
+              <button class="zone-btn" onclick="selectZoneForRound('head')">
+                <span class="zone-icon">🪖</span>Голова
+              </button>
+              <button class="zone-btn" onclick="selectZoneForRound('body')">
+                <span class="zone-icon">🛡️</span>Корпус
+              </button>
+              <button class="zone-btn" onclick="selectZoneForRound('legs')">
+                <span class="zone-icon">🦵</span>Ноги
+              </button>
+            </div>
+            <div id="fight-round-log" style="margin-top:10px"></div>
+            <button class="btn btn-gray btn-full" style="margin-top:8px" onclick="showOpponents()">← Назад</button>
+          </div>
+        </div>
+      </div>
+      <div id="battle-result-view" style="display:none">
+        <div class="panel">
+          <div class="panel-header">Результат бою</div>
+          <div class="panel-body" id="battle-result-body"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- MARKET -->
+    <section class="page" id="page-market">
+      <div class="panel mb-12">
+        <div class="panel-header">🛒 Ринок</div>
+        <div class="panel-body">
+          <div class="category-tabs" id="market-tabs">
+            <button class="cat-tab active" onclick="filterMarket('all')">Всі</button>
+            <button class="cat-tab" onclick="filterMarket('weapon')">⚔️ Зброя</button>
+            <button class="cat-tab" onclick="filterMarket('armor')">🛡️ Броня</button>
+            <button class="cat-tab" onclick="filterMarket('shield')">🔰 Щити</button>
+            <button class="cat-tab" onclick="filterMarket('helmet')">🪖 Шоломи</button>
+            <button class="cat-tab" onclick="filterMarket('potion')">🧪 Настої</button>
+            <button class="cat-tab" onclick="filterMarket('rune')">🔮 Руни</button>
+            <button class="cat-tab" onclick="filterMarket('ring')">💍 Кільця</button>
+            <button class="cat-tab" onclick="filterMarket('talisman')">🏺 Таліcмани</button>
+          </div>
+          <div id="market-items"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header">🎒 Інвентар</div>
+        <div class="panel-body" id="inventory-list"></div>
+      </div>
+    </section>
+
+    <!-- VILLAGE -->
+    <section class="page" id="page-village">
+      <div class="panel mb-12">
+        <div class="panel-header">🏘️ Деревня</div>
+        <div class="panel-body" id="village-npcs"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header flex-between">
+          ⛏️ Печери
+          <button class="btn btn-orange btn-sm" onclick="navigate('caves')">Увійти</button>
+        </div>
+        <div class="panel-body" id="village-caves-status">
+          <p class="text-muted">Щоденне джерело золота і досвіду</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- CAVES -->
+    <section class="page" id="page-caves">
+      <div class="panel">
+        <div class="panel-header">⛏️ Печери</div>
+        <div class="panel-body" id="caves-content">
+          <p class="text-muted text-center">Завантаження...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROFILE -->
+    <section class="page" id="page-profile">
+      <div id="profile-content"></div>
+    </section>
+
+    <!-- CHAT -->
+    <section class="page" id="page-chat">
+      <div class="panel" style="margin-bottom:0">
+        <div class="panel-header">💬 Глобальний чат</div>
+      </div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Повідомлення..." maxlength="200">
+        <button class="btn btn-green" onclick="sendChat()">▶</button>
+      </div>
+    </section>
+
+    <!-- FRIENDS -->
+    <section class="page" id="page-friends">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          👥 Друзі
+          <button class="btn btn-blue btn-sm" onclick="showAddFriend()">+ Додати</button>
+        </div>
+        <div class="panel-body" id="friends-list"></div>
+      </div>
+    </section>
+
+    <!-- SEARCH -->
+    <section class="page" id="page-search">
+      <div class="panel mb-12">
+        <div class="panel-header">🔍 Пошук гравця</div>
+        <div class="panel-body">
+          <div class="flex-row mb-8">
+            <input type="text" id="search-input" placeholder="Нікнейм..." style="flex:1;padding:8px;border:1.5px solid #ccc;border-radius:6px">
+            <button class="btn btn-blue" onclick="doSearch()">Шукати</button>
+          </div>
+          <div id="search-results"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RATING -->
+    <section class="page" id="page-rating">
+      <div class="panel">
+        <div class="panel-header">🏆 Рейтинг гравців</div>
+        <div class="panel-body" id="rating-list"></div>
+      </div>
+    </section>
+
+    <!-- CLANS -->
+    <section class="page" id="page-clans">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          ⚡ Клани
+          <button class="btn btn-green btn-sm" onclick="showCreateClan()">+ Створити</button>
+        </div>
+        <div class="panel-body" id="clans-list"></div>
+      </div>
+    </section>
+
+    <!-- STATISTICS -->
+    <section class="page" id="page-stats">
+      <div style="padding:12px 0 4px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('profile')">← Назад до профілю</button>
+      </div>
+      <div id="stats-content"></div>
+    </section>
+
+    <!-- PUBLIC PROFILE (view other player) -->
+    <section class="page" id="page-pubprofile">
+      <div id="pubprofile-content"></div>
+    </section>
+
+    <!-- ADMIN -->
+    <section class="page" id="page-admin">
+      <div class="panel mb-12">
+        <div class="panel-header">🔧 Адмін панель</div>
+        <div class="panel-body">
+          <div class="admin-stats" id="admin-stats"></div>
+          <div class="flex-row mb-8">
+            <input type="text" id="admin-search" placeholder="Пошук гравця..." style="flex:1;padding:8px;border:1.5px solid #ccc;border-radius:6px">
+            <button class="btn btn-blue" onclick="adminSearch()">Знайти</button>
+          </div>
+          <div id="admin-players"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-page="home" onclick="navigate('home')">
+      <span class="nav-icon">🏠</span>Головна
+    </button>
+    <button class="nav-btn" data-page="garden" onclick="navigate('garden')">
+      <span class="nav-icon">🌱</span>Огород
+    </button>
+    <button class="nav-btn" data-page="battle" onclick="navigate('battle')">
+      <span class="nav-icon">⚔️</span>Битва
+    </button>
+    <button class="nav-btn" data-page="profile" onclick="navigate('profile')">
+      <span class="nav-icon">👤</span>Персонаж
+    </button>
+    <button class="nav-btn" data-page="chat" onclick="navigate('chat')">
+      <span class="nav-icon">💬</span>Чат
+    </button>
+  </nav>
+
+</div>
+
+<!-- Plant picker modal -->
+<div class="modal-overlay" id="plant-modal" style="display:none" onclick="closePlantModal(event)">
+  <div class="modal-box">
+    <div class="modal-header">
+      🌱 Виберіть рослину
+      <button class="modal-close" onclick="closePlantModal()">✕</button>
+    </div>
+    <div class="plant-list" id="plant-list"></div>
+  </div>
+</div>
+
+<!-- Avatar picker modal -->
+<div class="modal-overlay" id="avatar-modal" style="display:none" onclick="closeAvatarModal(event)">
+  <div class="modal-box" style="max-width:340px;width:92%;padding:0">
+    <div class="modal-header">
+      🖼️ Аватар
+      <button class="modal-close" onclick="closeAvatarModal()">✕</button>
+    </div>
+    <div style="padding:14px">
+      <label class="btn btn-blue btn-full" style="cursor:pointer;text-align:center;margin-bottom:12px">
+        📷 Завантажити своє фото
+        <input type="file" id="avatar-file-input" style="display:none" accept="image/*" onchange="uploadAvatar(this)">
+      </label>
+      <div style="font-weight:700;margin-bottom:8px;font-size:13px;color:#5d4037">Або виберіть персонажа:</div>
+      <div class="preset-avatar-grid" id="preset-avatar-grid"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Level-up modal -->
+<div class="modal-overlay" id="levelup-modal" style="display:none" onclick="closeLevelUpModal(event)">
+  <div class="modal-box levelup-box">
+    <div class="levelup-header">🎉 Вітаємо!</div>
+    <div class="levelup-body" id="levelup-body"></div>
+  </div>
+</div>
+
+<!-- Talisman upgrade modal -->
+<div class="modal-overlay" id="talisman-modal" style="display:none" onclick="closeTalismanModal(event)">
+  <div class="modal-box" style="max-width:320px;width:92%">
+    <div class="modal-header">
+      🏺 Талісман золотошукача
+      <button class="modal-close" onclick="closeTalismanModal()">✕</button>
+    </div>
+    <div style="padding:14px" id="talisman-modal-body"></div>
+  </div>
+</div>
+
+<!-- Ring upgrade modal -->
+<div class="modal-overlay" id="ring-modal" style="display:none" onclick="closeRingModal(event)">
+  <div class="modal-box" style="max-width:320px;width:92%">
+    <div class="modal-header">
+      💍 Кільце злодія
+      <button class="modal-close" onclick="closeRingModal()">✕</button>
+    </div>
+    <div style="padding:14px" id="ring-modal-body"></div>
+  </div>
+</div>
+
+<!-- Cave mine notification -->
+<div id="cave-notif" style="display:none">
+  <div class="cave-notif-icon">⛏️</div>
+  <div class="cave-notif-text">
+    <div class="cave-notif-title">Шахта готова!</div>
+    <div class="cave-notif-sub" id="cave-notif-sub">Встигни добути золото</div>
+  </div>
+  <button class="cave-notif-btn" onclick="goToCaveMine()">Добути!</button>
+  <button class="cave-notif-close" onclick="closeCaveNotif()">✕</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

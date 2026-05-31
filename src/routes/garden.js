@@ -1,0 +1,316 @@
+const router = require('express').Router();
+const requireAuth = require('../middleware/requireAuth');
+const { pool } = require('../db');
+
+router.use(requireAuth);
+
+// Get own plots + plants reference
+router.get('/', async (req, res) => {
+  try {
+    const plots = await pool.query(
+      `SELECT pl.*, p.name as plant_name, p.emoji as plant_emoji,
+              p.greens_reward, p.exp_reward,
+              EXTRACT(EPOCH FROM (pl.ready_at - NOW())) as seconds_left
+       FROM plots pl
+       LEFT JOIN plants p ON p.id = pl.plant_id
+       WHERE pl.player_id = $1
+       ORDER BY pl.slot_index`,
+      [req.session.playerId]
+    );
+
+    // Auto-mark ready plots
+    await pool.query(
+      `UPDATE plots SET status='ready'
+       WHERE player_id=$1 AND status='growing' AND ready_at <= NOW()`,
+      [req.session.playerId]
+    );
+
+    const plantsRef = await pool.query(
+      `SELECT * FROM plants WHERE min_level <= (SELECT level FROM players WHERE id=$1) ORDER BY min_level`,
+      [req.session.playerId]
+    );
+
+    const plotCount = await pool.query(
+      'SELECT COUNT(*) FROM plots WHERE player_id=$1',
+      [req.session.playerId]
+    );
+
+    res.json({
+      plots: plots.rows,
+      plants: plantsRef.rows,
+      plotCount: parseInt(plotCount.rows[0].count)
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Buy new plot
+router.post('/buy', async (req, res) => {
+  try {
+    const { rows: [player] } = await pool.query(
+      'SELECT gold, level FROM players WHERE id=$1',
+      [req.session.playerId]
+    );
+    const { rows: countRow } = await pool.query(
+      'SELECT COUNT(*) FROM plots WHERE player_id=$1',
+      [req.session.playerId]
+    );
+    const currentCount = parseInt(countRow[0].count);
+    const cost = 200 * (currentCount + 1);
+
+    if (player.gold < cost)
+      return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${cost}` });
+
+    await pool.query('UPDATE players SET gold = gold - $1 WHERE id=$2', [cost, req.session.playerId]);
+    await pool.query(
+      'INSERT INTO plots (player_id, slot_index) VALUES ($1, $2)',
+      [req.session.playerId, currentCount]
+    );
+
+    res.json({ success: true, cost, newSlot: currentCount });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Plant seed
+router.post('/:plotId/plant', async (req, res) => {
+  const { plantId } = req.body;
+  try {
+    const { rows: [plot] } = await pool.query(
+      'SELECT * FROM plots WHERE id=$1 AND player_id=$2',
+      [req.params.plotId, req.session.playerId]
+    );
+    if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
+    if (plot.status !== 'empty') return res.status(400).json({ error: 'Грядка не порожня' });
+
+    const { rows: [plant] } = await pool.query('SELECT * FROM plants WHERE id=$1', [plantId]);
+    if (!plant) return res.status(404).json({ error: 'Рослину не знайдено' });
+
+    const { rows: [player] } = await pool.query(
+      'SELECT greens, level FROM players WHERE id=$1',
+      [req.session.playerId]
+    );
+    if (player.level < plant.min_level)
+      return res.status(400).json({ error: `Потрібен рівень ${plant.min_level}` });
+    if (player.greens < plant.seed_price)
+      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${plant.seed_price}` });
+
+    const readyAt = new Date(Date.now() + plant.growth_minutes * 60000);
+    await pool.query('UPDATE players SET greens = greens - $1, plants_planted = plants_planted + 1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
+    await pool.query(
+      `UPDATE plots SET plant_id=$1, planted_at=NOW(), ready_at=$2, status='growing', watered=false, watered_by=NULL
+       WHERE id=$3`,
+      [plantId, readyAt, req.params.plotId]
+    );
+
+    res.json({ success: true, readyAt });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Water own plot
+router.post('/:plotId/water', async (req, res) => {
+  try {
+    const { rows: [plot] } = await pool.query(
+      'SELECT * FROM plots WHERE id=$1 AND player_id=$2',
+      [req.params.plotId, req.session.playerId]
+    );
+    if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
+    if (plot.status !== 'growing') return res.status(400).json({ error: 'Грядка не росте' });
+    if (plot.watered) return res.status(400).json({ error: 'Вже полита' });
+
+    // Reduce remaining time by 10%
+    await pool.query(
+      `UPDATE plots
+       SET watered=true,
+           ready_at = NOW() + (ready_at - NOW()) * 0.9
+       WHERE id=$1`,
+      [req.params.plotId]
+    );
+    await pool.query('UPDATE players SET plots_watered = plots_watered + 1 WHERE id=$1', [req.session.playerId]);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Water friend's plot
+router.post('/friend/:plotId/water', async (req, res) => {
+  try {
+    const { rows: [plot] } = await pool.query(
+      'SELECT * FROM plots WHERE id=$1',
+      [req.params.plotId]
+    );
+    if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
+    if (plot.player_id === req.session.playerId)
+      return res.status(400).json({ error: 'Не можна поливати власні грядки тут' });
+    if (plot.status !== 'growing') return res.status(400).json({ error: 'Грядка не росте' });
+    if (plot.watered) return res.status(400).json({ error: 'Вже полита' });
+
+    // Check friendship
+    const { rows: friendship } = await pool.query(
+      `SELECT id FROM friends
+       WHERE status='accepted'
+         AND ((requester_id=$1 AND addressee_id=$2) OR (requester_id=$2 AND addressee_id=$1))`,
+      [req.session.playerId, plot.player_id]
+    );
+    if (!friendship.length)
+      return res.status(403).json({ error: 'Тільки друзі можуть поливати грядки' });
+
+    await pool.query(
+      `UPDATE plots
+       SET watered=true, watered_by=$1,
+           ready_at = NOW() + (ready_at - NOW()) * 0.9
+       WHERE id=$2`,
+      [req.session.playerId, req.params.plotId]
+    );
+    // Reward waterer
+    await pool.query(
+      'UPDATE players SET greens = greens + 5 WHERE id=$1',
+      [req.session.playerId]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Harvest
+router.post('/:plotId/harvest', async (req, res) => {
+  try {
+    // Re-check status
+    await pool.query(
+      `UPDATE plots SET status='ready'
+       WHERE id=$1 AND player_id=$2 AND status='growing' AND ready_at <= NOW()`,
+      [req.params.plotId, req.session.playerId]
+    );
+
+    const { rows: [plot] } = await pool.query(
+      'SELECT * FROM plots WHERE id=$1 AND player_id=$2',
+      [req.params.plotId, req.session.playerId]
+    );
+    if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
+    if (plot.status !== 'ready') return res.status(400).json({ error: 'Врожай ще не готовий' });
+
+    const { rows: [plant] } = await pool.query('SELECT * FROM plants WHERE id=$1', [plot.plant_id]);
+
+    // Give rewards
+    const { rows: [player] } = await pool.query(
+      'SELECT level, experience, exp_to_next FROM players WHERE id=$1',
+      [req.session.playerId]
+    );
+
+    let newExp = player.experience + plant.exp_reward;
+    let newLevel = player.level;
+    let newExpToNext = player.exp_to_next;
+    let levelUp = false;
+    let levelReward = 0;
+    let goldReward = 0;
+
+    while (newExp >= newExpToNext) {
+      newExp -= newExpToNext;
+      newLevel++;
+      newExpToNext = Math.floor(newExpToNext * 1.5);
+      levelUp = true;
+      levelReward += newLevel * 500;
+      goldReward  += newLevel * 5;
+    }
+
+    const hpBonus = levelUp ? (newLevel - player.level) * 100 : 0;
+    await pool.query(
+      `UPDATE players
+       SET greens        = greens + $1,
+           gold          = gold + $2,
+           experience    = $3,
+           exp_to_next   = $4,
+           level         = $5,
+           max_hp        = max_hp + $6,
+           total_harvest = total_harvest + $7
+       WHERE id = $8`,
+      [plant.greens_reward + levelReward, goldReward, newExp, newExpToNext, newLevel,
+       hpBonus, plant.greens_reward, req.session.playerId]
+    );
+
+    await pool.query(
+      `UPDATE plots SET plant_id=NULL, planted_at=NULL, ready_at=NULL,
+              status='empty', watered=false, watered_by=NULL WHERE id=$1`,
+      [req.params.plotId]
+    );
+
+    let unlockedItems = [];
+    if (levelUp) {
+      const { rows: items } = await pool.query(
+        `SELECT name, category FROM items WHERE min_level = $1`, [newLevel]
+      );
+      const { rows: plants } = await pool.query(
+        `SELECT name, emoji FROM plants WHERE min_level = $1`, [newLevel]
+      );
+      unlockedItems = [
+        ...items.map(i => ({ name: i.name, type: 'item', category: i.category })),
+        ...plants.map(p => ({ name: p.name, type: 'plant', emoji: p.emoji })),
+      ];
+    }
+
+    res.json({
+      success: true,
+      greens: plant.greens_reward,
+      exp: plant.exp_reward,
+      levelUp,
+      newLevel,
+      levelReward,
+      goldReward,
+      newExpToNext,
+      unlockedItems,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// Get friend's plots (for viewing/watering)
+router.get('/friend/:playerId', async (req, res) => {
+  try {
+    const { rows: friendship } = await pool.query(
+      `SELECT id FROM friends
+       WHERE status='accepted'
+         AND ((requester_id=$1 AND addressee_id=$2) OR (requester_id=$2 AND addressee_id=$1))`,
+      [req.session.playerId, req.params.playerId]
+    );
+    if (!friendship.length)
+      return res.status(403).json({ error: 'Тільки друзі можуть бачити огород' });
+
+    await pool.query(
+      `UPDATE plots SET status='ready'
+       WHERE player_id=$1 AND status='growing' AND ready_at <= NOW()`,
+      [req.params.playerId]
+    );
+
+    const { rows } = await pool.query(
+      `SELECT pl.*, p.name as plant_name, p.emoji as plant_emoji,
+              EXTRACT(EPOCH FROM (pl.ready_at - NOW())) as seconds_left
+       FROM plots pl
+       LEFT JOIN plants p ON p.id = pl.plant_id
+       WHERE pl.player_id = $1
+       ORDER BY pl.slot_index`,
+      [req.params.playerId]
+    );
+
+    res.json({ plots: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+module.exports = router;
