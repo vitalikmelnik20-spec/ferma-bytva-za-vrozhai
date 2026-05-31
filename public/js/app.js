@@ -23,6 +23,8 @@ const IC = {
   check:     (s=14) => `<img src="/icons/ui/check.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   inventory: (s=14) => `<img src="/icons/ui/inventory.svg"  width="${s}" height="${s}" style="vertical-align:middle">`,
   refresh:   (s=14) => `<img src="/icons/ui/refresh.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  level:     (s=14) => `<img src="/icons/stats/level.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  plot_ic:   (s=14) => `<img src="/icons/ui/plot.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
   levelup:   (s=14) => `<img src="/icons/ui/levelup.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
   admin:     (s=14) => `<img src="/icons/ui/admin.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   celebrate: (s=14) => `<img src="/icons/ui/celebrate.svg"  width="${s}" height="${s}" style="vertical-align:middle">`,
@@ -1093,7 +1095,7 @@ async function loadProfile() {
       <div class="panel mb-12">
         <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
         ${infoRow(p.is_online ? '🟢' : '⚫', 'Статус', p.is_online ? 'Зараз онлайн' : 'Офлайн')}
-        ${infoRow(IC.levelup(14), 'Рівень', p.level)}
+        ${infoRow(IC.level(14), 'Рівень', p.level)}
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
@@ -1168,7 +1170,7 @@ async function loadStats() {
       </div>
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
-        ${row(IC.levelup(14), 'Рівень',         p.level)}
+        ${row(IC.level(14), 'Рівень',         p.level)}
         ${row(IC.exp(14), 'Досвід',          fmtNum(p.experience))}
         ${row(IC.exp(14), 'Наст. рівень',    fmtNum(p.exp_to_next))}
         ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
@@ -1183,11 +1185,11 @@ async function loadStats() {
         <div class="stats-section-title">${IC.stats_ic(14)} Статистика</div>
         ${row('🟢', 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
         ${row('🔴', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
-        ${row(IC.levelup(14), 'Посаджено рослин', fmtNum(p.plants_planted))}
+        ${row(IC.plot_ic(14), 'Посаджено рослин', fmtNum(p.plants_planted))}
         ${row(IC.water(14), 'Полито рослин',    fmtNum(p.plots_watered))}
         ${row(IC.greens(14), 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
         ${row(IC.pickaxe(14), 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
-        ${row(IC.pickaxe(14), 'Добуто в печерах', `${fmtNum(r.cavesGold)} золота`)}
+        ${row(IC.pickaxe(14), 'Добуто в печерах', `${IC.gold(14)} ${fmtNum(r.cavesGold)}`)}
       </div>`;
   } catch (e) { toast(e.message, true); }
 }
@@ -1448,7 +1450,7 @@ async function viewProfile(id) {
 
       <div class="panel mb-12">
         <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
-        ${infoRow(IC.levelup(14), 'Рівень', p.level)}
+        ${infoRow(IC.level(14), 'Рівень', p.level)}
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
