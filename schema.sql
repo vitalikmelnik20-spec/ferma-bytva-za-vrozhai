@@ -93,7 +93,10 @@ CREATE TABLE IF NOT EXISTS items (
   min_level        INTEGER DEFAULT 1,
   duration_hours   INTEGER,
   is_active        BOOLEAN DEFAULT true,
-  price_gold       INTEGER DEFAULT 0
+  price_gold       INTEGER DEFAULT 0,
+  effect_type      VARCHAR(50),
+  effect_value     INTEGER DEFAULT 0,
+  effect_rounds    INTEGER DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS inventory (
@@ -241,6 +244,39 @@ CREATE TABLE IF NOT EXISTS clan_tasks (
   completed     BOOLEAN DEFAULT false
 );
 
+CREATE TABLE IF NOT EXISTS item_runes (
+  id          SERIAL PRIMARY KEY,
+  inv_id      INTEGER REFERENCES inventory(id) ON DELETE CASCADE,
+  rune_inv_id INTEGER UNIQUE REFERENCES inventory(id) ON DELETE CASCADE,
+  slot_index  INTEGER NOT NULL CHECK (slot_index BETWEEN 0 AND 2)
+);
+
+CREATE TABLE IF NOT EXISTS active_potions (
+  id          SERIAL PRIMARY KEY,
+  player_id   INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  potion_name VARCHAR(100),
+  effect_type VARCHAR(50),
+  effect_value INTEGER DEFAULT 0,
+  battles_left INTEGER,
+  expires_at  TIMESTAMP,
+  created_at  TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS player_ingredients (
+  id              SERIAL PRIMARY KEY,
+  player_id       INTEGER REFERENCES players(id) ON DELETE CASCADE,
+  ingredient_name VARCHAR(100) NOT NULL,
+  quantity        INTEGER DEFAULT 0,
+  UNIQUE(player_id, ingredient_name)
+);
+
+CREATE TABLE IF NOT EXISTS recipes (
+  id          SERIAL PRIMARY KEY,
+  potion_name VARCHAR(100) NOT NULL,
+  ingredients JSONB NOT NULL,
+  min_level   INTEGER DEFAULT 1
+);
+
 CREATE TABLE IF NOT EXISTS friends (
   id               SERIAL PRIMARY KEY,
   requester_id     INTEGER REFERENCES players(id) ON DELETE CASCADE,
@@ -315,23 +351,42 @@ INSERT INTO plants (name, emoji, growth_minutes, greens_reward, exp_reward, seed
   ('Чарівний гриб',    '🍄', 180,  500,  200, 500, 8)
 ON CONFLICT DO NOTHING;
 
--- Seed: предмети
+-- Seed: предмети (зброя, броня, щити, шоломи)
 INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, price, min_level) VALUES
-  ('Дерев''яний кий',     'weapon',  5,  0,   0,  0,  100,  1),
-  ('Залізний меч',        'weapon',  15, 0,   0,  5,  500,  3),
-  ('Сталевий топір',      'weapon',  25, 5,   0,  0,  1200, 5),
-  ('Коса смерті',         'weapon',  40, 0,   10, 0,  3000, 8),
-  ('Шкіряний жилет',      'armor',   0,  8,   0,  0,  150,  1),
-  ('Кольчуга',            'armor',   0,  20,  0,  0,  600,  4),
-  ('Лицарська броня',     'armor',   0,  35,  -5, 0,  2000, 7),
-  ('Дерев''яний щит',     'shield',  0,  5,   0,  0,  80,   1),
-  ('Залізний щит',        'shield',  0,  15,  0,  0,  400,  3),
-  ('Шолом воїна',         'helmet',  3,  5,   0,  0,  200,  2),
-  ('Зілля сили',          'potion',  10, 0,   0,  0,  300,  1),
-  ('Зілля витривалості',  'potion',  0,  10,  0,  0,  300,  1),
-  ('Зілля швидкості',     'potion',  0,  0,   10, 0,  300,  1),
-  ('Руна вогню',          'rune',    8,  0,   0,  5,  500,  4),
-  ('Руна льоду',          'rune',    0,  8,   0,  5,  500,  4)
+  ('Дерев''яний кий',  'weapon',  5,  0,   0,  0,  100,  1),
+  ('Залізний меч',     'weapon',  15, 0,   0,  5,  500,  3),
+  ('Сталевий топір',   'weapon',  25, 5,   0,  0,  1200, 5),
+  ('Коса смерті',      'weapon',  40, 0,   10, 0,  3000, 8),
+  ('Шкіряний жилет',   'armor',   0,  8,   0,  0,  150,  1),
+  ('Кольчуга',         'armor',   0,  20,  0,  0,  600,  4),
+  ('Лицарська броня',  'armor',   0,  35,  -5, 0,  2000, 7),
+  ('Дерев''яний щит',  'shield',  0,  5,   0,  0,  80,   1),
+  ('Залізний щит',     'shield',  0,  15,  0,  0,  400,  3),
+  ('Шолом воїна',      'helmet',  3,  5,   0,  0,  200,  2)
+ON CONFLICT DO NOTHING;
+
+-- Seed: зілля (з effect_type/value/rounds)
+INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, price, min_level, effect_type, effect_value, effect_rounds) VALUES
+  ('Зілля сили',          'potion', 15, 0,  0,  0,  300,  1,  'power',        15, 3),
+  ('Зілля стійкості',     'potion', 0,  15, 0,  0,  300,  1,  'endurance',    15, 3),
+  ('Зілля швидкості',     'potion', 0,  0,  15, 0,  300,  1,  'speed',        15, 3),
+  ('Зілля точності',      'potion', 0,  0,  0,  15, 350,  3,  'accuracy',     15, 3),
+  ('Зілля лікування',     'potion', 0,  0,  0,  0,  400,  5,  'heal',         30, 0),
+  ('Зілля врожаю',        'potion', 0,  0,  0,  0,  600,  8,  'harvest',      25, -1),
+  ('Велике зілля сили',   'potion', 35, 0,  0,  0,  1200, 15, 'power',        35, 5),
+  ('Зілля невразливості', 'potion', 0,  0,  0,  0,  1800, 20, 'damage_reduce',30, 2)
+ON CONFLICT DO NOTHING;
+
+-- Seed: руни
+INSERT INTO items (name, category, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, price, min_level) VALUES
+  ('Руна вогню',      'rune', 8,  0,  0,  5,  500,  4),
+  ('Руна льоду',      'rune', 0,  8,  0,  5,  500,  4),
+  ('Руна Блискавки',  'rune', 10, 0,  10, 0,  800,  6),
+  ('Руна Землі',      'rune', 0,  15, 0,  0,  800,  6),
+  ('Руна Вітру',      'rune', 0,  0,  20, 5,  1000, 8),
+  ('Руна Тьми',       'rune', 12, 0,  0,  12, 1200, 10),
+  ('Руна Світла',     'rune', 0,  12, 8,  0,  1200, 10),
+  ('Руна Дракона',    'rune', 20, 10, 10, 10, 2500, 15)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO items (name, category, price, price_gold, min_level) VALUES
@@ -347,4 +402,16 @@ INSERT INTO items (name, category, price, price_gold, min_level) VALUES
   ('Талісман Захисника',    'talisman', 400,  0,   12),
   ('Талісман Тіні',         'talisman', 0,    700, 18),
   ('Талісман Полководця',   'talisman', 0,    600, 22)
+ON CONFLICT DO NOTHING;
+
+-- Seed: рецепти для алхіміка
+INSERT INTO recipes (potion_name, ingredients, min_level) VALUES
+  ('Зілля сили',          '[{"qty":3,"src":"plants","name":"Пшениця"},{"qty":2,"src":"plants","name":"Морква"}]',                               1),
+  ('Зілля стійкості',     '[{"qty":3,"src":"plants","name":"Капуста"},{"qty":2,"src":"plants","name":"Морква"}]',                               1),
+  ('Зілля швидкості',     '[{"qty":2,"src":"plants","name":"Соняшник"},{"qty":3,"src":"plants","name":"Пшениця"}]',                             1),
+  ('Зілля точності',      '[{"qty":4,"src":"plants","name":"Морква"},{"qty":1,"src":"plants","name":"Гарбуз"}]',                                3),
+  ('Зілля лікування',     '[{"qty":1,"src":"inventory","name":"Зілля сили"},{"qty":2,"src":"plants","name":"Капуста"}]',                        5),
+  ('Зілля врожаю',        '[{"qty":2,"src":"plants","name":"Виноград"},{"qty":1,"src":"plants","name":"Диня"}]',                                8),
+  ('Велике зілля сили',   '[{"qty":2,"src":"inventory","name":"Зілля сили"},{"qty":1,"src":"inventory","name":"Руна вогню"}]',                  15),
+  ('Зілля невразливості', '[{"qty":2,"src":"inventory","name":"Зілля стійкості"},{"qty":1,"src":"plants","name":"Чарівний гриб"}]',             20)
 ON CONFLICT DO NOTHING;
