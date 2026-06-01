@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { getClanBonuses } = require('../utils/clanBonuses');
+const { updateClanTask } = require('../utils/clanTasks');
 
 router.use(requireAuth);
 
@@ -101,6 +103,7 @@ router.post('/:plotId/plant', async (req, res) => {
 
     const readyAt = new Date(Date.now() + plant.growth_minutes * 60000);
     await pool.query('UPDATE players SET greens = greens - $1, plants_planted = plants_planted + 1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
+    updateClanTask(req.session.playerId, 'plant_seeds', 1);
     await pool.query(
       `UPDATE plots SET plant_id=$1, planted_at=NOW(), ready_at=$2, status='growing', watered=false, watered_by=NULL
        WHERE id=$3`,
@@ -204,13 +207,20 @@ router.post('/:plotId/harvest', async (req, res) => {
 
     const { rows: [plant] } = await pool.query('SELECT * FROM plants WHERE id=$1', [plot.plant_id]);
 
+    // Clan building bonuses: Велика Ферма +5% зелені/рів, Академія +5% досвіду/рів
+    const bonuses = await getClanBonuses(req.session.playerId);
+    const farmPct    = (bonuses.farm    || 0) * 5;
+    const academyPct = (bonuses.academy || 0) * 5;
+    const greensEarned = Math.floor(plant.greens_reward * (1 + farmPct / 100));
+    const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
+
     // Give rewards
     const { rows: [player] } = await pool.query(
       'SELECT level, experience, exp_to_next FROM players WHERE id=$1',
       [req.session.playerId]
     );
 
-    let newExp = player.experience + plant.exp_reward;
+    let newExp = player.experience + expEarned;
     let newLevel = player.level;
     let newExpToNext = player.exp_to_next;
     let levelUp = false;
@@ -237,9 +247,10 @@ router.post('/:plotId/harvest', async (req, res) => {
            max_hp        = max_hp + $6,
            total_harvest = total_harvest + $7
        WHERE id = $8`,
-      [plant.greens_reward + levelReward, goldReward, newExp, newExpToNext, newLevel,
-       hpBonus, plant.greens_reward, req.session.playerId]
+      [greensEarned + levelReward, goldReward, newExp, newExpToNext, newLevel,
+       hpBonus, greensEarned, req.session.playerId]
     );
+    updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
 
     await pool.query(
       `UPDATE plots SET plant_id=NULL, planted_at=NULL, ready_at=NULL,
@@ -263,8 +274,8 @@ router.post('/:plotId/harvest', async (req, res) => {
 
     res.json({
       success: true,
-      greens: plant.greens_reward,
-      exp: plant.exp_reward,
+      greens: greensEarned,
+      exp: expEarned,
       levelUp,
       newLevel,
       levelReward,

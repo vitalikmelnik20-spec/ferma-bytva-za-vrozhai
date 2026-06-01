@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { getClanBonuses } = require('../utils/clanBonuses');
+const { updateClanTask } = require('../utils/clanTasks');
 
 router.use(requireAuth);
 
@@ -131,7 +133,12 @@ router.post('/mine', async (req, res) => {
       return res.status(400).json({ error: 'Шахта вже зникла' });
 
     const baseGold = randomGold();
-    const exp  = Math.floor(Math.random() * 16) + 5;
+    // Clan bonuses: Шахта +1 золото/рів, Академія +5% досвіду/рів
+    const clanB = await getClanBonuses(req.session.playerId);
+    const mineBonus    = clanB.mine    || 0;
+    const academyPct   = (clanB.academy || 0) * 5;
+    const baseExp = Math.floor(Math.random() * 16) + 5;
+    const exp = Math.floor(baseExp * (1 + academyPct / 100));
 
     // Talisman of the Gold Seeker bonus
     const { rows: [talisman] } = await pool.query(
@@ -141,7 +148,7 @@ router.post('/mine', async (req, res) => {
       [req.session.playerId]
     );
     const talismanBonus = talisman ? Math.floor(baseGold * talisman.bonus_pct / 100) : 0;
-    const gold = baseGold + talismanBonus;
+    const gold = baseGold + talismanBonus + mineBonus;
 
     // Level-up check
     const { rows: [player] } = await pool.query(
@@ -189,7 +196,8 @@ router.post('/mine', async (req, res) => {
       updatedSession = u;
     }
 
-    res.json({ gold, baseGold, talismanBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, session: updatedSession });
+    updateClanTask(req.session.playerId, 'mine_gold', gold);
+    res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, session: updatedSession });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

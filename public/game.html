@@ -375,6 +375,17 @@
   </div>
 </div>
 
+<!-- Generic clan modal (deposit/withdraw/war) -->
+<div class="modal-overlay" id="clan-modal" style="display:none" onclick="if(event.target===this)closeClanModal()">
+  <div class="modal-box" style="max-width:380px;width:96%;max-height:80vh;overflow-y:auto">
+    <div class="modal-header">
+      <img src="/icons/ui/battle.svg" width="16" height="16" style="vertical-align:middle"> Клан
+      <button class="modal-close" onclick="closeClanModal()">✕</button>
+    </div>
+    <div id="clan-modal-body"></div>
+  </div>
+</div>
+
 <!-- Create clan modal -->
 <div class="modal-overlay" id="create-clan-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
   <div class="modal-box" style="max-width:360px;width:94%">

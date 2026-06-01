@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { getClanBonuses } = require('../utils/clanBonuses');
+const { updateClanTask } = require('../utils/clanTasks');
 
 router.use(requireAuth);
 
@@ -106,6 +108,37 @@ function fetchPlayerWithStats(playerId) {
      GROUP BY p.id, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level`,
     [playerId]
   );
+}
+
+async function addClanWarDamage(attackerId, defenderId, attackerDmg, defenderDmg) {
+  try {
+    const { rows } = await pool.query(
+      'SELECT player_id, clan_id FROM clan_members WHERE player_id IN ($1,$2)',
+      [attackerId, defenderId]
+    );
+    if (rows.length < 2) return;
+    const aClanId = rows.find(r => r.player_id == attackerId)?.clan_id;
+    const dClanId = rows.find(r => r.player_id == defenderId)?.clan_id;
+    if (!aClanId || !dClanId || aClanId === dClanId) return;
+    const { rows: [war] } = await pool.query(
+      `SELECT id, attacker_id FROM clan_wars
+       WHERE status='active' AND ends_at > NOW()
+         AND ((attacker_id=$1 AND defender_id=$2) OR (attacker_id=$2 AND defender_id=$1))`,
+      [aClanId, dClanId]
+    );
+    if (!war) return;
+    if (war.attacker_id === aClanId) {
+      await pool.query(
+        'UPDATE clan_wars SET attacker_dmg=attacker_dmg+$1, defender_dmg=defender_dmg+$2 WHERE id=$3',
+        [attackerDmg, defenderDmg, war.id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE clan_wars SET attacker_dmg=attacker_dmg+$1, defender_dmg=defender_dmg+$2 WHERE id=$3',
+        [defenderDmg, attackerDmg, war.id]
+      );
+    }
+  } catch (err) { console.error('addClanWarDamage:', err.message); }
 }
 
 // Get opponents
@@ -380,6 +413,16 @@ router.post('/fight', async (req, res) => {
     const aStats = calcStats(attacker, attacker, attackerGiftRows);
     const dStats = calcStats(defender, defender, defenderGiftRows);
 
+    // Clan building bonuses: Кузня +5 міць/рів, Вежа +5 стійкість/рів
+    const [aBonuses, dBonuses] = await Promise.all([
+      getClanBonuses(attacker.id),
+      getClanBonuses(defender.id),
+    ]);
+    aStats.power     += (aBonuses.smithy || 0) * 5;
+    aStats.endurance += (aBonuses.tower  || 0) * 5;
+    dStats.power     += (dBonuses.smithy || 0) * 5;
+    dStats.endurance += (dBonuses.tower  || 0) * 5;
+
     const rounds = [];
     let attackerDamageDealt = 0;
     let defenderDamageDealt = 0;
@@ -487,6 +530,12 @@ router.post('/fight', async (req, res) => {
       ]
     );
 
+    // Зал Слави: +1 слава за рівень будівлі для переможця
+    const gloryBonus = attackerWon ? (aBonuses.hall || 0) : (dBonuses.hall || 0);
+    if (gloryBonus > 0) {
+      await pool.query('UPDATE players SET glory=glory+$1 WHERE id=$2', [gloryBonus, winnerId]);
+    }
+
     const { rows: [lastBattle2] } = await pool.query(
       `SELECT id FROM battles WHERE attacker_id=$1 ORDER BY id DESC LIMIT 1`, [attacker.id]
     );
@@ -494,6 +543,12 @@ router.post('/fight', async (req, res) => {
     if (attackerWon) {
       ringEffect = await checkRingEffect(attacker.id, defender.id, lastBattle2?.id || null, req.app.locals.io);
     }
+
+    // Кланові завдання та кланова війна
+    await Promise.all([
+      attackerWon ? updateClanTask(attacker.id, 'win_battles', 1) : Promise.resolve(),
+      addClanWarDamage(attacker.id, defender.id, attackerDamageDealt, defenderDamageDealt),
+    ]);
 
     res.json({
       success: true,

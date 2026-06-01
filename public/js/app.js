@@ -1499,65 +1499,149 @@ async function loadClans() {
 }
 
 async function renderMyClan(el) {
-  const r = await API.get('/api/clans/my');
+  const [r, warData, tasksData] = await Promise.all([
+    API.get('/api/clans/my'),
+    API.get('/api/clans/war/active').catch(() => ({ war: null })),
+    API.get('/api/clans/tasks').catch(() => ({ tasks: [] })),
+  ]);
   const c = r.clan;
   const mem = r.members;
   const buildings = r.buildings || [];
   const isLeader = r.myRole === 'leader';
   const isSenior = ['leader','senior'].includes(r.myRole);
 
+  // Buildings
+  const BUILDING_BONUS_DESC = {
+    farm:    'рів', smithy: '+5 міць/рів', tower: '+5 стійк./рів',
+    academy: '+5% досвід/рів', mine: '+1 золото/рів', hall: '+1 слава/рів',
+  };
   const buildingHtml = Object.entries(BUILDING_LABELS).map(([key, info]) => {
     const b = buildings.find(b => b.building_key === key) || { level: 0 };
     const costs = BUILDING_COSTS[key];
     const maxLvl = costs.length;
     const canUp = b.level < maxLvl && isSenior;
     const nextCost = b.level < maxLvl ? costs[b.level] : null;
-    const currIcon = IC[info.currency] ? IC[info.currency](13) : '';
+    const currIcon = info.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+    const bonus = BUILDING_BONUS_DESC[key] || '';
     return `<div class="building-row">
-      <span>${IC[info.icon] ? IC[info.icon](16) : ''} ${info.name}</span>
+      <div>
+        <div>${IC[info.icon] ? IC[info.icon](14) : ''} ${info.name}</div>
+        <div class="text-muted" style="font-size:11px">${bonus}</div>
+      </div>
       <span class="text-muted">Рів.${b.level}/${maxLvl}</span>
       ${canUp ? `<button class="btn btn-orange btn-sm" onclick="upgradeBuilding('${key}')">${currIcon}${fmtNum(nextCost)}</button>` : '<span></span>'}
     </div>`;
   }).join('');
 
+  // War section
+  const war = warData.war;
+  let warHtml = '';
+  if (war) {
+    const myId = c.id;
+    const isAttacker = war.attacker_id === myId;
+    const myDmg   = isAttacker ? war.attacker_dmg : war.defender_dmg;
+    const foeDmg  = isAttacker ? war.defender_dmg : war.attacker_dmg;
+    const foeName = isAttacker ? `[${war.defender_tag}] ${war.defender_name}` : `[${war.attacker_tag}] ${war.attacker_name}`;
+    const totalDmg = (myDmg + foeDmg) || 1;
+    const myPct  = Math.round(myDmg  / totalDmg * 100);
+    const foePct = Math.round(foeDmg / totalDmg * 100);
+    const secsLeft = Math.max(0, Math.floor((new Date(war.ends_at) - Date.now()) / 1000));
+    warHtml = `
+      <div class="clan-war-box">
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${IC.battle(14)} Активна Кланова Війна!</div>
+        <div style="font-size:13px;margin-bottom:8px">Супротивник: <b>${foeName}</b></div>
+        <div style="font-size:12px;color:#888;margin-bottom:8px">Залишилось: ${fmtTime(secsLeft)}</div>
+        <div style="margin-bottom:4px;font-size:12px">Ваш урон: <b>${fmtNum(myDmg)}</b> vs ${fmtNum(foeDmg)}</div>
+        <div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;display:flex">
+          <div style="background:#2e7d32;width:${myPct}%;transition:width .4s"></div>
+          <div style="background:#c62828;width:${foePct}%;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:3px">Перемагає хто завдасть більше урону за 24 год</div>
+      </div>`;
+  } else {
+    warHtml = `
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0">
+        <span class="text-muted" style="font-size:13px">Активних воєн немає</span>
+        ${isSenior ? `<button class="btn btn-red btn-sm" onclick="showDeclareWarModal()">⚔️ Оголосити війну</button>` : ''}
+        <button class="btn btn-gray btn-sm" onclick="loadWarHistory()">Історія воєн</button>
+      </div>`;
+  }
+
+  // Tasks section
+  const tasks = tasksData.tasks || [];
+  const daily  = tasks.filter(t => t.task_type === 'daily');
+  const weekly = tasks.filter(t => t.task_type === 'weekly');
+  const taskRow = t => {
+    const pct = Math.min(100, Math.round(t.progress / t.goal * 100));
+    const reward = [
+      t.reward_greens > 0 ? `${IC.greens(12)}${fmtNum(t.reward_greens)}` : '',
+      t.reward_gold   > 0 ? `${IC.gold(12)}${fmtNum(t.reward_gold)}`   : '',
+    ].filter(Boolean).join(' ');
+    return `<div class="clan-task-row ${t.completed ? 'completed' : ''}">
+      <div style="flex:1">
+        <div style="font-size:13px">${t.description}</div>
+        <div style="background:#eee;border-radius:4px;height:6px;margin-top:4px;overflow:hidden">
+          <div style="background:${t.completed?'#2e7d32':'#FF8C00'};width:${pct}%;height:100%;transition:width .4s"></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-top:2px">${fmtNum(t.progress)}/${fmtNum(t.goal)} ${reward ? `— Нагорода: ${reward}` : ''}</div>
+      </div>
+      ${t.completed ? `<span style="color:#2e7d32;font-size:18px">✓</span>` : ''}
+    </div>`;
+  };
+  const tasksHtml = `
+    <div style="font-weight:600;font-size:13px;margin-bottom:6px">Щоденні</div>
+    ${daily.map(taskRow).join('') || '<p class="text-muted">—</p>'}
+    <div style="font-weight:600;font-size:13px;margin:10px 0 6px">Тижневі</div>
+    ${weekly.map(taskRow).join('') || '<p class="text-muted">—</p>'}`;
+
   el.innerHTML = `
     <div class="clan-header">
-      <div style="font-size:22px;font-weight:700">[${c.tag}] ${c.name}</div>
-      <div class="text-muted">${c.description || ''}</div>
-      <div style="margin-top:6px;display:flex;gap:12px;font-size:13px">
-        <span>${IC.glory(13)} ${fmtNum(c.rating_points)} балів</span>
+      <div style="font-size:20px;font-weight:700">[${c.tag}] ${c.name}</div>
+      <div class="text-muted" style="font-size:12px">${c.description || ''}</div>
+      <div style="margin-top:6px;display:flex;gap:10px;font-size:13px;flex-wrap:wrap">
+        <span>${IC.glory(13)} ${fmtNum(c.rating_points)} рейтинг</span>
+        <span>${IC.battle(13)} ${c.wars_won}П / ${c.wars_lost}П воєн</span>
         <span>${IC.greens(13)} ${fmtNum(c.treasury_greens)}</span>
         <span>${IC.gold(13)} ${fmtNum(c.treasury_gold)}</span>
       </div>
     </div>
 
+    <div class="panel-header" style="margin-top:12px">${IC.battle(14)} Кланова Війна</div>
+    ${warHtml}
+
     <div class="panel-header" style="margin-top:12px">${IC.village(14)} Будівлі</div>
     <div class="buildings-grid">${buildingHtml}</div>
 
-    <div class="panel-header" style="margin-top:12px">${IC.friends(14)} Учасники (${mem.length})</div>
+    <div class="panel-header" style="margin-top:12px">${IC.exp(14)} Завдання клану</div>
+    <div>${tasksHtml}</div>
+
+    <div class="panel-header" style="margin-top:12px">${IC.friends(14)} Учасники (${mem.length}/50)</div>
     <div>${mem.map(m => `
       <div class="opponent-card">
         <div class="opponent-avatar">${m.is_online ? '🟢' : '⚫'}</div>
         <div class="opponent-info">
           <div class="opponent-name ${m.faction}">${m.username} <span class="text-muted">Рів.${m.level}</span></div>
-          <div class="text-muted">${roleName(m.role)}</div>
+          <div class="text-muted" style="font-size:11px">${roleName(m.role)}</div>
         </div>
-        ${isLeader && m.player_id !== player.id ? `
-          <div style="display:flex;flex-direction:column;gap:4px">
-            <button class="btn btn-red btn-sm" onclick="clanKick(${m.player_id})">Кік</button>
-          </div>` : ''}
+        ${isSenior && m.id !== player.id && m.role !== 'leader' ? `
+          <button class="btn btn-red btn-sm" onclick="clanKick(${m.id})">Кік</button>` : ''}
       </div>`).join('')}</div>
 
     <div class="panel-header" style="margin-top:12px">${IC.greens(14)} Скарбниця</div>
     <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
-      <button class="btn btn-green btn-sm" onclick="clanDeposit('greens')">Внести зелень</button>
-      <button class="btn btn-orange btn-sm" onclick="clanDeposit('gold')">Внести золото</button>
-      ${isSenior ? `<button class="btn btn-red btn-sm" onclick="clanWithdraw()">Вивести</button>` : ''}
+      <button class="btn btn-green btn-sm" onclick="showDepositModal('greens')">${IC.greens(13)} Внести зелень</button>
+      <button class="btn btn-orange btn-sm" onclick="showDepositModal('gold')">${IC.gold(13)} Внести золото</button>
+      ${isSenior ? `<button class="btn btn-red btn-sm" onclick="showWithdrawModal()">Вивести</button>` : ''}
+      <button class="btn btn-gray btn-sm" onclick="loadTreasuryLog()">Лог</button>
     </div>
+    <div id="treasury-log-section" style="margin-top:8px"></div>
 
     <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
-      ${isLeader ? `<button class="btn btn-red btn-sm" onclick="dissolveClan()">Розпустити клан</button>` : `<button class="btn btn-gray btn-sm" onclick="leaveClan()">Покинути клан</button>`}
-    </div>`;
+      ${isLeader
+        ? `<button class="btn btn-red btn-sm" onclick="dissolveClan()">Розпустити клан</button>`
+        : `<button class="btn btn-gray btn-sm" onclick="leaveClan()">Покинути клан</button>`}
+    </div>
+    <div id="war-history-section" style="margin-top:8px"></div>`;
 }
 
 async function renderClanList(el) {
@@ -1612,27 +1696,127 @@ async function upgradeBuilding(key) {
   } catch (e) { toast(e.message, true); }
 }
 
-async function clanDeposit(currency) {
-  const amt = parseInt(prompt(`Скільки ${currency === 'greens' ? 'зелені' : 'золота'} внести?`));
-  if (!amt || amt <= 0) return;
+function showDepositModal(currency) {
+  const label = currency === 'greens' ? 'зелені' : 'золота';
+  const cur   = currency === 'greens' ? IC.greens(14) : IC.gold(14);
+  document.getElementById('clan-modal-body').innerHTML = `
+    <div style="padding:14px">
+      <p style="margin-bottom:10px">${cur} Внести ${label} до скарбниці:</p>
+      <input type="number" id="clan-modal-amount" class="form-control" min="1" placeholder="Сума" style="margin-bottom:10px">
+      <button class="btn btn-green btn-full" onclick="submitDeposit('${currency}')">Внести</button>
+    </div>`;
+  document.getElementById('clan-modal').style.display = 'flex';
+}
+async function submitDeposit(currency) {
+  const amt = parseInt(document.getElementById('clan-modal-amount').value);
+  if (!amt || amt <= 0) { toast('Невірна сума', true); return; }
+  closeClanModal();
   try {
     await API.post('/api/clans/treasury/deposit', { amount: amt, currency });
-    toast('Внесено до скарбниці!');
+    toast(`${IC.greens(13)} Внесено до скарбниці!`);
     await refreshPlayer();
     loadClans();
   } catch (e) { toast(e.message, true); }
 }
 
-async function clanWithdraw() {
-  const currency = prompt('Валюта (greens/gold):');
-  if (!['greens','gold'].includes(currency)) return;
-  const amt = parseInt(prompt('Скільки вивести?'));
-  if (!amt || amt <= 0) return;
+function showWithdrawModal() {
+  document.getElementById('clan-modal-body').innerHTML = `
+    <div style="padding:14px">
+      <p style="margin-bottom:10px">Вивести зі скарбниці:</p>
+      <select id="clan-modal-currency" class="form-control" style="margin-bottom:8px">
+        <option value="greens">Зелень</option>
+        <option value="gold">Золото</option>
+      </select>
+      <input type="number" id="clan-modal-amount" class="form-control" min="1" placeholder="Сума" style="margin-bottom:10px">
+      <button class="btn btn-red btn-full" onclick="submitWithdraw()">Вивести</button>
+    </div>`;
+  document.getElementById('clan-modal').style.display = 'flex';
+}
+async function submitWithdraw() {
+  const currency = document.getElementById('clan-modal-currency').value;
+  const amt = parseInt(document.getElementById('clan-modal-amount').value);
+  if (!amt || amt <= 0) { toast('Невірна сума', true); return; }
+  closeClanModal();
   try {
     await API.post('/api/clans/treasury/withdraw', { amount: amt, currency });
     toast('Виведено зі скарбниці!');
     await refreshPlayer();
     loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+function closeClanModal() {
+  document.getElementById('clan-modal').style.display = 'none';
+}
+
+async function loadTreasuryLog() {
+  const el = document.getElementById('treasury-log-section');
+  if (!el) return;
+  try {
+    const r = await API.get('/api/clans/treasury/log');
+    if (!r.log.length) { el.innerHTML = '<p class="text-muted">Транзакцій ще немає</p>'; return; }
+    el.innerHTML = `<div style="font-size:12px;margin-top:4px">` +
+      r.log.map(row => {
+        const sign  = row.action === 'deposit' ? '+' : '-';
+        const color = row.action === 'deposit' ? '#2e7d32' : '#c62828';
+        const cur   = row.currency === 'greens' ? IC.greens(11) : IC.gold(11);
+        const time  = new Date(row.created_at).toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f5f5f5">
+          <span>${row.username}</span>
+          <span style="color:${color}">${sign}${fmtNum(row.amount)} ${cur}</span>
+          <span class="text-muted">${time}</span>
+        </div>`;
+      }).join('') + `</div>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function showDeclareWarModal() {
+  const r = await API.get('/api/clans').catch(() => ({ clans: [] }));
+  const myClanId = player.clan_id;
+  const others = r.clans.filter(c => c.id !== myClanId);
+  document.getElementById('clan-modal-body').innerHTML = `
+    <div style="padding:14px">
+      <p style="font-size:13px;color:#c62828;margin-bottom:10px">Оголосити кланову війну. Тривалість 24 год. Перемагає хто завдасть більше сумарного урону.</p>
+      ${others.map(c => `
+        <div class="opponent-card" style="margin-bottom:6px">
+          <div class="opponent-info">
+            <div style="font-weight:700">[${c.tag}] ${c.name}</div>
+            <div class="text-muted" style="font-size:11px">${c.member_count} учасників | ${IC.glory(11)}${fmtNum(c.rating_points)}</div>
+          </div>
+          <button class="btn btn-red btn-sm" onclick="declareWar(${c.id},'${c.name}')">Атакувати</button>
+        </div>`).join('') || '<p class="text-muted">Немає ворожих кланів</p>'}
+    </div>`;
+  document.getElementById('clan-modal').style.display = 'flex';
+}
+
+async function declareWar(targetClanId, targetName) {
+  closeClanModal();
+  try {
+    await API.post('/api/clans/war/declare', { targetClanId });
+    toast(`${IC.battle(14)} Оголошено війну проти ${targetName}!`);
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadWarHistory() {
+  const el = document.getElementById('war-history-section');
+  if (!el) return;
+  try {
+    const r = await API.get('/api/clans/war/history');
+    if (!r.history.length) { el.innerHTML = '<p class="text-muted" style="margin-top:8px">Воєн ще не було</p>'; return; }
+    el.innerHTML = `<div class="panel-header" style="margin-top:12px">${IC.battle(14)} Історія воєн</div>` +
+      r.history.map(w => {
+        const won = w.winner_id === r.myClanId;
+        const foe = w.attacker_id === r.myClanId
+          ? `[${w.defender_tag}] ${w.defender_name}`
+          : `[${w.attacker_tag}] ${w.attacker_name}`;
+        const date = new Date(w.started_at).toLocaleDateString('uk-UA');
+        return `<div style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
+          <span>${foe}</span>
+          <span style="color:${won?'#2e7d32':'#c62828'}">${won ? 'Перемога' : 'Поразка'}</span>
+          <span class="text-muted">${date}</span>
+        </div>`;
+      }).join('');
   } catch (e) { toast(e.message, true); }
 }
 

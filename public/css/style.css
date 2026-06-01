@@ -985,6 +985,31 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
   font-size: 14px;
 }
 
+/* ── Clan war box ── */
+.clan-war-box {
+  background: #fff3e0;
+  border: 1.5px solid #ff8f00;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 6px 0;
+}
+
+/* ── Clan task row ── */
+.clan-task-row {
+  background: #fafafa;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.clan-task-row.completed {
+  background: #e8f5e9;
+  border-color: #c8e6c9;
+}
+
 /* ── Gift cards ── */
 .gift-card {
   background: #fff8e1;
