@@ -6,13 +6,29 @@ const { updateClanTask } = require('../utils/clanTasks');
 
 router.use(requireAuth);
 
+// TZ v3 weight table: avg ~9.75 gold per mine
 function randomGold() {
   const r = Math.floor(Math.random() * 100) + 1;
-  if (r <= 40) return 1;
-  if (r <= 70) return 2;
-  if (r <= 85) return 3;
-  if (r <= 95) return 4;
-  return 5;
+  if (r <= 30) return 5;
+  if (r <= 55) return 8;
+  if (r <= 75) return 10;
+  if (r <= 90) return 15;
+  return 20;
+}
+
+// Rare ingredient drops per mine
+const RARE_DROPS = [
+  { name: 'Кристал печери',   emoji: '💎', chance: 3.0 },
+  { name: 'Чорний кремінь',   emoji: '⚫', chance: 2.0 },
+  { name: 'Рудний самородок', emoji: '🪨', chance: 1.5 },
+  { name: 'Іскра підземелля', emoji: '✨', chance: 0.5 },
+];
+
+function rollRareDrop() {
+  for (const drop of RARE_DROPS) {
+    if (Math.random() * 100 < drop.chance) return drop;
+  }
+  return null;
 }
 
 async function finalizeCavesSession(session) {
@@ -133,22 +149,33 @@ router.post('/mine', async (req, res) => {
       return res.status(400).json({ error: 'Шахта вже зникла' });
 
     const baseGold = randomGold();
-    // Clan bonuses: Шахта +1 золото/рів, Академія +5% досвіду/рів
+    // Clan bonuses: Шахта +level золота/шахту, Академія +5% досвіду/рів
     const clanB = await getClanBonuses(req.session.playerId);
-    const mineBonus    = clanB.mine    || 0;
-    const academyPct   = (clanB.academy || 0) * 5;
+    const mineBonus  = clanB.mine    || 0;
+    const academyPct = (clanB.academy || 0) * 5;
     const baseExp = Math.floor(Math.random() * 16) + 5;
     const exp = Math.floor(baseExp * (1 + academyPct / 100));
 
-    // Talisman of the Gold Seeker bonus
+    // Talisman золотошукача bonus (only this talisman affects caves)
     const { rows: [talisman] } = await pool.query(
       `SELECT tu.bonus_pct FROM talisman_upgrades tu
-       JOIN inventory inv ON inv.id = tu.inv_id
-       WHERE inv.player_id=$1 AND inv.is_equipped=true`,
+       JOIN inventory inv ON inv.id = tu.inv_id AND inv.is_equipped=true
+       JOIN items it ON it.id = inv.item_id AND it.name='Талісман золотошукача'
+       WHERE tu.player_id=$1`,
       [req.session.playerId]
     );
     const talismanBonus = talisman ? Math.floor(baseGold * talisman.bonus_pct / 100) : 0;
     const gold = baseGold + talismanBonus + mineBonus;
+
+    // Rare ingredient drop
+    const rareDrop = rollRareDrop();
+    if (rareDrop) {
+      await pool.query(
+        `INSERT INTO player_ingredients (player_id, ingredient_name, quantity) VALUES ($1,$2,1)
+         ON CONFLICT (player_id, ingredient_name) DO UPDATE SET quantity = player_ingredients.quantity + 1`,
+        [req.session.playerId, rareDrop.name]
+      );
+    }
 
     // Level-up check
     const { rows: [player] } = await pool.query(
@@ -197,7 +224,7 @@ router.post('/mine', async (req, res) => {
     }
 
     updateClanTask(req.session.playerId, 'mine_gold', gold);
-    res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, session: updatedSession });
+    res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, rareDrop, session: updatedSession });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

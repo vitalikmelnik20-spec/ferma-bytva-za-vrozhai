@@ -2324,6 +2324,8 @@ async function mineShaft() {
         <div style="font-size:22px;font-weight:700;color:#2e7d32;margin-bottom:4px">${IC.gold(16)} +${r.gold} золота</div>
         <div style="font-size:18px;font-weight:600;color:#1565c0;margin-bottom:12px">${IC.exp(16)} +${r.exp} досвіду</div>
         ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
+        ${r.mineBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">⛏️ +${r.mineBonus} від шахти клану</div>` : ''}
+        ${r.rareDrop ? `<div style="font-size:15px;color:#7c4dff;font-weight:600;margin-bottom:8px">${r.rareDrop.emoji} Знайдено: ${r.rareDrop.name}!</div>` : ''}
         ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-bottom:10px">${IC.celebrate(14)} Новий рівень ${r.newLevel}!</div>` : ''}
         <button class="btn btn-green" style="padding:10px 28px;font-size:16px" onclick="caveContinue()">Далі →</button>
       </div>`;
