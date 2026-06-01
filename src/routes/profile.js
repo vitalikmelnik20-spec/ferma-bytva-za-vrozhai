@@ -206,6 +206,20 @@ router.get('/stats', async (req, res) => {
       [req.session.playerId]
     );
 
+    // Talisman stat bonuses (Талісман Воїна / Захисника)
+    const { rows: talismanRows } = await pool.query(
+      `SELECT tu.bonus_pct, it.name FROM talisman_upgrades tu
+       JOIN inventory inv ON inv.id = tu.inv_id AND inv.is_equipped=true AND inv.player_id=$1
+       JOIN items it ON it.id = inv.item_id
+       WHERE tu.player_id=$1`,
+      [req.session.playerId]
+    );
+    let taliPower = 0, taliEndurance = 0;
+    for (const t of talismanRows) {
+      if (t.name === 'Талісман Воїна')     taliPower     += t.bonus_pct;
+      if (t.name === 'Талісман Захисника') taliEndurance += t.bonus_pct;
+    }
+
     res.json({
       player,
       friendsCount:    parseInt(friendsCount),
@@ -222,6 +236,7 @@ router.get('/stats', async (req, res) => {
       runeAccuracy:  runeRow?.rune_accuracy  || 0,
       luckAmulets:   activeGifts.filter(g => g.is_luck_amulet).length,
       potionPower, potionEndurance, potionSpeed, potionAccuracy, potionHarvestPct: potionHarvestPct2,
+      taliPower, taliEndurance,
     });
   } catch (err) {
     console.error(err);

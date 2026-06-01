@@ -101,7 +101,16 @@ router.post('/:plotId/plant', async (req, res) => {
     if (player.greens < plant.seed_price)
       return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${plant.seed_price}` });
 
-    const readyAt = new Date(Date.now() + plant.growth_minutes * 60000);
+    const { rows: [farmerTali] } = await pool.query(
+      `SELECT tu.bonus_pct FROM talisman_upgrades tu
+       JOIN inventory inv ON inv.id = tu.inv_id AND inv.is_equipped=true AND inv.player_id=$1
+       JOIN items it ON it.id = inv.item_id AND it.name='Талісман Фермера'
+       WHERE tu.player_id=$1`,
+      [req.session.playerId]
+    );
+    const farmerReduction = farmerTali ? farmerTali.bonus_pct : 0;
+    const growthMs = plant.growth_minutes * 60000 * (1 - farmerReduction / 100);
+    const readyAt = new Date(Date.now() + growthMs);
     await pool.query('UPDATE players SET greens = greens - $1, plants_planted = plants_planted + 1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
     updateClanTask(req.session.playerId, 'plant_seeds', 1);
     await pool.query(
@@ -234,7 +243,16 @@ router.post('/:plotId/harvest', async (req, res) => {
     );
     const potionHarvestPct = harvestPotions.reduce((s, p) => s + (p.effect_value || 0), 0);
 
-    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct + potionHarvestPct) / 100));
+    const { rows: [reaperRing] } = await pool.query(
+      `SELECT ru.bonus_value FROM ring_upgrades ru
+       JOIN inventory inv ON inv.id = ru.inv_id AND inv.is_equipped=true AND inv.player_id=$1
+       JOIN items it ON it.id = inv.item_id AND it.name='Кільце Жнеця'
+       WHERE ru.player_id=$1`,
+      [req.session.playerId]
+    );
+    const reaperRingPct = reaperRing ? reaperRing.bonus_value : 0;
+
+    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct + potionHarvestPct + reaperRingPct) / 100));
     const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
 
     // Give rewards

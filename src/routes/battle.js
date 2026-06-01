@@ -43,6 +43,36 @@ async function getPotionBonuses(playerId) {
   return b;
 }
 
+async function getRingTalismanBonuses(playerId) {
+  const { rows: rings } = await pool.query(
+    `SELECT ru.bonus_value, it.name
+     FROM ring_upgrades ru
+     JOIN inventory inv ON inv.id = ru.inv_id AND inv.is_equipped=true
+     JOIN items it ON it.id = inv.item_id
+     WHERE ru.player_id=$1`,
+    [playerId]
+  );
+  const { rows: talis } = await pool.query(
+    `SELECT tu.bonus_pct, it.name
+     FROM talisman_upgrades tu
+     JOIN inventory inv ON inv.id = tu.inv_id AND inv.is_equipped=true
+     JOIN items it ON it.id = inv.item_id
+     WHERE tu.player_id=$1`,
+    [playerId]
+  );
+  const b = { taliPower: 0, taliEndurance: 0, doubleStrike: 0, critBonus: 0, shadowProtect: 0 };
+  for (const r of rings) {
+    if (r.name === 'Кільце Берсерка') b.doubleStrike  = r.bonus_value;
+    if (r.name === 'Кільце Удачі')   b.critBonus     = r.bonus_value;
+  }
+  for (const t of talis) {
+    if (t.name === 'Талісман Воїна')     b.taliPower     = t.bonus_pct;
+    if (t.name === 'Талісман Захисника') b.taliEndurance = t.bonus_pct;
+    if (t.name === 'Талісман Тіні')      b.shadowProtect = t.bonus_pct;
+  }
+  return b;
+}
+
 async function decrementPotions(attackerId, defenderId) {
   await Promise.all([
     pool.query(
@@ -63,8 +93,9 @@ async function decrementPotions(attackerId, defenderId) {
 async function checkRingEffect(winnerId, loserId, battleId, io) {
   const { rows: [ru] } = await pool.query(
     `SELECT ru.* FROM ring_upgrades ru
-     JOIN inventory inv ON inv.id = ru.inv_id
-     WHERE inv.player_id=$1 AND inv.is_equipped=true`,
+     JOIN inventory inv ON inv.id = ru.inv_id AND inv.is_equipped=true
+     JOIN items it ON it.id = inv.item_id AND it.name='Кільце злодія'
+     WHERE ru.player_id=$1`,
     [winnerId]
   );
   if (!ru) return null;
@@ -130,7 +161,7 @@ function calcStats(player, training, gifts, runes) {
   };
 }
 
-function rollDamage(attackerStats, defenderStats, zone) {
+function rollDamage(attackerStats, defenderStats, zone, extraCritPct = 0) {
   const hitChance = Math.min(0.95, Math.max(0.3,
     0.5 + (attackerStats.accuracy - defenderStats.endurance) * 0.01
   ));
@@ -138,8 +169,8 @@ function rollDamage(attackerStats, defenderStats, zone) {
 
   const zoneBonus = ZONE_BONUS[zone] || 1.0;
   const random    = 0.8 + Math.random() * 0.4;
-  const isCrit    = Math.random() < 0.1;
-  const crit      = isCrit ? 2.0 : 1.0;
+  const isCrit    = Math.random() < (0.1 + extraCritPct / 100);
+  const crit      = isCrit ? 1.5 : 1.0;
   const damage    = Math.max(1, Math.floor(
     (attackerStats.power - defenderStats.endurance * 0.5) * zoneBonus * random * crit
   ));
@@ -298,35 +329,46 @@ router.post('/round', async (req, res) => {
     const { rows: [attacker] } = await fetchPlayerWithStats(req.session.playerId);
     const { rows: [defender] } = await fetchPlayerWithStats(fight.defenderId);
 
-    const [{ rows: aGifts }, { rows: dGifts }, aRunes, dRunes, aPotions, dPotions] = await Promise.all([
+    const [{ rows: aGifts }, { rows: dGifts }, aRunes, dRunes, aPotions, dPotions, aRingTali, dRingTali] = await Promise.all([
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [fight.defenderId]),
       getRuneBonuses(req.session.playerId),
       getRuneBonuses(fight.defenderId),
       getPotionBonuses(req.session.playerId),
       getPotionBonuses(fight.defenderId),
+      getRingTalismanBonuses(req.session.playerId),
+      getRingTalismanBonuses(fight.defenderId),
     ]);
 
     const aStats = calcStats(attacker, attacker, aGifts, aRunes);
     const dStats = calcStats(defender, defender, dGifts, dRunes);
 
-    aStats.power     += aPotions.power;
-    aStats.endurance += aPotions.endurance;
+    aStats.power     += aPotions.power     + aRingTali.taliPower;
+    aStats.endurance += aPotions.endurance + aRingTali.taliEndurance;
     aStats.speed     += aPotions.speed;
     aStats.accuracy  += aPotions.accuracy;
-    dStats.power     += dPotions.power;
-    dStats.endurance += dPotions.endurance;
+    dStats.power     += dPotions.power     + dRingTali.taliPower;
+    dStats.endurance += dPotions.endurance + dRingTali.taliEndurance;
     dStats.speed     += dPotions.speed;
     dStats.accuracy  += dPotions.accuracy;
 
     const defZone = VALID_ZONES[Math.floor(Math.random() * VALID_ZONES.length)];
-    const aRoll   = rollDamage(aStats, dStats, attackZone);
-    const dRoll   = rollDamage(dStats, aStats, defZone);
+    const aRoll   = rollDamage(aStats, dStats, attackZone, aRingTali.critBonus);
+    const dRoll   = rollDamage(dStats, aStats, defZone,    dRingTali.critBonus);
 
     if (dPotions.damageReducePct > 0 && aRoll.type !== 'miss')
       aRoll.damage = Math.max(1, Math.floor(aRoll.damage * (1 - dPotions.damageReducePct / 100)));
     if (aPotions.damageReducePct > 0 && dRoll.type !== 'miss')
       dRoll.damage = Math.max(1, Math.floor(dRoll.damage * (1 - aPotions.damageReducePct / 100)));
+
+    if (aRingTali.doubleStrike > 0 && aRoll.type !== 'miss' && Math.random() < aRingTali.doubleStrike / 100) {
+      aRoll.damage *= 2;
+      aRoll.type = 'double';
+    }
+    if (dRingTali.doubleStrike > 0 && dRoll.type !== 'miss' && Math.random() < dRingTali.doubleStrike / 100) {
+      dRoll.damage *= 2;
+      dRoll.type = 'double';
+    }
 
     // Apply HP damage for this round
     const { rows: [attackerAfter] } = await pool.query(
@@ -365,9 +407,16 @@ router.post('/round', async (req, res) => {
       const { rows: [freshA] } = await pool.query('SELECT greens, gold FROM players WHERE id=$1', [req.session.playerId]);
       const { rows: [freshD] } = await pool.query('SELECT greens, gold FROM players WHERE id=$1', [fight.defenderId]);
       const loserGreens  = attackerWon ? freshD.greens : freshA.greens;
-      const greensReward = loserGreens > 0 ? Math.max(10, Math.floor(loserGreens * 0.05)) : 0;
+      let greensReward = loserGreens > 0 ? Math.max(10, Math.floor(loserGreens * 0.05)) : 0;
       const loserGold  = attackerWon ? freshD.gold : freshA.gold;
-      const goldReward = loserGold > 0 && Math.random() < 0.30 ? Math.floor(loserGold * 0.02) : 0;
+      let goldReward = loserGold > 0 && Math.random() < 0.30 ? Math.floor(loserGold * 0.02) : 0;
+
+      // Талісман Тіні: loser has a chance to protect their reward
+      const loserShadow = attackerWon ? dRingTali.shadowProtect : aRingTali.shadowProtect;
+      if (loserShadow > 0 && Math.random() < loserShadow / 100) {
+        greensReward = 0;
+        goldReward   = 0;
+      }
 
       // Glory only for attacker who beats equal or stronger opponent
       const attackerGlory = (attackerWon && fight.defenderLevel >= attacker.level) ? 1 : 0;
@@ -470,7 +519,7 @@ router.post('/fight', async (req, res) => {
     if (defender.faction === attacker.faction)
       return res.status(400).json({ error: 'Не можна бити своїх!' });
 
-    const [{ rows: attackerGiftRows }, { rows: defenderGiftRows }, aRuneB, dRuneB, aBonuses, dBonuses, aPotions, dPotions] = await Promise.all([
+    const [{ rows: attackerGiftRows }, { rows: defenderGiftRows }, aRuneB, dRuneB, aBonuses, dBonuses, aPotions, dPotions, aRingTali, dRingTali] = await Promise.all([
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [defenderId]),
       getRuneBonuses(req.session.playerId),
@@ -479,6 +528,8 @@ router.post('/fight', async (req, res) => {
       getClanBonuses(defender.id),
       getPotionBonuses(req.session.playerId),
       getPotionBonuses(defenderId),
+      getRingTalismanBonuses(req.session.playerId),
+      getRingTalismanBonuses(defenderId),
     ]);
 
     const aStats = calcStats(attacker, attacker, attackerGiftRows, aRuneB);
@@ -490,13 +541,13 @@ router.post('/fight', async (req, res) => {
     dStats.power     += (dBonuses.smithy || 0) * 5;
     dStats.endurance += (dBonuses.tower  || 0) * 5;
 
-    // Potion stat bonuses
-    aStats.power     += aPotions.power;
-    aStats.endurance += aPotions.endurance;
+    // Potion stat bonuses + talisman stat bonuses
+    aStats.power     += aPotions.power     + aRingTali.taliPower;
+    aStats.endurance += aPotions.endurance + aRingTali.taliEndurance;
     aStats.speed     += aPotions.speed;
     aStats.accuracy  += aPotions.accuracy;
-    dStats.power     += dPotions.power;
-    dStats.endurance += dPotions.endurance;
+    dStats.power     += dPotions.power     + dRingTali.taliPower;
+    dStats.endurance += dPotions.endurance + dRingTali.taliEndurance;
     dStats.speed     += dPotions.speed;
     dStats.accuracy  += dPotions.accuracy;
 
@@ -509,14 +560,23 @@ router.post('/fight', async (req, res) => {
     for (let r = 0; r < 3; r++) {
       const attackZone = attackZones[r];
       const defZone    = VALID_ZONES[Math.floor(Math.random() * VALID_ZONES.length)];
-      const aRoll      = rollDamage(aStats, dStats, attackZone);
-      const dRoll      = rollDamage(dStats, aStats, defZone);
+      const aRoll      = rollDamage(aStats, dStats, attackZone, aRingTali.critBonus);
+      const dRoll      = rollDamage(dStats, aStats, defZone,    dRingTali.critBonus);
 
       // Damage reduce potions
       if (dPotions.damageReducePct > 0 && aRoll.type !== 'miss')
         aRoll.damage = Math.max(1, Math.floor(aRoll.damage * (1 - dPotions.damageReducePct / 100)));
       if (aPotions.damageReducePct > 0 && dRoll.type !== 'miss')
         dRoll.damage = Math.max(1, Math.floor(dRoll.damage * (1 - aPotions.damageReducePct / 100)));
+
+      if (aRingTali.doubleStrike > 0 && aRoll.type !== 'miss' && Math.random() < aRingTali.doubleStrike / 100) {
+        aRoll.damage *= 2;
+        aRoll.type = 'double';
+      }
+      if (dRingTali.doubleStrike > 0 && dRoll.type !== 'miss' && Math.random() < dRingTali.doubleStrike / 100) {
+        dRoll.damage *= 2;
+        dRoll.type = 'double';
+      }
 
       attackerDamageDealt += aRoll.damage;
       defenderDamageDealt += dRoll.damage;
@@ -541,9 +601,16 @@ router.post('/fight', async (req, res) => {
     const winnerId = attackerWon ? attacker.id : defender.id;
 
     const loserGreens = attackerWon ? defender.greens : attacker.greens;
-    const greensReward = loserGreens > 0 ? Math.max(10, Math.floor(loserGreens * 0.05)) : 0;
+    let greensReward = loserGreens > 0 ? Math.max(10, Math.floor(loserGreens * 0.05)) : 0;
     const loserGold  = attackerWon ? defender.gold : attacker.gold;
-    const goldReward = loserGold > 0 && Math.random() < 0.30 ? Math.floor(loserGold * 0.02) : 0;
+    let goldReward = loserGold > 0 && Math.random() < 0.30 ? Math.floor(loserGold * 0.02) : 0;
+
+    // Талісман Тіні: loser has a chance to protect their reward
+    const loserShadow = attackerWon ? dRingTali.shadowProtect : aRingTali.shadowProtect;
+    if (loserShadow > 0 && Math.random() < loserShadow / 100) {
+      greensReward = 0;
+      goldReward   = 0;
+    }
 
     // Deduct HP — attacker loses defenderDamageDealt, defender loses attackerDamageDealt
     const { rows: [attackerAfter] } = await pool.query(

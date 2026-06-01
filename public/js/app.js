@@ -967,28 +967,24 @@ async function openRingModal(invId) {
   try {
     const r = await API.get(`/api/rings/info/${invId}`);
     const ru = r.ring;
-    const body = document.getElementById('ring-modal-body');
     const lvl = ru.ring_level;
     const maxed = lvl >= 10;
-    const progressPct = lvl / 10 * 100;
-    body.innerHTML = `
+    const currIcon = r.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+    document.getElementById('ring-modal-body').innerHTML = `
       <div style="text-align:center;margin-bottom:12px">
-        <div style="font-size:48px">${IC.ring(14)}</div>
+        <div style="font-size:22px;font-weight:700">${r.ringName}</div>
         <div class="ring-level-badge">Рівень ${lvl} / 10</div>
       </div>
-      <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${progressPct}%"></div></div>
+      <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${lvl/10*100}%"></div></div>
       <div class="ring-stats">
-        <div class="ring-stat-row"><span>Шанс спрацювання</span><b>${ru.steal_chance}%</b></div>
-        <div class="ring-stat-row"><span>Макс. крадіжка</span><b>${ru.max_steal_pct}% золота</b></div>
-        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${IC.gold(13)} ${fmtNum(r.nextCost)}</b></div>` : ''}
-      </div>
-      <div style="font-size:13px;color:#888;margin:10px 0 14px">
-        Кільце спрацьовує тільки при перемозі в PvP бою. Жертва отримує сповіщення.
+        <div class="ring-stat-row"><span>${r.statLabel}</span></div>
+        <div class="ring-stat-row" style="color:#888;font-size:12px"><span>${r.subLabel}</span></div>
+        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${currIcon} ${fmtNum(r.nextCost)}</b></div>` : ''}
       </div>
       ${maxed
-        ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px">${IC.star(14)} Максимальний рівень!</div>`
-        : `<button class="btn btn-orange btn-full" onclick="upgradeRing(${invId})">
-             ${IC.levelup(14)} Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
+        ? `<div style="text-align:center;color:#e65100;font-weight:700;font-size:15px;margin-top:12px">${IC.star(14)} Максимальний рівень!</div>`
+        : `<button class="btn btn-orange btn-full" style="margin-top:12px" onclick="upgradeRing(${invId})">
+             ${IC.levelup(14)} Покращити до +${lvl+1} — ${currIcon} ${fmtNum(r.nextCost)}
            </button>`}`;
     document.getElementById('ring-modal').style.display = 'flex';
   } catch (e) { toast(e.message, true); }
@@ -1005,7 +1001,7 @@ async function upgradeRing(invId) {
     toast(`${IC.ring(14)} Кільце покращено до рівня ${r.newLevel}!`);
     await refreshPlayer();
     openRingModal(invId);
-    await loadMarket();
+    if (marketData) await loadMarket();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -1023,24 +1019,25 @@ async function buyTalisman() {
 async function openTalismanModal(invId) {
   try {
     const r = await API.get(`/api/talismans/info/${invId}`);
-    const tu  = r.talisman;
+    const tu = r.talisman;
     const lvl = tu.talisman_level;
     const maxed = lvl >= 10;
-    const progressPct = (lvl / 10) * 100;
-    const body = document.getElementById('talisman-modal-body');
-    body.innerHTML = `
+    const currIcon = r.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+    document.getElementById('talisman-modal-body').innerHTML = `
       <div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:22px;font-weight:700">${r.talismanName}</div>
         <div class="ring-level-badge">Рівень ${lvl} / 10</div>
       </div>
-      <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${progressPct}%"></div></div>
+      <div class="ring-progress-wrap"><div class="ring-progress-bar" style="width:${lvl/10*100}%"></div></div>
       <div class="ring-stats">
-        <div class="ring-stat-row"><span>Бонус до золота з шахт</span><b>+${tu.bonus_pct}%</b></div>
-        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${IC.gold(13)} ${fmtNum(r.nextCost)}</b></div>` : ''}
+        <div class="ring-stat-row"><span>${r.statLabel}</span></div>
+        <div class="ring-stat-row" style="color:#888;font-size:12px"><span>${r.subLabel}</span></div>
+        ${!maxed ? `<div class="ring-stat-row"><span>Ціна покращення</span><b>${currIcon} ${fmtNum(r.nextCost)}</b></div>` : ''}
       </div>
       ${maxed
         ? `<div style="color:#2e7d32;font-weight:700;text-align:center;margin-top:10px">${IC.check(14)} Максимальний рівень!</div>`
         : `<button class="btn btn-orange btn-full" style="margin-top:12px" onclick="upgradeTalisman(${invId})">
-             Покращити до рівня ${lvl + 1} — ${IC.gold(13)} ${fmtNum(r.nextCost)}
+             ${IC.levelup(14)} Покращити до +${lvl+1} — ${currIcon} ${fmtNum(r.nextCost)}
            </button>`}`;
     document.getElementById('talisman-modal').style.display = 'flex';
   } catch (e) { toast(e.message, true); }
@@ -1360,27 +1357,28 @@ async function loadStats() {
          <span class="stats-row-value">${value}</span>
        </div>`;
 
-    const bonusTag = (eq, gift, rune, potion) => {
+    const bonusTag = (eq, gift, rune, potion, tali = 0) => {
       const parts = [];
       if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} 🗡️</span>`);
       if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
       if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} 🔮</span>`);
       if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} 🧪</span>`);
+      if (tali   > 0) parts.push(`<span style="color:#ff8f00">+${tali} 🔱</span>`);
       return parts.length ? ` ${parts.join(' ')}` : '';
     };
 
-    const statRow = (icon, label, base, eq, gift, rune, potion = 0) => {
-      const total = base + eq + gift + rune + potion;
+    const statRow = (icon, label, base, eq, gift, rune, potion = 0, tali = 0) => {
+      const total = base + eq + gift + rune + potion + tali;
       return row(icon, label,
-        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion)}`
+        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion, tali)}`
       );
     };
 
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
         <div class="stats-section-title">${IC.settings(14)} Параметри</div>
-        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower,     r.potionPower    || 0)}
-        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0)}
+        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower,     r.potionPower     || 0, r.taliPower     || 0)}
+        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0, r.taliEndurance || 0)}
         ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0)}
         ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0)}
         ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}

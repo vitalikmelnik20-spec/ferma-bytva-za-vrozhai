@@ -1,6 +1,8 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { RING_CONFIG }     = require('./rings');
+const { TALISMAN_CONFIG } = require('./talismans');
 
 router.use(requireAuth);
 
@@ -91,6 +93,24 @@ router.post('/buy/:itemId', async (req, res) => {
       'INSERT INTO inventory (player_id, item_id) VALUES ($1,$2) RETURNING id',
       [req.session.playerId, item.id]
     );
+
+    // Initialize upgrade row for rings and talismans
+    if (item.category === 'ring' && RING_CONFIG[item.name]) {
+      const ef = RING_CONFIG[item.name].effects(1);
+      await pool.query(
+        `INSERT INTO ring_upgrades (player_id, item_id, inv_id, ring_level, steal_chance, max_steal_pct, bonus_value)
+         VALUES ($1,$2,$3,1,$4,$5,$6) ON CONFLICT (inv_id) DO NOTHING`,
+        [req.session.playerId, item.id, inv.id, ef.steal_chance || 5, ef.max_steal_pct || 2.5, ef.bonus_value || 0]
+      );
+    }
+    if (item.category === 'talisman' && TALISMAN_CONFIG[item.name]) {
+      const ef = TALISMAN_CONFIG[item.name].effects(1);
+      await pool.query(
+        `INSERT INTO talisman_upgrades (player_id, item_id, inv_id, talisman_level, bonus_pct)
+         VALUES ($1,$2,$3,1,$4) ON CONFLICT (inv_id) DO NOTHING`,
+        [req.session.playerId, item.id, inv.id, ef.bonus_pct]
+      );
+    }
 
     res.json({ success: true, inventoryId: inv.id });
   } catch (err) {
