@@ -167,6 +167,23 @@ router.get('/stats', async (req, res) => {
     const giftAccuracy  = Math.floor(statGifts.reduce((s,g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
     const harvestGiftPct = Math.floor(statGifts.reduce((s,g) => s + (g.harvest_bonus  || 0), 0) * luckMult);
 
+    // Potion bonuses
+    const { rows: potionRows } = await pool.query(
+      `SELECT effect_type, effect_value FROM active_potions
+       WHERE player_id=$1
+         AND (expires_at IS NULL OR expires_at > NOW())
+         AND (battles_left IS NULL OR battles_left > 0)`,
+      [req.session.playerId]
+    );
+    let potionPower = 0, potionEndurance = 0, potionSpeed = 0, potionAccuracy = 0, potionHarvestPct2 = 0;
+    for (const p of potionRows) {
+      if      (p.effect_type === 'power')     potionPower     += p.effect_value;
+      else if (p.effect_type === 'endurance') potionEndurance += p.effect_value;
+      else if (p.effect_type === 'speed')     potionSpeed     += p.effect_value;
+      else if (p.effect_type === 'accuracy')  potionAccuracy  += p.effect_value;
+      else if (p.effect_type === 'harvest')   potionHarvestPct2 += p.effect_value;
+    }
+
     // Rune bonuses from equipped items
     const { rows: [runeRow] } = await pool.query(
       `SELECT COALESCE(SUM(it.power_bonus),0)::INTEGER     AS rune_power,
@@ -195,6 +212,7 @@ router.get('/stats', async (req, res) => {
       runeSpeed:     runeRow?.rune_speed     || 0,
       runeAccuracy:  runeRow?.rune_accuracy  || 0,
       luckAmulets:   activeGifts.filter(g => g.is_luck_amulet).length,
+      potionPower, potionEndurance, potionSpeed, potionAccuracy, potionHarvestPct: potionHarvestPct2,
     });
   } catch (err) {
     console.error(err);

@@ -24,6 +24,41 @@ async function getRuneBonuses(playerId) {
   return row || { rune_power: 0, rune_endurance: 0, rune_speed: 0, rune_accuracy: 0 };
 }
 
+async function getPotionBonuses(playerId) {
+  const { rows } = await pool.query(
+    `SELECT effect_type, effect_value FROM active_potions
+     WHERE player_id=$1
+       AND (expires_at IS NULL OR expires_at > NOW())
+       AND (battles_left IS NULL OR battles_left > 0)`,
+    [playerId]
+  );
+  const b = { power: 0, endurance: 0, speed: 0, accuracy: 0, damageReducePct: 0 };
+  for (const p of rows) {
+    if      (p.effect_type === 'power')        b.power        += p.effect_value;
+    else if (p.effect_type === 'endurance')    b.endurance    += p.effect_value;
+    else if (p.effect_type === 'speed')        b.speed        += p.effect_value;
+    else if (p.effect_type === 'accuracy')     b.accuracy     += p.effect_value;
+    else if (p.effect_type === 'damage_reduce') b.damageReducePct += p.effect_value;
+  }
+  return b;
+}
+
+async function decrementPotions(attackerId, defenderId) {
+  await Promise.all([
+    pool.query(
+      `UPDATE active_potions SET battles_left = battles_left - 1
+       WHERE player_id=$1 AND battles_left IS NOT NULL AND battles_left > 0`,
+      [attackerId]
+    ),
+    pool.query(
+      `UPDATE active_potions SET battles_left = battles_left - 1
+       WHERE player_id=$1 AND battles_left IS NOT NULL AND battles_left > 0`,
+      [defenderId]
+    ),
+  ]);
+  await pool.query(`DELETE FROM active_potions WHERE battles_left IS NOT NULL AND battles_left <= 0`);
+}
+
 // Ring of the Thief: check if equipped ring triggers theft after a win
 async function checkRingEffect(winnerId, loserId, battleId, io) {
   const { rows: [ru] } = await pool.query(
@@ -263,19 +298,35 @@ router.post('/round', async (req, res) => {
     const { rows: [attacker] } = await fetchPlayerWithStats(req.session.playerId);
     const { rows: [defender] } = await fetchPlayerWithStats(fight.defenderId);
 
-    const [{ rows: aGifts }, { rows: dGifts }, aRunes, dRunes] = await Promise.all([
+    const [{ rows: aGifts }, { rows: dGifts }, aRunes, dRunes, aPotions, dPotions] = await Promise.all([
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [fight.defenderId]),
       getRuneBonuses(req.session.playerId),
       getRuneBonuses(fight.defenderId),
+      getPotionBonuses(req.session.playerId),
+      getPotionBonuses(fight.defenderId),
     ]);
 
     const aStats = calcStats(attacker, attacker, aGifts, aRunes);
     const dStats = calcStats(defender, defender, dGifts, dRunes);
 
+    aStats.power     += aPotions.power;
+    aStats.endurance += aPotions.endurance;
+    aStats.speed     += aPotions.speed;
+    aStats.accuracy  += aPotions.accuracy;
+    dStats.power     += dPotions.power;
+    dStats.endurance += dPotions.endurance;
+    dStats.speed     += dPotions.speed;
+    dStats.accuracy  += dPotions.accuracy;
+
     const defZone = VALID_ZONES[Math.floor(Math.random() * VALID_ZONES.length)];
     const aRoll   = rollDamage(aStats, dStats, attackZone);
     const dRoll   = rollDamage(dStats, aStats, defZone);
+
+    if (dPotions.damageReducePct > 0 && aRoll.type !== 'miss')
+      aRoll.damage = Math.max(1, Math.floor(aRoll.damage * (1 - dPotions.damageReducePct / 100)));
+    if (aPotions.damageReducePct > 0 && dRoll.type !== 'miss')
+      dRoll.damage = Math.max(1, Math.floor(dRoll.damage * (1 - aPotions.damageReducePct / 100)));
 
     // Apply HP damage for this round
     const { rows: [attackerAfter] } = await pool.query(
@@ -363,6 +414,7 @@ router.post('/round', async (req, res) => {
         ringEffect = await checkRingEffect(attacker.id, defender.id, battleId, req.app.locals.io);
       }
 
+      await decrementPotions(attacker.id, defender.id);
       delete req.session.fight;
 
       return res.json({
@@ -418,13 +470,15 @@ router.post('/fight', async (req, res) => {
     if (defender.faction === attacker.faction)
       return res.status(400).json({ error: 'Не можна бити своїх!' });
 
-    const [{ rows: attackerGiftRows }, { rows: defenderGiftRows }, aRuneB, dRuneB, aBonuses, dBonuses] = await Promise.all([
+    const [{ rows: attackerGiftRows }, { rows: defenderGiftRows }, aRuneB, dRuneB, aBonuses, dBonuses, aPotions, dPotions] = await Promise.all([
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
       pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [defenderId]),
       getRuneBonuses(req.session.playerId),
       getRuneBonuses(defenderId),
       getClanBonuses(attacker.id),
       getClanBonuses(defender.id),
+      getPotionBonuses(req.session.playerId),
+      getPotionBonuses(defenderId),
     ]);
 
     const aStats = calcStats(attacker, attacker, attackerGiftRows, aRuneB);
@@ -435,6 +489,16 @@ router.post('/fight', async (req, res) => {
     aStats.endurance += (aBonuses.tower  || 0) * 5;
     dStats.power     += (dBonuses.smithy || 0) * 5;
     dStats.endurance += (dBonuses.tower  || 0) * 5;
+
+    // Potion stat bonuses
+    aStats.power     += aPotions.power;
+    aStats.endurance += aPotions.endurance;
+    aStats.speed     += aPotions.speed;
+    aStats.accuracy  += aPotions.accuracy;
+    dStats.power     += dPotions.power;
+    dStats.endurance += dPotions.endurance;
+    dStats.speed     += dPotions.speed;
+    dStats.accuracy  += dPotions.accuracy;
 
     const rounds = [];
     let attackerDamageDealt = 0;
@@ -447,6 +511,12 @@ router.post('/fight', async (req, res) => {
       const defZone    = VALID_ZONES[Math.floor(Math.random() * VALID_ZONES.length)];
       const aRoll      = rollDamage(aStats, dStats, attackZone);
       const dRoll      = rollDamage(dStats, aStats, defZone);
+
+      // Damage reduce potions
+      if (dPotions.damageReducePct > 0 && aRoll.type !== 'miss')
+        aRoll.damage = Math.max(1, Math.floor(aRoll.damage * (1 - dPotions.damageReducePct / 100)));
+      if (aPotions.damageReducePct > 0 && dRoll.type !== 'miss')
+        dRoll.damage = Math.max(1, Math.floor(dRoll.damage * (1 - aPotions.damageReducePct / 100)));
 
       attackerDamageDealt += aRoll.damage;
       defenderDamageDealt += dRoll.damage;
@@ -562,6 +632,8 @@ router.post('/fight', async (req, res) => {
       attackerWon ? updateClanTask(attacker.id, 'win_battles', 1) : Promise.resolve(),
       addClanWarDamage(attacker.id, defender.id, attackerDamageDealt, defenderDamageDealt),
     ]);
+
+    await decrementPotions(attacker.id, defender.id);
 
     res.json({
       success: true,

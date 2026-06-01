@@ -224,7 +224,17 @@ router.post('/:plotId/harvest', async (req, res) => {
       .filter(g => !g.is_luck_amulet)
       .reduce((s, g) => s + (g.harvest_bonus || 0), 0) * luckMult;
 
-    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct) / 100));
+    // Harvest potion bonus
+    const { rows: harvestPotions } = await pool.query(
+      `SELECT effect_value FROM active_potions
+       WHERE player_id=$1 AND effect_type='harvest'
+         AND (expires_at IS NULL OR expires_at > NOW())
+         AND (battles_left IS NULL OR battles_left > 0)`,
+      [req.session.playerId]
+    );
+    const potionHarvestPct = harvestPotions.reduce((s, p) => s + (p.effect_value || 0), 0);
+
+    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct + potionHarvestPct) / 100));
     const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
 
     // Give rewards
@@ -264,6 +274,14 @@ router.post('/:plotId/harvest', async (req, res) => {
        hpBonus, greensEarned, req.session.playerId]
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
+
+    // Track harvested plant as ingredient for alchemist
+    await pool.query(
+      `INSERT INTO player_ingredients (player_id, ingredient_name, quantity) VALUES ($1,$2,1)
+       ON CONFLICT (player_id, ingredient_name)
+       DO UPDATE SET quantity = player_ingredients.quantity + 1`,
+      [req.session.playerId, plant.name]
+    );
 
     await pool.query(
       `UPDATE plots SET plant_id=NULL, planted_at=NULL, ready_at=NULL,

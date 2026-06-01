@@ -1278,32 +1278,34 @@ async function loadStats() {
          <span class="stats-row-value">${value}</span>
        </div>`;
 
-    const bonusTag = (eq, gift, rune) => {
+    const bonusTag = (eq, gift, rune, potion) => {
       const parts = [];
-      if (eq   > 0) parts.push(`<span style="color:#e65100">+${eq} 🗡️</span>`);
-      if (gift > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
-      if (rune > 0) parts.push(`<span style="color:#7c4dff">+${rune} 🔮</span>`);
+      if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} 🗡️</span>`);
+      if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
+      if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} 🔮</span>`);
+      if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} 🧪</span>`);
       return parts.length ? ` ${parts.join(' ')}` : '';
     };
 
-    const statRow = (icon, label, base, eq, gift, rune) => {
-      const total = base + eq + gift + rune;
+    const statRow = (icon, label, base, eq, gift, rune, potion = 0) => {
+      const total = base + eq + gift + rune + potion;
       return row(icon, label,
-        `<strong>${total}</strong>${bonusTag(eq, gift, rune)}`
+        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion)}`
       );
     };
 
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
         <div class="stats-section-title">${IC.settings(14)} Параметри</div>
-        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower)}
-        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance)}
-        ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed)}
-        ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy)}
+        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower,     r.potionPower    || 0)}
+        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0)}
+        ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0)}
+        ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0)}
         ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${row(IC.hp(14), "Макс. здоров'я",  fmtNum(p.max_hp))}
         ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
-        ${r.harvestGiftPct > 0 ? row('🌾', 'Бонус врожаю', `+${r.harvestGiftPct}% від подарунків`) : ''}
+        ${r.harvestGiftPct > 0 ? row('🌾', 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
+        ${(r.potionHarvestPct || 0) > 0 ? row('🧪', 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
         ${r.luckAmulets > 0 ? row('🍀', 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
       </div>
       <div class="stats-section">
@@ -2514,61 +2516,137 @@ async function removeRune(runeInvId) {
 }
 
 // ─── ALCHEMIST ────────────────────────────────────────────────────────────────
+function potionEffectDesc(p) {
+  const rounds = p.effect_rounds;
+  const val = p.effect_value;
+  const m = {
+    power:        `+${val} мощі (${rounds} боїв)`,
+    endurance:    `+${val} стійкості (${rounds} боїв)`,
+    speed:        `+${val} швидкості (${rounds} боїв)`,
+    accuracy:     `+${val} точності (${rounds} боїв)`,
+    heal:         `Лікує ${val}% HP миттєво`,
+    harvest:      `+${val}% до врожаю (24год)`,
+    damage_reduce:`-${val}% отриманих пошкоджень (${rounds} боїв)`,
+  };
+  return m[p.effect_type] || '';
+}
+
 async function loadAlchemist() {
   const el = document.getElementById('alchemist-content');
   if (!el) return;
   el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
   try {
     const r = await API.get('/api/alchemist');
-    const myIng = r.ingredients || [];
+    const myIng  = r.ingredients  || [];
+    const invMap = r.invIngMap     || {};
+    const activeCount = (r.activePotions || []).length;
+
+    function ingHave(ing) {
+      if (ing.src === 'plants') {
+        const row = myIng.find(i => i.ingredient_name === ing.name);
+        return row ? row.quantity : 0;
+      }
+      return invMap[ing.name] || 0;
+    }
 
     el.innerHTML = `
       <div class="category-tabs">
         <button class="cat-tab active" onclick="showAlchTab('buy',this)">Купити</button>
         <button class="cat-tab" onclick="showAlchTab('craft',this)">Крафт</button>
-        <button class="cat-tab" onclick="showAlchTab('ingredients',this)">Інгредієнти</button>
+        <button class="cat-tab" onclick="showAlchTab('ingredients',this)">Склад</button>
+        <button class="cat-tab" onclick="showAlchTab('active',this)">Активні${activeCount > 0 ? ` (${activeCount})` : ''}</button>
       </div>
+
       <div id="alch-buy">
         ${r.potions.map(p => `<div class="item-card">
           ${itemIcon(p.name, 28)}
           <div class="item-info">
             <div class="item-name">${p.name}</div>
-            <div class="item-bonuses">${bonusStr(p)}</div>
+            <div class="item-bonuses">${potionEffectDesc(p)}</div>
             <div class="text-muted">Рів.${p.min_level}+</div>
           </div>
           <div>${IC.greens(13)}${fmtNum(p.price)} <button class="btn btn-green btn-sm" onclick="buyAlchPotion(${p.id})">Купити</button></div>
         </div>`).join('') || '<p class="text-muted">Немає</p>'}
       </div>
+
       <div id="alch-craft" style="display:none">
         ${r.recipes.map(rc => {
-          const hasAll = rc.ingredients.every(ing => {
-            const have = myIng.find(i => i.ingredient_name === ing.name);
-            return have && have.quantity >= ing.qty;
-          });
+          const hasAll = rc.ingredients.every(ing => ingHave(ing) >= ing.qty);
+          const ingList = rc.ingredients.map(ing => {
+            const have = ingHave(ing);
+            const ok   = have >= ing.qty;
+            const icon = ing.src === 'plants' ? '🌿' : '🎒';
+            return `<span style="color:${ok ? '#2d7a2d' : '#c0392b'}">${icon}${ing.name}×${ing.qty}(є:${have})</span>`;
+          }).join(' ');
+          const pItem = r.potions.find(p => p.name === rc.potion_name);
           return `<div class="item-card">
             <div class="item-info" style="flex:1">
               <div class="item-name">${rc.potion_name}</div>
-              <div class="text-muted">${rc.ingredients.map(i => `${i.name}×${i.qty}`).join(', ')}</div>
+              ${pItem ? `<div class="text-muted" style="font-size:12px">${potionEffectDesc(pItem)}</div>` : ''}
+              <div style="font-size:11px;margin-top:3px">${ingList}</div>
             </div>
-            <button class="btn ${hasAll?'btn-green':'btn-gray'} btn-sm" ${hasAll?`onclick="craftPotion(${rc.id})"`:'disabled'}>Зварити</button>
+            <button class="btn ${hasAll ? 'btn-green' : 'btn-gray'} btn-sm"
+              ${hasAll ? `onclick="craftPotion(${rc.id})"` : 'disabled'}>Зварити</button>
           </div>`;
         }).join('') || '<p class="text-muted">Немає рецептів</p>'}
       </div>
+
       <div id="alch-ingredients" style="display:none">
-        ${myIng.length ? myIng.map(i => `<div class="flex-between" style="padding:6px 0;border-bottom:1px solid #eee">
-          <span>${i.ingredient_name}</span><b>×${i.quantity}</b></div>`).join('')
-        : '<p class="text-muted">Інгредієнтів немає</p>'}
+        <div style="color:#888;font-size:12px;margin-bottom:8px">Рослини збираються з огороду автоматично</div>
+        ${myIng.filter(i => i.quantity > 0).map(i => `
+          <div class="flex-between" style="padding:6px 0;border-bottom:1px solid #eee">
+            <span>🌿 ${i.ingredient_name}</span><b>×${i.quantity}</b>
+          </div>`).join('') || '<p class="text-muted">Рослинних інгредієнтів немає — збирай урожай!</p>'}
+        ${(r.invPotions || []).length > 0 ? `
+          <div style="margin-top:14px;margin-bottom:6px;font-weight:600">🧪 Зілля в інвентарі:</div>
+          ${(r.invPotions || []).map(p => `
+            <div class="item-card">
+              ${itemIcon(p.name, 24)}
+              <div class="item-info" style="flex:1">
+                <div class="item-name">${p.name}</div>
+                <div class="text-muted" style="font-size:12px">${potionEffectDesc(p)}</div>
+              </div>
+              <button class="btn btn-blue btn-sm" onclick="usePotion(${p.inv_id})">Використати</button>
+            </div>`).join('')}` : ''}
+      </div>
+
+      <div id="alch-active" style="display:none">
+        ${(r.activePotions || []).length === 0
+          ? '<p class="text-muted">Активних зіль немає</p>'
+          : (r.activePotions || []).map(p => {
+            const remains = p.battles_left != null
+              ? `Залишилось боїв: <b>${p.battles_left}</b>`
+              : `До: <b>${new Date(p.expires_at).toLocaleString('uk-UA')}</b>`;
+            const typeIcon = { power:'⚔️', endurance:'🛡️', speed:'⚡', accuracy:'🎯', harvest:'🌾', damage_reduce:'🔰' }[p.effect_type] || '🧪';
+            return `<div class="item-card">
+              <span style="font-size:22px">${typeIcon}</span>
+              <div class="item-info" style="flex:1">
+                <div class="item-name">${p.potion_name}</div>
+                <div class="text-muted">${potionEffectDesc(p)}</div>
+                <div style="font-size:12px;color:#555">${remains}</div>
+              </div>
+            </div>`;
+          }).join('')}
       </div>`;
   } catch(e) { toast(e.message, true); }
 }
 
 function showAlchTab(tab, btn) {
-  ['buy','craft','ingredients'].forEach(t => {
+  ['buy','craft','ingredients','active'].forEach(t => {
     const el = document.getElementById('alch-' + t);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
   document.querySelectorAll('.category-tabs .cat-tab').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+}
+
+async function usePotion(invId) {
+  try {
+    const r = await API.post('/api/alchemist/use/' + invId);
+    toast(r.message || 'Зілля використано!');
+    await refreshPlayer();
+    loadAlchemist();
+  } catch(e) { toast(e.message, true); }
 }
 
 async function buyAlchPotion(itemId) {
