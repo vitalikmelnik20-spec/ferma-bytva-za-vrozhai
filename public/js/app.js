@@ -1278,19 +1278,33 @@ async function loadStats() {
          <span class="stats-row-value">${value}</span>
        </div>`;
 
-    const eqRow = (icon, label, base, bonus) =>
-      row(icon, label, bonus > 0 ? `${base}<span style="color:#e65100;font-size:12px">+${bonus}</span>` : `${base}`);
+    const bonusTag = (eq, gift, rune) => {
+      const parts = [];
+      if (eq   > 0) parts.push(`<span style="color:#e65100">+${eq} 🗡️</span>`);
+      if (gift > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
+      if (rune > 0) parts.push(`<span style="color:#7c4dff">+${rune} 🔮</span>`);
+      return parts.length ? ` ${parts.join(' ')}` : '';
+    };
+
+    const statRow = (icon, label, base, eq, gift, rune) => {
+      const total = base + eq + gift + rune;
+      return row(icon, label,
+        `<strong>${total}</strong>${bonusTag(eq, gift, rune)}`
+      );
+    };
 
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
         <div class="stats-section-title">${IC.settings(14)} Параметри</div>
-        ${eqRow(IC.power(14), 'Сила',      p.power_level,     p.equip_power)}
-        ${eqRow(IC.endurance(14), 'Захист',    p.endurance_level, p.equip_endurance)}
-        ${eqRow(IC.speed(14), 'Швидкість', p.speed_level,     p.equip_speed)}
-        ${eqRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy)}
+        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower)}
+        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance)}
+        ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed)}
+        ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy)}
         ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${row(IC.hp(14), "Макс. здоров'я",  fmtNum(p.max_hp))}
         ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
+        ${r.harvestGiftPct > 0 ? row('🌾', 'Бонус врожаю', `+${r.harvestGiftPct}% від подарунків`) : ''}
+        ${r.luckAmulets > 0 ? row('🍀', 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
       </div>
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
@@ -1943,6 +1957,12 @@ async function viewProfile(id) {
           </div>
         </div>
       </div>
+
+      ${r.gifts && r.gifts.length ? `
+      <div class="panel mb-12">
+        <div class="panel-header">${IC.gift(14)} Активні подарунки</div>
+        <div class="panel-body">${renderActiveGifts(r.gifts)}</div>
+      </div>` : ''}
 
       <button class="btn btn-gray btn-sm mb-12" onclick="history.back()">← Назад</button>`;
   } catch (e) { toast(e.message, true); }

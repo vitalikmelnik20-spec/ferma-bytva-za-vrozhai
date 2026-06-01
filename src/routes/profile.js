@@ -153,6 +153,33 @@ router.get('/stats', async (req, res) => {
       [req.session.playerId]
     );
 
+    // Gift bonuses (with luck amulet multiplier)
+    const { rows: activeGifts } = await pool.query(
+      `SELECT power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, harvest_bonus, is_luck_amulet
+       FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()`,
+      [req.session.playerId]
+    );
+    const luckMult  = 1 + activeGifts.filter(g => g.is_luck_amulet).length * 0.5;
+    const statGifts = activeGifts.filter(g => !g.is_luck_amulet);
+    const giftPower     = Math.floor(statGifts.reduce((s,g) => s + (g.power_bonus     || 0), 0) * luckMult);
+    const giftEndurance = Math.floor(statGifts.reduce((s,g) => s + (g.endurance_bonus || 0), 0) * luckMult);
+    const giftSpeed     = Math.floor(statGifts.reduce((s,g) => s + (g.speed_bonus     || 0), 0) * luckMult);
+    const giftAccuracy  = Math.floor(statGifts.reduce((s,g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
+    const harvestGiftPct = Math.floor(statGifts.reduce((s,g) => s + (g.harvest_bonus  || 0), 0) * luckMult);
+
+    // Rune bonuses from equipped items
+    const { rows: [runeRow] } = await pool.query(
+      `SELECT COALESCE(SUM(it.power_bonus),0)::INTEGER     AS rune_power,
+              COALESCE(SUM(it.endurance_bonus),0)::INTEGER AS rune_endurance,
+              COALESCE(SUM(it.speed_bonus),0)::INTEGER     AS rune_speed,
+              COALESCE(SUM(it.accuracy_bonus),0)::INTEGER  AS rune_accuracy
+       FROM item_runes ir
+       JOIN inventory eq   ON eq.id = ir.inv_id        AND eq.player_id=$1 AND eq.is_equipped=true
+       JOIN inventory rinv ON rinv.id = ir.rune_inv_id  AND rinv.player_id=$1
+       JOIN items it ON it.id = rinv.item_id`,
+      [req.session.playerId]
+    );
+
     res.json({
       player,
       friendsCount:    parseInt(friendsCount),
@@ -162,6 +189,12 @@ router.get('/stats', async (req, res) => {
       cavesSessions:   caveStats?.total_sessions   || 0,
       cavesMinesDone:  caveStats?.total_mines_done || 0,
       cavesGold:       caveStats?.total_gold       || 0,
+      giftPower, giftEndurance, giftSpeed, giftAccuracy, harvestGiftPct,
+      runePower:     runeRow?.rune_power     || 0,
+      runeEndurance: runeRow?.rune_endurance || 0,
+      runeSpeed:     runeRow?.rune_speed     || 0,
+      runeAccuracy:  runeRow?.rune_accuracy  || 0,
+      luckAmulets:   activeGifts.filter(g => g.is_luck_amulet).length,
     });
   } catch (err) {
     console.error(err);
@@ -196,7 +229,9 @@ router.get('/:id', async (req, res) => {
     );
 
     const gifts = await pool.query(
-      `SELECT ag.gift_name, p.username as giver_name, ag.expires_at
+      `SELECT ag.gift_name, ag.power_bonus, ag.endurance_bonus, ag.speed_bonus,
+              ag.accuracy_bonus, ag.harvest_bonus, ag.is_luck_amulet,
+              p.username as giver_name, ag.expires_at
        FROM active_gifts ag JOIN players p ON p.id = ag.giver_id
        WHERE ag.receiver_id=$1 AND ag.expires_at > NOW()`,
       [req.params.id]
