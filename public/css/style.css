@@ -1216,3 +1216,33 @@ html {
   60%  { filter: brightness(1.4) drop-shadow(0 0 6px #f44336); }
   100% { filter: brightness(1); }
 }
+
+/* ── Inventory ── */
+.inv-item-card {
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #fff;
+}
+.inv-item-card.is-equipped {
+  border-color: #ff8f00;
+  background: #fffde7;
+}
+.inv-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.inv-eq-badge {
+  display: inline-block;
+  background: #ff8f00;
+  color: #fff;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  vertical-align: middle;
+}
+.btn-red { background: #e53935; color: #fff; }
+.btn-red:disabled { background: #bbb; }

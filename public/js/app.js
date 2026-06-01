@@ -191,6 +191,7 @@ function navigate(page) {
   if (page === 'admin')      loadAdmin();
   if (page === 'stats')      loadStats();
   if (page === 'caves')      { closeCaveNotif(); loadCaves(); }
+  if (page === 'inventory')  loadInventory();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -924,7 +925,8 @@ async function equipItem(invId) {
   try {
     await API.post(`/api/market/equip/${invId}`);
     toast('Одягнуто!');
-    await loadMarket();
+    if (document.getElementById('page-inventory')?.classList.contains('active')) loadInventory();
+    else await loadMarket();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -932,7 +934,8 @@ async function unequipItem(invId) {
   try {
     await API.post(`/api/market/unequip/${invId}`);
     toast('Знято');
-    await loadMarket();
+    if (document.getElementById('page-inventory')?.classList.contains('active')) loadInventory();
+    else await loadMarket();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2722,13 +2725,52 @@ function showAlchTab(tab, btn) {
   if (btn) btn.classList.add('active');
 }
 
-async function usePotion(invId) {
+function showConfirmModal(title, body, onConfirm) {
+  document.getElementById('confirm-modal-title').textContent = title;
+  document.getElementById('confirm-modal-body').innerHTML = body;
+  const okBtn = document.getElementById('confirm-modal-ok');
+  okBtn.onclick = () => { closeConfirmModal(); onConfirm(); };
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').style.display = 'none';
+}
+
+async function usePotion(invId, name, desc) {
+  if (name) {
+    showConfirmModal(
+      'Використати зілля?',
+      `<b>${name}</b><br><span style="color:#555">${desc || ''}</span>`,
+      () => _doUsePotion(invId)
+    );
+  } else {
+    await _doUsePotion(invId);
+  }
+}
+async function _doUsePotion(invId) {
   try {
     const r = await API.post('/api/alchemist/use/' + invId);
     toast(r.message || 'Зілля використано!');
     await refreshPlayer();
-    loadAlchemist();
+    if (document.getElementById('page-inventory')?.classList.contains('active')) loadInventory();
+    else loadAlchemist();
   } catch(e) { toast(e.message, true); }
+}
+
+async function discardItem(invId, name, hasRunes) {
+  const warn = hasRunes ? '<br><span style="color:#e53935">⚠️ Руни у цьому предметі будуть знищені!</span>' : '';
+  showConfirmModal(
+    'Викинути предмет?',
+    `Викинути <b>${name}</b>? Отримаєш 2–5% від базової ціни зеленню.${warn}`,
+    async () => {
+      try {
+        const r = await API.post(`/api/profile/discard/${invId}`);
+        toast(`Викинуто! +${r.greens} 🌿`);
+        await refreshPlayer();
+        loadInventory();
+      } catch(e) { toast(e.message, true); }
+    }
+  );
 }
 
 async function buyAlchPotion(itemId) {
@@ -2808,5 +2850,144 @@ async function enchantItem(invId) {
     await refreshPlayer();
     loadEnchantItems();
     if (marketData) { await loadMarket(); }
+  } catch(e) { toast(e.message, true); }
+}
+
+// ─── INVENTORY ────────────────────────────────────────────────────────────────
+const INV_TABS = [
+  { key: 'weapon',      label: '⚔️ Зброя',       cats: ['weapon'] },
+  { key: 'armor',       label: '🛡️ Броня',        cats: ['armor','helmet','shield'] },
+  { key: 'potion',      label: '🧪 Зілля',         cats: ['potion'] },
+  { key: 'ingredients', label: '🌿 Інгредієнти',   cats: null },
+  { key: 'accessory',   label: '💍 Аксесуари',     cats: ['ring','talisman','rune'] },
+  { key: 'other',       label: '📦 Інше',          cats: [] },
+];
+const KNOWN_CATS = ['weapon','armor','helmet','shield','potion','ring','talisman','rune'];
+
+let _invData = null;
+
+async function loadInventory() {
+  try {
+    _invData = await API.get('/api/profile/inventory');
+    const slotsEl = document.getElementById('inv-slots-info');
+    if (slotsEl) slotsEl.textContent = `${_invData.used} / ${_invData.slots} слотів`;
+
+    const tabsEl = document.getElementById('inv-tabs');
+    tabsEl.innerHTML = INV_TABS.map((t, i) =>
+      `<button class="cat-tab${i===0?' active':''}" onclick="showInvTab('${t.key}',this)">${t.label}</button>`
+    ).join('');
+
+    showInvTab('weapon', tabsEl.querySelector('.cat-tab'));
+  } catch(e) { toast(e.message, true); }
+}
+
+function showInvTab(key, btn) {
+  document.querySelectorAll('#inv-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const tab = INV_TABS.find(t => t.key === key);
+  const el = document.getElementById('inventory-content');
+  if (!_invData) return;
+
+  // Ingredients tab — from separate table
+  if (key === 'ingredients') {
+    const ing = _invData.ingredients || [];
+    el.innerHTML = ing.length
+      ? ing.map(i => `<div class="flex-between" style="padding:7px 0;border-bottom:1px solid #eee">
+          <span>🌿 ${i.ingredient_name}</span><b>×${i.quantity}</b>
+        </div>`).join('')
+      : '<p class="text-muted">Інгредієнтів немає — видобувай у шахтах та збирай врожай</p>';
+    el.innerHTML += renderInvExpand();
+    return;
+  }
+
+  let items;
+  if (key === 'other') {
+    items = (_invData.items || []).filter(i => !KNOWN_CATS.includes(i.category));
+  } else {
+    items = (_invData.items || []).filter(i => tab.cats.includes(i.category));
+  }
+
+  el.innerHTML = (items.length
+    ? items.map(i => renderInvItem(i, _invData.itemRunes || [])).join('')
+    : `<p class="text-muted">Нічого немає</p>`)
+    + renderInvExpand();
+}
+
+function renderInvExpand() {
+  if (!_invData) return '';
+  const slots = _invData.slots || 50;
+  const pct = Math.round(_invData.used / slots * 100);
+  if (slots >= 200) return `<div style="margin-top:12px;font-size:12px;color:#888;text-align:center">Слоти: ${_invData.used}/${slots} — максимум досягнуто</div>`;
+  return `<div style="margin-top:12px;border-top:1px solid #eee;padding-top:10px">
+    <div style="font-size:12px;color:#888;margin-bottom:6px">Слоти: ${_invData.used}/${slots} (${pct}%)</div>
+    <div style="background:#eee;border-radius:4px;height:6px;margin-bottom:8px">
+      <div style="background:#ff8f00;height:6px;border-radius:4px;width:${Math.min(100,pct)}%"></div>
+    </div>
+    <button class="btn btn-orange btn-sm" onclick="expandInventory()">+10 слотів — 100 🏅 золота</button>
+  </div>`;
+}
+
+function renderInvItem(item, allRunes) {
+  const myRunes = allRunes.filter(r => r.inv_id === item.id);
+  const maxRunes = item.category === 'weapon' || item.category === 'armor' ? 3
+    : item.category === 'helmet' || item.category === 'shield' ? 2 : 0;
+  const enchant = item.upgrade_level || 0;
+
+  const stats = [];
+  if (item.power_bonus > 0)     stats.push(`⚡+${item.power_bonus + enchant * 2}`);
+  if (item.endurance_bonus > 0) stats.push(`🛡️+${item.endurance_bonus + enchant * 2}`);
+  if (item.speed_bonus > 0)     stats.push(`💨+${item.speed_bonus}`);
+  if (item.accuracy_bonus > 0)  stats.push(`🎯+${item.accuracy_bonus}`);
+
+  const runeDots = maxRunes > 0 ? `<div class="rune-dots" style="margin-top:4px">${
+    Array.from({length: maxRunes}, (_,i) =>
+      `<span class="rune-dot${i < myRunes.length ? ' filled' : ''}"></span>`
+    ).join('')
+  }</div>` : '';
+
+  const equippable = ['weapon','armor','helmet','shield','ring','talisman'].includes(item.category);
+  const equipBtn = equippable
+    ? `<button class="btn ${item.is_equipped ? 'btn-gray' : 'btn-orange'} btn-sm"
+         onclick="${item.is_equipped ? `unequipItem(${item.id})` : `equipItem(${item.id})`}">
+         ${item.is_equipped ? 'Зняти' : 'Одягнути'}
+       </button>`
+    : '';
+
+  const potionDesc = item.category === 'potion' ? potionEffectDesc(item) : '';
+  const useBtn = item.category === 'potion'
+    ? `<button class="btn btn-blue btn-sm" onclick="usePotion(${item.id},'${item.name.replace(/'/g,"\\'")}','${potionDesc.replace(/'/g,"\\'")}')">Використати</button>`
+    : '';
+
+  const enchantBtn = ['weapon','armor','helmet','shield'].includes(item.category)
+    ? `<button class="btn btn-gray btn-sm" onclick="navigate('village')">⚒️ Коваль</button>`
+    : '';
+
+  const hasRunes = myRunes.length > 0;
+
+  return `<div class="inv-item-card${item.is_equipped ? ' is-equipped' : ''}">
+    <div style="display:flex;gap:8px;align-items:flex-start">
+      <span>${itemIcon(item.name, 32)}</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:14px">${item.name}${item.is_equipped ? ' <span class="inv-eq-badge">Одягнуто</span>' : ''}</div>
+        <div style="font-size:11px;color:#888">Рів.${item.min_level || 1}+${enchant > 0 ? ` · ✨ +${enchant}` : ''}</div>
+        ${stats.length ? `<div style="font-size:12px;color:#555;margin-top:2px">${stats.join(' ')}</div>` : ''}
+        ${potionDesc ? `<div style="font-size:12px;color:#0097a7;margin-top:2px">${potionDesc}</div>` : ''}
+        ${runeDots}
+      </div>
+    </div>
+    <div class="inv-item-actions">
+      ${equipBtn}${useBtn}${enchantBtn}
+      <button class="btn btn-red btn-sm" ${item.is_equipped ? 'disabled' : ''}
+        onclick="discardItem(${item.id},'${item.name.replace(/'/g,"\\'")}',${hasRunes})">Викинути</button>
+    </div>
+  </div>`;
+}
+
+async function expandInventory() {
+  try {
+    const r = await API.post('/api/profile/expand-inventory');
+    toast(`Розширено до ${r.newSlots} слотів!`);
+    await refreshPlayer();
+    loadInventory();
   } catch(e) { toast(e.message, true); }
 }

@@ -70,6 +70,11 @@
           <span class="menu-icon"><img src="/icons/menu/clans.png" style="width:24px;height:24px"></span><span class="menu-label">Клани</span>
         </div>
       </div>
+      <div class="menu-grid" style="grid-template-columns:1fr">
+        <div class="menu-btn" onclick="navigate('inventory')">
+          <span class="menu-icon"><img src="/icons/ui/inventory.svg" width="24" height="24" style="vertical-align:middle" alt="inventory"></span><span class="menu-label">🎒 Інвентар</span>
+        </div>
+      </div>
     </section>
 
     <!-- GARDEN -->
@@ -176,6 +181,23 @@
         <div class="panel-body" id="village-caves-status">
           <p class="text-muted">Щоденне джерело золота і досвіду</p>
         </div>
+      </div>
+    </section>
+
+    <!-- INVENTORY -->
+    <section class="page" id="page-inventory">
+      <div class="panel">
+        <div class="panel-header flex-between">
+          <span><img src="/icons/ui/inventory.svg" width="16" height="16" style="vertical-align:middle" alt="inventory"> Інвентар</span>
+          <span id="inv-slots-info" style="font-size:12px;color:#888"></span>
+        </div>
+        <div class="panel-body" style="padding:0">
+          <div class="category-tabs" id="inv-tabs" style="overflow-x:auto;white-space:nowrap"></div>
+          <div id="inventory-content" style="padding:8px"></div>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('home')">← Назад</button>
       </div>
     </section>
 
@@ -509,6 +531,18 @@
       </div>
       <div id="tg-setup-error" style="color:#c62828;font-size:13px;margin-bottom:8px;text-align:center"></div>
       <button class="btn btn-green btn-full" onclick="submitTgSetup()"><img src="/icons/res/greens.png" width="14" height="14" style="vertical-align:middle"> Розпочати гру!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Generic confirm modal -->
+<div class="modal-overlay" id="confirm-modal" style="display:none" onclick="if(event.target===this)closeConfirmModal()">
+  <div class="modal-box" style="max-width:320px;width:92%">
+    <div class="modal-header" id="confirm-modal-title">Підтвердження</div>
+    <div style="padding:12px 16px;font-size:14px" id="confirm-modal-body"></div>
+    <div style="display:flex;gap:8px;padding:0 16px 16px">
+      <button class="btn btn-red btn-sm" style="flex:1" id="confirm-modal-ok">Так</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="closeConfirmModal()">Ні</button>
     </div>
   </div>
 </div>
