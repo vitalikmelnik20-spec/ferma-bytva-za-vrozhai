@@ -77,7 +77,16 @@ router.get('/', async (req, res) => {
       pet_endurance: trainCost(player.pet_endurance),
     };
 
-    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts });
+    const { rows: itemRunes } = await pool.query(
+      `SELECT ir.inv_id, ir.slot_index
+       FROM item_runes ir
+       JOIN inventory rinv ON rinv.id = ir.rune_inv_id
+       JOIN inventory inv  ON inv.id  = ir.inv_id
+       WHERE inv.player_id = $1`,
+      [req.session.playerId]
+    );
+
+    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts, itemRunes });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -239,7 +248,7 @@ router.get('/:id', async (req, res) => {
     if (!player) return res.status(404).json({ error: 'Гравця не знайдено' });
 
     const equip = await pool.query(
-      `SELECT inv.slot, it.name, it.category, it.power_bonus, it.endurance_bonus,
+      `SELECT inv.id, inv.slot, it.name, it.category, it.power_bonus, it.endurance_bonus,
               it.speed_bonus, it.accuracy_bonus, (inv.upgrade_level * 2) as upgrade_bonus
        FROM inventory inv JOIN items it ON it.id = inv.item_id
        WHERE inv.player_id=$1 AND inv.is_equipped=true`,
@@ -263,10 +272,19 @@ router.get('/:id', async (req, res) => {
       [req.session.playerId, req.params.id]
     );
 
+    const { rows: itemRunes } = await pool.query(
+      `SELECT ir.inv_id, ir.slot_index
+       FROM item_runes ir
+       JOIN inventory inv ON inv.id = ir.inv_id
+       WHERE inv.player_id = $1`,
+      [req.params.id]
+    );
+
     res.json({
       player,
       equipment: equip.rows,
       gifts: gifts.rows,
+      itemRunes,
       friendshipStatus: friendship.rows[0]?.status || null,
       isRequester: friendship.rows[0]?.requester_id === req.session.playerId
     });

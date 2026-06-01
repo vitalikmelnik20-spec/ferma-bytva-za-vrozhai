@@ -825,6 +825,9 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
 .equip-slot { width:58px; height:58px; background:rgba(255,143,0,.12); border:2px solid #ffb300; border-radius:10px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-size:22px; position:relative; overflow:hidden; }
 .equip-slot.empty { border-style:dashed; border-color:#ddd; background:rgba(0,0,0,.03); }
 .equip-slot-name { font-size:8px; color:#795548; text-align:center; line-height:1.1; padding:0 2px; max-width:54px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.rune-dots { display:flex; gap:2px; justify-content:center; margin-top:2px; }
+.rune-dot { width:6px; height:6px; border-radius:50%; background:#ddd; border:1px solid #bbb; }
+.rune-dot.filled { background:#7c4dff; border-color:#5e35b1; }
 .avatar-frame { width:92px; height:92px; border-radius:14px; border:3px solid #ff8f00; background:#fff3e0; display:flex; align-items:center; justify-content:center; font-size:54px; cursor:pointer; position:relative; overflow:hidden; flex-shrink:0; }
 .avatar-frame img { width:100%; height:100%; object-fit:cover; }
 .avatar-edit-badge { position:absolute; bottom:0; right:0; background:rgba(0,0,0,.55); color:#fff; font-size:14px; padding:2px 5px; border-radius:6px 0 0 0; }

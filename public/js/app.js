@@ -1109,18 +1109,40 @@ function getAvatarHtml(url, faction, gender) {
   return `<span style="font-size:54px;line-height:1">${playerAvatar(faction, gender)}</span>`;
 }
 
-function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
+const SLOT_MAX_RUNES = { weapon: 3, armor: 3, helmet: 2, shield: 2 };
+const SLOT_EMPTY_ICONS = {
+  weapon: 'Залізний меч', armor: 'Кольчуга', helmet: 'Шолом воїна',
+  shield: 'Залізний щит', ring: 'Кільце злодія', talisman: 'Талісман золотошукача',
+};
+
+function buildDoll(equippedList, itemRunes, avatarUrl, faction, gender, isOwn) {
   const eq = {};
   equippedList.forEach(e => { if (!eq[e.category]) eq[e.category] = e; });
+  const runes = itemRunes || [];
+
+  const runeDots = (invId, maxRunes) => {
+    if (!maxRunes) return '';
+    const count = runes.filter(ir => ir.inv_id === invId).length;
+    return `<div class="rune-dots">${Array.from({length: maxRunes}, (_, i) =>
+      `<div class="rune-dot ${i < count ? 'filled' : ''}"></div>`
+    ).join('')}</div>`;
+  };
 
   const slot = (cat) => {
+    const maxR = SLOT_MAX_RUNES[cat] || 0;
     const e = eq[cat];
-    return e
-      ? `<div class="equip-slot" title="${e.name}" ${isOwn ? `onclick="goToInventoryItem(${e.id})" style="cursor:pointer"` : ''}>
-           <div>${itemIcon(eq[cat]?.name || '', 28)}</div>
-           <div class="equip-slot-name">${e.name}</div>
-         </div>`
-      : `<div class="equip-slot empty"><div style="opacity:.3">${itemIcon(cat === 'weapon' ? 'Залізний меч' : cat === 'armor' ? 'Кольчуга' : cat === 'helmet' ? 'Шолом воїна' : cat === 'shield' ? 'Залізний щит' : cat === 'rune' ? 'Руна вогню' : cat === 'ring' ? 'Кільце злодія' : cat === 'talisman' ? 'Талісман золотошукача' : 'Зілля сили', 24)}</div></div>`;
+    if (e) {
+      return `<div class="equip-slot" title="${e.name}"
+          ${isOwn ? `onclick="goToInventoryItem(${e.id})" style="cursor:pointer"` : ''}>
+        <div>${itemIcon(e.name, 28)}</div>
+        <div class="equip-slot-name">${e.name}</div>
+        ${runeDots(e.id, maxR)}
+      </div>`;
+    }
+    return `<div class="equip-slot empty">
+      <div style="opacity:.3">${itemIcon(SLOT_EMPTY_ICONS[cat] || '', 24)}</div>
+      ${maxR ? `<div class="rune-dots">${Array.from({length: maxR}, () => '<div class="rune-dot"></div>').join('')}</div>` : ''}
+    </div>`;
   };
 
   return `
@@ -1128,7 +1150,6 @@ function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
       <div class="doll-col">
         ${slot('weapon')}
         ${slot('armor')}
-        ${slot('potion')}
       </div>
       <div class="doll-center">
         ${slot('helmet')}
@@ -1136,12 +1157,11 @@ function buildDoll(equippedList, avatarUrl, faction, gender, isOwn) {
           ${getAvatarHtml(avatarUrl, faction, gender)}
           ${isOwn ? `<div class="avatar-edit-badge">${IC.camera(14)}</div>` : ''}
         </div>
-        ${slot('rune')}
+        ${slot('talisman')}
       </div>
       <div class="doll-col">
         ${slot('shield')}
         ${slot('ring')}
-        ${slot('talisman')}
       </div>
     </div>`;
 }
@@ -1261,7 +1281,7 @@ async function loadProfile() {
           <span class="profile-nick-header ${p.faction}">${p.username}</span>
           <span style="font-size:12px">${p.is_online ? '🟢' : '⚫'}</span>
         </div>
-        ${buildDoll(equipped, p.avatar_url, p.faction, p.gender, true)}
+        ${buildDoll(equipped, r.itemRunes, p.avatar_url, p.faction, p.gender, true)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
           <button class="btn btn-blue btn-sm" onclick="navigate('stats')">${IC.stats_ic(14)} Статистика</button>
           <button class="btn btn-orange btn-sm" onclick="toggleVacation(${p.on_vacation})">
@@ -1987,7 +2007,7 @@ async function viewProfile(id) {
           <span class="profile-nick-header ${p.faction}">${p.username}</span>
           <span style="font-size:12px">${p.is_online ? '🟢 онлайн' : '⚫ офлайн'}</span>
         </div>
-        ${buildDoll(r.equipment, p.avatar_url, p.faction, p.gender, false)}
+        ${buildDoll(r.equipment, r.itemRunes, p.avatar_url, p.faction, p.gender, false)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
           <button class="btn btn-red btn-sm" onclick="navigate('battle')">${IC.battle(14)} Битися</button>
           ${friendBtn}
