@@ -194,6 +194,7 @@ function navigate(page) {
   if (page === 'inventory')  loadInventory();
   if (page === 'auction')    loadAuction();
   if (page === 'dragon')     loadDragon();
+  if (page === 'daily')      loadDaily();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -2198,6 +2199,14 @@ function initSocket() {
       loadProfile();
   });
 
+  socket.on('daily:available', ({ eventType }) => {
+    const names = { quest: '📋 Квест', tournament: '⚔️ Турнір', wheel: '🎰 Колесо Фортуни' };
+    toast(`🎉 Новий щоденний івент: ${names[eventType] || eventType}!`);
+    const lbl = document.getElementById('daily-menu-label');
+    if (lbl) lbl.textContent = names[eventType] || 'Щоденний івент';
+    if (document.getElementById('page-daily')?.classList.contains('active')) loadDaily();
+  });
+
   socket.on('insects:started', ({ swarmHp, penaltyPct }) => {
     document.getElementById('insect-notif-sub').textContent = `Рій: ${fmtNum(swarmHp)} HP · Штраф якщо не відженеш: ${penaltyPct}%`;
     document.getElementById('insect-notif').style.display = 'flex';
@@ -3426,5 +3435,198 @@ async function fightInsect() {
   } finally {
     _insectFighting = false;
     if (btn) btn.disabled = false;
+  }
+}
+
+// ─── DAILY EVENT ─────────────────────────────────────────────────────────────
+async function loadDaily() {
+  const el = document.getElementById('daily-content');
+  el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
+  try {
+    const { event: ev, progress, wheelSpunToday } = await API.get('/api/daily/today');
+    const titleEl = document.getElementById('daily-panel-title');
+
+    if (ev.event_type === 'quest') {
+      if (titleEl) titleEl.textContent = '📋 Щоденний квест';
+      renderDailyQuest(el, ev, progress);
+    } else if (ev.event_type === 'tournament') {
+      if (titleEl) titleEl.textContent = '⚔️ Щоденний турнір';
+      renderDailyTournament(el, ev, progress);
+    } else {
+      if (titleEl) titleEl.textContent = '🎰 Колесо Фортуни';
+      renderDailyWheel(el, ev, wheelSpunToday);
+    }
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+function renderDailyQuest(el, ev, progress) {
+  const q = ev.details;
+  const cur = progress ? progress.progress : 0;
+  const pct = Math.min(100, Math.round((cur / q.target) * 100));
+  const completed = progress?.is_completed;
+  const claimed   = progress?.reward_claimed;
+
+  el.innerHTML = `
+    <div class="daily-card">
+      <div class="daily-type-badge">📋 Квест від НПС</div>
+      <div class="daily-task">${q.task}</div>
+      <div class="progress-bar-wrap">
+        <div class="progress-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="daily-progress-label">${cur} / ${q.target} (${pct}%)</div>
+      <div class="daily-rewards">
+        ${q.rewardGreen  ? `<span>🌿 ${q.rewardGreen}</span>`  : ''}
+        ${q.rewardExp    ? `<span>✨ ${q.rewardExp} exp</span>` : ''}
+        ${q.rewardGold   ? `<span>🏅 ${q.rewardGold}</span>`   : ''}
+        ${q.rewardGlory  ? `<span>⭐ +${q.rewardGlory} слави</span>` : ''}
+        <span>🎁 Випадковий предмет</span>
+      </div>
+      ${completed && !claimed
+        ? `<button class="btn btn-green btn-full" onclick="claimDailyQuest()">🎁 Забрати нагороду!</button>`
+        : claimed
+          ? `<div class="daily-done">✅ Нагороду отримано!</div>`
+          : `<div class="daily-hint">Виконуй квест протягом дня</div>`
+      }
+    </div>`;
+}
+
+async function claimDailyQuest() {
+  try {
+    const r = await API.post('/api/daily/claim');
+    toast(`🎉 Нагорода: 🌿${r.rewardGreen} ${r.rewardGold ? '🏅'+r.rewardGold : ''} + предмет!`);
+    await refreshPlayer();
+    loadDaily();
+  } catch(e) { toast(e.message, true); }
+}
+
+function renderDailyTournament(el, ev, progress) {
+  const maxFights  = ev.details.maxFights || 5;
+  const fightsDone = progress ? Math.floor(progress.progress / 10) : 0;
+  const wins       = progress ? (progress.progress % 10)           : 0;
+  const completed  = progress?.is_completed;
+  const claimed    = progress?.reward_claimed;
+
+  const tiers = [
+    { min: 5, label: '🥇 1 місце', reward: '500 🌿 + слава' },
+    { min: 3, label: '🥈 2–3 місце', reward: '200 🌿' },
+    { min: 1, label: 'Учасник', reward: '50 🌿' },
+  ];
+
+  el.innerHTML = `
+    <div class="daily-card">
+      <div class="daily-type-badge">⚔️ Щоденний турнір</div>
+      <div class="daily-task">5 боїв проти гравців близького рівня</div>
+      <div class="daily-tournament-score">
+        <span>Боїв: <strong>${fightsDone}/${maxFights}</strong></span>
+        <span>Перемог: <strong>${wins}</strong></span>
+      </div>
+      <div class="daily-tiers">
+        ${tiers.map(t => `<div class="daily-tier ${wins >= t.min && completed ? 'achieved' : ''}">
+          ${t.label}: ${t.reward}
+        </div>`).join('')}
+      </div>
+      ${!completed
+        ? `<button class="btn btn-red btn-full" onclick="tournamentFight()" id="tournament-fight-btn">⚔️ Бій!</button>`
+        : claimed
+          ? `<div class="daily-done">✅ Нагороду отримано!</div>`
+          : `<button class="btn btn-green btn-full" onclick="claimTournament()">🏆 Забрати нагороду!</button>`
+      }
+    </div>`;
+}
+
+let _tournamentFighting = false;
+async function tournamentFight() {
+  if (_tournamentFighting) return;
+  _tournamentFighting = true;
+  const btn = document.getElementById('tournament-fight-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await API.post('/api/daily/tournament/fight');
+    const resultTxt = r.won ? `✅ Перемога над ${r.opponentName}!` : `❌ Поразка від ${r.opponentName}`;
+    toast(`⚔️ ${resultTxt} (${r.wins}/${r.fightsDone} перемог)`);
+    if (r.isCompleted) { toast('🏆 Усі турнірні бої завершено!'); }
+    loadDaily();
+  } catch(e) { toast(e.message, true); } finally {
+    _tournamentFighting = false;
+  }
+}
+
+async function claimTournament() {
+  try {
+    const r = await API.post('/api/daily/tournament/claim');
+    toast(`🏆 ${r.rank}: +${r.rewardGreen} 🌿 ${r.rewardGlory ? '+'+r.rewardGlory+' слави' : ''}`);
+    await refreshPlayer();
+    loadDaily();
+  } catch(e) { toast(e.message, true); }
+}
+
+const WHEEL_SECTOR_EMOJIS = { greens: '🌿', gold: '🏅', potion: '🧪', item: '📦', diamond: '💎', rare: '🎁' };
+
+function renderDailyWheel(el, ev, spunToday) {
+  const sectors = [
+    { type: 'greens',  label: '🌿 Зелень',    chance: '35%', color: '#4caf50' },
+    { type: 'gold',    label: '🏅 Золото',     chance: '25%', color: '#ff8f00' },
+    { type: 'potion',  label: '🧪 Зілля',      chance: '20%', color: '#7c4dff' },
+    { type: 'item',    label: '📦 Предмет',    chance: '10%', color: '#0097a7' },
+    { type: 'diamond', label: '💎 Алмази',     chance: '7%',  color: '#1565c0' },
+    { type: 'rare',    label: '🎁 Рідкісний',  chance: '3%',  color: '#c62828' },
+  ];
+
+  el.innerHTML = `
+    <div class="daily-card">
+      <div class="daily-type-badge">🎰 Колесо Фортуни</div>
+      <div class="wheel-container">
+        <div class="wheel" id="fortune-wheel">
+          ${sectors.map((s, i) => `
+            <div class="wheel-sector" style="--i:${i};--clr:${s.color}">
+              <span>${s.label}</span>
+            </div>`).join('')}
+        </div>
+        <div class="wheel-pointer">▼</div>
+      </div>
+      <div class="wheel-chances">
+        ${sectors.map(s => `<span style="color:${s.color}">${s.label}: ${s.chance}</span>`).join('')}
+      </div>
+      <div id="wheel-result" style="text-align:center;font-size:15px;font-weight:700;margin:10px 0;min-height:24px"></div>
+      ${spunToday
+        ? `<div class="daily-done">✅ Сьогодні вже крутив! Повертайся завтра.</div>`
+        : `<button class="btn btn-full daily-spin-btn" id="spin-btn" onclick="spinWheel()">🎰 Крутити колесо!</button>`
+      }
+    </div>`;
+}
+
+let _spinning = false;
+async function spinWheel() {
+  if (_spinning) return;
+  _spinning = true;
+  const btn = document.getElementById('spin-btn');
+  const wheel = document.getElementById('fortune-wheel');
+  const resultEl = document.getElementById('wheel-result');
+  if (btn) btn.disabled = true;
+  if (resultEl) resultEl.textContent = '';
+
+  // Start spinning animation
+  if (wheel) {
+    wheel.classList.add('spinning');
+  }
+
+  try {
+    const r = await API.post('/api/daily/spin');
+    // Wait for spin animation (1.5s) then show result
+    await new Promise(res => setTimeout(res, 1500));
+    if (wheel) wheel.classList.remove('spinning');
+    if (resultEl) resultEl.innerHTML = `
+      <span style="font-size:24px">${WHEEL_SECTOR_EMOJIS[r.sectorType] || '🎁'}</span><br>
+      <span style="color:#2e7d32">${r.prizeLabel}</span>`;
+    toast(`🎰 Колесо Фортуни: ${r.prizeLabel}!`);
+    await refreshPlayer();
+    // Reload to show "already spun" state
+    setTimeout(() => loadDaily(), 2000);
+  } catch(e) {
+    if (wheel) wheel.classList.remove('spinning');
+    toast(e.message, true);
+    if (btn) btn.disabled = false;
+  } finally {
+    _spinning = false;
   }
 }

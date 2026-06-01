@@ -45,6 +45,7 @@ app.use('/api/gifts',     require('./src/routes/gifts'));
 app.use('/api/auction',   require('./src/routes/auction'));
 app.use('/api/dragon',    require('./src/routes/dragon'));
 app.use('/api/insects',   require('./src/routes/insects'));
+app.use('/api/daily',     require('./src/routes/daily'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -68,6 +69,13 @@ const scheduleDailyReset = (io) => {
     } catch (err) {
       console.error('[Reset] помилка:', err);
     }
+    // Create new daily event for today
+    try {
+      const { getOrCreateTodayEvent } = require('./src/routes/daily');
+      const ev = await getOrCreateTodayEvent();
+      if (io) io.emit('daily:available', { eventType: ev.event_type });
+      console.log(`[Reset] daily event: ${ev.event_type}`);
+    } catch (err) { console.error('[Reset] daily event помилка:', err.message); }
     // Notify online players that caves are open
     if (io) io.emit('caves:open');
     console.log('[Reset] caves:open розіслано');

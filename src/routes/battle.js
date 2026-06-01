@@ -699,6 +699,10 @@ router.post('/fight', async (req, res) => {
       attackerWon ? updateClanTask(attacker.id, 'win_battles', 1) : Promise.resolve(),
       addClanWarDamage(attacker.id, defender.id, attackerDamageDealt, defenderDamageDealt),
     ]);
+    if (attackerWon) {
+      const { updateDailyQuestProgress } = require('./daily');
+      await updateDailyQuestProgress(attacker.id, 'battles', 1);
+    }
 
     await decrementPotions(attacker.id, defender.id);
 

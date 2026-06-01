@@ -224,6 +224,8 @@ router.post('/mine', async (req, res) => {
     }
 
     updateClanTask(req.session.playerId, 'mine_gold', gold);
+    const { updateDailyQuestProgress } = require('./daily');
+    await updateDailyQuestProgress(req.session.playerId, 'mines', 1);
     res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, rareDrop, session: updatedSession });
   } catch (err) {
     console.error(err);

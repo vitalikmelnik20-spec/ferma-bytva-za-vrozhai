@@ -80,6 +80,9 @@
         <div class="menu-btn" onclick="navigate('dragon')">
           <span class="menu-icon">🐉</span><span class="menu-label">Дракон</span>
         </div>
+        <div class="menu-btn" onclick="navigate('daily')">
+          <span class="menu-icon">🎉</span><span class="menu-label" id="daily-menu-label">Щоденний івент</span>
+        </div>
       </div>
     </section>
 
@@ -365,6 +368,19 @@
     <!-- PUBLIC PROFILE (view other player) -->
     <section class="page" id="page-pubprofile">
       <div id="pubprofile-content"></div>
+    </section>
+
+    <!-- DAILY EVENT -->
+    <section class="page" id="page-daily">
+      <div class="panel mb-12">
+        <div class="panel-header" id="daily-panel-title">🎉 Щоденний івент</div>
+        <div class="panel-body" id="daily-content">
+          <p class="text-muted text-center">Завантаження...</p>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('home')">← Назад</button>
+      </div>
     </section>
 
     <!-- DRAGON -->

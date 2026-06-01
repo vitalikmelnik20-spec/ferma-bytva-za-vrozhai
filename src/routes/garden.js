@@ -303,6 +303,8 @@ router.post('/:plotId/harvest', async (req, res) => {
        hpBonus, greensEarned, req.session.playerId]
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
+    const { updateDailyQuestProgress } = require('./daily');
+    await updateDailyQuestProgress(req.session.playerId, 'harvest', 1);
 
     // Track harvested plant as ingredient for alchemist
     await pool.query(
