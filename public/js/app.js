@@ -2322,14 +2322,14 @@ const JEWELER_INFO = {
   'Талісман Тіні':         '+15% шанс ухилення від удару',
   'Талісман Полководця':   '+20% рейтингових очок за перемогу',
   // Runes
-  'Руна вогню':     '+8 мощі, +5 точності',
-  'Руна льоду':     '+8 стійкості, +5 точності',
-  'Руна блискавки': '+10 швидкості, +5 точності',
-  'Руна землі':     '+10 стійкості, +5 мощі',
-  'Руна вітру':     '+12 швидкості',
-  'Руна тьми':      '+10 мощі, -5 стійкості ворога',
-  'Руна світла':    '+8 точності, +8 стійкості',
-  'Руна дракона':   '+15 мощі, +10 стійкості',
+  'Руна вогню':        '🔥 +8 мощі, +5 точності',
+  'Руна льоду':        '❄️ +8 стійкості, +5 точності',
+  'Руна Блискавки':    '⚡ +10 мощі, +10 швидкості',
+  'Руна Землі':        '🌍 +15 стійкості, +8 здоров\'я',
+  'Руна Вітру':        '🌪️ +12 швидкості, +10 точності',
+  'Руна Тьми':         '🌑 +20 мощі, -5 стійкості',
+  'Руна Світла':       '☀️ +15 стійкості, +15 точності',
+  'Руна Дракона':      '🐉 +25 мощі, +20 стійкості',
 };
 
 async function loadJeweler() {
@@ -2350,20 +2350,52 @@ async function loadJeweler() {
         ${tabs.map(t => `<button class="cat-tab" onclick="filterJeweler('${t.key}', this)">${t.icon} ${t.label}</button>`).join('')}
       </div>
       <div id="jeweler-items"></div>
-      <div class="panel-header" style="margin-top:12px">${IC.inventory(14)} Вставити руну в предмет</div>
-      <div id="rune-socket-ui">
-        ${r.inventory.filter(i => ['weapon','armor','shield','helmet'].includes(i.category)).map(i => `
-          <div class="item-card">
-            ${itemIcon(i.name, 28)}
-            <div class="item-info"><div class="item-name">${i.name}${i.upgrade_level?` +${i.upgrade_level}`:''}</div></div>
-            <button class="btn btn-orange btn-sm" onclick="openRuneInsert(${i.id})">Вставити</button>
-          </div>`).join('') || '<p class="text-muted">Немає підходящого спорядження</p>'}
-      </div>`;
+      <div class="panel-header" style="margin-top:12px">${IC.inventory(14)} Руни у спорядженні</div>
+      <div id="rune-socket-ui">${renderRuneSocketUI(r)}</div>`;
 
-    // Click first tab programmatically
     const firstTab = document.querySelector('#jeweler-tabs .cat-tab');
     if (firstTab) filterJeweler('rune', firstTab);
   } catch(e) { toast(e.message, true); }
+}
+
+function renderRuneSocketUI(r) {
+  const items = r.equipItems || [];
+  if (!items.length) return '<p class="text-muted">Немає підходящого спорядження</p>';
+
+  return items.map(item => {
+    const maxSlots = ['helmet','shield'].includes(item.category) ? 2 : 3;
+    const runesInItem = (r.itemRunes || []).filter(ir => ir.inv_id === item.id);
+    const slots = Array.from({length: maxSlots}, (_, i) => {
+      const rune = runesInItem.find(r => r.slot_index === i);
+      if (rune) {
+        const bonParts = [];
+        if (rune.power_bonus)     bonParts.push(`${IC.power(11)}+${rune.power_bonus}`);
+        if (rune.endurance_bonus) bonParts.push(`${IC.endurance(11)}${rune.endurance_bonus > 0 ? '+' : ''}${rune.endurance_bonus}`);
+        if (rune.speed_bonus)     bonParts.push(`${IC.speed(11)}+${rune.speed_bonus}`);
+        if (rune.accuracy_bonus)  bonParts.push(`${IC.accuracy(11)}+${rune.accuracy_bonus}`);
+        return `<div class="rune-slot filled">
+          <div style="font-size:11px;font-weight:600">${rune.rune_name}</div>
+          <div style="font-size:10px;color:#aaa">${bonParts.join(' ')}</div>
+          <button class="btn btn-red btn-sm" style="margin-top:4px;font-size:10px" onclick="removeRune(${rune.rune_inv_id})">Вийняти 100🌿</button>
+        </div>`;
+      }
+      return `<div class="rune-slot empty" onclick="openRuneInsert(${item.id}, ${i})">
+        <div style="font-size:20px;color:#555">+</div>
+        <div style="font-size:10px;color:#888">Слот ${i+1}</div>
+      </div>`;
+    }).join('');
+
+    return `<div class="item-card" style="flex-direction:column;align-items:stretch;gap:6px">
+      <div style="display:flex;align-items:center;gap:8px">
+        ${itemIcon(item.name, 28)}
+        <div>
+          <div class="item-name">${item.name}${item.upgrade_level ? ` +${item.upgrade_level}` : ''}</div>
+          <div style="font-size:11px;color:#888">${item.is_equipped ? '✅ Одягнено' : '🎒 В інвентарі'} · ${runesInItem.length}/${maxSlots} рун</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:6px">${slots}</div>
+    </div>`;
+  }).join('');
 }
 
 function filterJeweler(cat, btnEl) {
@@ -2414,19 +2446,49 @@ async function buyJewelerItem(itemId) {
   } catch(e) { toast(e.message, true); }
 }
 
-async function openRuneInsert(targetInvId) {
-  if (!window._jewelerData) await loadJewelerFull();
-  const runes = (window._jewelerData.inventory || []).filter(i => i.category === 'rune');
-  if (!runes.length) { toast('Немає рун в інвентарі', true); return; }
-  const opts = runes.map((r,i) => `${i+1}. ${r.name}`).join('\n');
-  const choice = parseInt(prompt(`Виберіть руну для вставки:\n${opts}`));
-  if (!choice || !runes[choice-1]) return;
-  const slotStr = prompt('Слот (0, 1 або 2):');
-  const slot = parseInt(slotStr);
-  if (isNaN(slot) || slot < 0 || slot > 2) { toast('Невірний слот', true); return; }
+function openRuneInsert(targetInvId, slot) {
+  const r = window._jewelerData;
+  if (!r) return;
+  const runes = (r.inventory || []).filter(i => i.category === 'rune');
+  if (!runes.length) { toast('Немає рун в інвентарі. Купи руни у ювеліра.', true); return; }
+
+  const alreadyInserted = new Set((r.itemRunes || []).map(ir => ir.rune_inv_id));
+  const available = runes.filter(ru => !alreadyInserted.has(ru.id));
+  if (!available.length) { toast('Всі руни вже вставлені в предмети', true); return; }
+
+  document.getElementById('rune-modal-title').textContent = `Вставити руну в слот ${slot + 1}`;
+  document.getElementById('rune-modal-body').innerHTML = available.map(ru => {
+    const desc = JEWELER_INFO[ru.name] || '';
+    return `<div class="item-card" onclick="confirmInsertRune(${targetInvId}, ${ru.id}, ${slot})" style="cursor:pointer">
+      ${itemIcon(ru.name, 24)}
+      <div class="item-info">
+        <div class="item-name">${ru.name}</div>
+        ${desc ? `<div style="font-size:11px;color:#aaa">${desc}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('rune-modal').style.display = 'flex';
+}
+
+function closeRuneModal() {
+  document.getElementById('rune-modal').style.display = 'none';
+}
+
+async function confirmInsertRune(targetInvId, runeInvId, slot) {
+  closeRuneModal();
   try {
-    await API.post('/api/jeweler/rune/insert', { invId: targetInvId, runeInvId: runes[choice-1].id, slot });
+    await API.post('/api/jeweler/rune/insert', { invId: runeInvId, targetInvId, slot });
     toast(`${IC.ring(14)} Руну вставлено!`);
+    loadJeweler();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function removeRune(runeInvId) {
+  if (!confirm('Вийняти руну? Коштуватиме 100 🌿')) return;
+  try {
+    await API.post('/api/jeweler/rune/remove', { runeInvId });
+    toast(`${IC.ring(14)} Руну вийнято!`);
+    await refreshPlayer();
     loadJeweler();
   } catch(e) { toast(e.message, true); }
 }

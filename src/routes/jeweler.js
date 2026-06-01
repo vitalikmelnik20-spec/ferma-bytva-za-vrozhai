@@ -27,11 +27,33 @@ router.get('/', async (req, res) => {
       'SELECT gold, greens FROM players WHERE id=$1', [req.session.playerId]
     );
 
+    const { rows: itemRunes } = await pool.query(
+      `SELECT ir.inv_id, ir.rune_inv_id, ir.slot_index,
+              it.name AS rune_name, it.power_bonus, it.endurance_bonus,
+              it.speed_bonus, it.accuracy_bonus
+       FROM item_runes ir
+       JOIN inventory eq   ON eq.id = ir.inv_id        AND eq.player_id=$1
+       JOIN inventory rinv ON rinv.id = ir.rune_inv_id  AND rinv.player_id=$1
+       JOIN items it ON it.id = rinv.item_id`,
+      [req.session.playerId]
+    );
+
+    const { rows: equipItems } = await pool.query(
+      `SELECT inv.id, inv.is_equipped, inv.upgrade_level, it.name, it.category
+       FROM inventory inv
+       JOIN items it ON it.id = inv.item_id
+       WHERE inv.player_id=$1 AND it.category IN ('weapon','armor','helmet','shield')
+       ORDER BY inv.is_equipped DESC, it.category`,
+      [req.session.playerId]
+    );
+
     res.json({
       runes:    shopItems.filter(i => i.category === 'rune'),
       rings:    shopItems.filter(i => i.category === 'ring'),
       talismans: shopItems.filter(i => i.category === 'talisman'),
       inventory,
+      equipItems,
+      itemRunes,
       playerGold:   player.gold,
       playerGreens: player.greens,
     });

@@ -9,6 +9,21 @@ router.use(requireAuth);
 const ZONE_BONUS = { head: 1.3, body: 1.0, legs: 0.8 };
 const VALID_ZONES = ['head', 'body', 'legs'];
 
+async function getRuneBonuses(playerId) {
+  const { rows: [row] } = await pool.query(
+    `SELECT COALESCE(SUM(it.power_bonus),0)::INTEGER     AS rune_power,
+            COALESCE(SUM(it.endurance_bonus),0)::INTEGER AS rune_endurance,
+            COALESCE(SUM(it.speed_bonus),0)::INTEGER     AS rune_speed,
+            COALESCE(SUM(it.accuracy_bonus),0)::INTEGER  AS rune_accuracy
+     FROM item_runes ir
+     JOIN inventory eq   ON eq.id = ir.inv_id        AND eq.player_id=$1 AND eq.is_equipped=true
+     JOIN inventory rinv ON rinv.id = ir.rune_inv_id  AND rinv.player_id=$1
+     JOIN items it ON it.id = rinv.item_id`,
+    [playerId]
+  );
+  return row || { rune_power: 0, rune_endurance: 0, rune_speed: 0, rune_accuracy: 0 };
+}
+
 // Ring of the Thief: check if equipped ring triggers theft after a win
 async function checkRingEffect(winnerId, loserId, battleId, io) {
   const { rows: [ru] } = await pool.query(
@@ -62,7 +77,7 @@ async function checkRingEffect(winnerId, loserId, battleId, io) {
   return { triggered: true, stolenGold: stolen, victimName: victim.username };
 }
 
-function calcStats(player, training, gifts) {
+function calcStats(player, training, gifts, runes) {
   const luckCount  = gifts.filter(g => g.is_luck_amulet).length;
   const luckMult   = 1 + luckCount * 0.5;
   const statGifts  = gifts.filter(g => !g.is_luck_amulet);
@@ -73,10 +88,10 @@ function calcStats(player, training, gifts) {
   const giftAccuracy  = Math.floor(statGifts.reduce((s, g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
 
   return {
-    power:     training.power_level     + player.equip_power     + giftPower,
-    endurance: training.endurance_level + player.equip_endurance + giftEndurance,
-    speed:     training.speed_level     + player.equip_speed     + giftSpeed,
-    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy,
+    power:     training.power_level     + player.equip_power     + giftPower     + (runes?.rune_power     || 0),
+    endurance: training.endurance_level + player.equip_endurance + giftEndurance + (runes?.rune_endurance || 0),
+    speed:     training.speed_level     + player.equip_speed     + giftSpeed     + (runes?.rune_speed     || 0),
+    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy  + (runes?.rune_accuracy  || 0),
   };
 }
 
@@ -248,17 +263,15 @@ router.post('/round', async (req, res) => {
     const { rows: [attacker] } = await fetchPlayerWithStats(req.session.playerId);
     const { rows: [defender] } = await fetchPlayerWithStats(fight.defenderId);
 
-    const { rows: aGifts } = await pool.query(
-      'SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()',
-      [req.session.playerId]
-    );
-    const { rows: dGifts } = await pool.query(
-      'SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()',
-      [fight.defenderId]
-    );
+    const [{ rows: aGifts }, { rows: dGifts }, aRunes, dRunes] = await Promise.all([
+      pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
+      pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [fight.defenderId]),
+      getRuneBonuses(req.session.playerId),
+      getRuneBonuses(fight.defenderId),
+    ]);
 
-    const aStats = calcStats(attacker, attacker, aGifts);
-    const dStats = calcStats(defender, defender, dGifts);
+    const aStats = calcStats(attacker, attacker, aGifts, aRunes);
+    const dStats = calcStats(defender, defender, dGifts, dRunes);
 
     const defZone = VALID_ZONES[Math.floor(Math.random() * VALID_ZONES.length)];
     const aRoll   = rollDamage(aStats, dStats, attackZone);
@@ -405,23 +418,19 @@ router.post('/fight', async (req, res) => {
     if (defender.faction === attacker.faction)
       return res.status(400).json({ error: 'Не можна бити своїх!' });
 
-    const { rows: attackerGiftRows } = await pool.query(
-      'SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()',
-      [req.session.playerId]
-    );
-    const { rows: defenderGiftRows } = await pool.query(
-      'SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()',
-      [defenderId]
-    );
-
-    const aStats = calcStats(attacker, attacker, attackerGiftRows);
-    const dStats = calcStats(defender, defender, defenderGiftRows);
-
-    // Clan building bonuses: Кузня +5 міць/рів, Вежа +5 стійкість/рів
-    const [aBonuses, dBonuses] = await Promise.all([
+    const [{ rows: attackerGiftRows }, { rows: defenderGiftRows }, aRuneB, dRuneB, aBonuses, dBonuses] = await Promise.all([
+      pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [req.session.playerId]),
+      pool.query('SELECT * FROM active_gifts WHERE receiver_id=$1 AND expires_at > NOW()', [defenderId]),
+      getRuneBonuses(req.session.playerId),
+      getRuneBonuses(defenderId),
       getClanBonuses(attacker.id),
       getClanBonuses(defender.id),
     ]);
+
+    const aStats = calcStats(attacker, attacker, attackerGiftRows, aRuneB);
+    const dStats = calcStats(defender, defender, defenderGiftRows, dRuneB);
+
+    // Clan building bonuses: Кузня +5 міць/рів, Вежа +5 стійкість/рів
     aStats.power     += (aBonuses.smithy || 0) * 5;
     aStats.endurance += (aBonuses.tower  || 0) * 5;
     dStats.power     += (dBonuses.smithy || 0) * 5;

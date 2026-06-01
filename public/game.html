@@ -440,6 +440,17 @@
   </div>
 </div>
 
+<!-- Rune insert modal -->
+<div class="modal-overlay" id="rune-modal" style="display:none" onclick="if(event.target===this)closeRuneModal()">
+  <div class="modal-content">
+    <div class="modal-header">
+      <span id="rune-modal-title">Вибери руну</span>
+      <button class="btn btn-gray btn-sm" onclick="closeRuneModal()">✕</button>
+    </div>
+    <div id="rune-modal-body" style="max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
 <!-- Cave mine notification -->
 <div id="cave-notif" style="display:none">
   <div class="cave-notif-icon"><img src="/icons/ui/pickaxe.svg" width="28" height="28" style="vertical-align:middle" alt="pickaxe"></div>
