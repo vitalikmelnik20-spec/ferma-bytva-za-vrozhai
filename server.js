@@ -43,6 +43,7 @@ app.use('/api/jeweler',   require('./src/routes/jeweler'));
 app.use('/api/alchemist', require('./src/routes/alchemist'));
 app.use('/api/gifts',     require('./src/routes/gifts'));
 app.use('/api/auction',   require('./src/routes/auction'));
+app.use('/api/dragon',    require('./src/routes/dragon'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -87,6 +88,36 @@ setInterval(async () => {
     console.error('[Regen] помилка:', err.message);
   }
 }, 60 * 1000);
+
+// Dragon event scheduler — fires at 10:00 and 22:00 UTC, checks every minute
+{
+  const { getActiveEvent, finalizeEvent } = require('./src/routes/dragon');
+
+  async function startDragonEvent() {
+    const existing = await getActiveEvent();
+    if (existing) return;
+    const hp = 50000 + Math.floor(Math.random() * 50000);
+    const { rows: [ev] } = await pool.query(
+      `INSERT INTO dragon_events (hp_max, hp_current, ends_at)
+       VALUES ($1, $1, NOW() + interval '30 minutes') RETURNING *`,
+      [hp]
+    );
+    io.emit('dragon:started', { eventId: ev.id, hpMax: ev.hp_max });
+    console.log(`[Dragon] Подія розпочалась! HP: ${hp}`);
+  }
+
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const h = now.getUTCHours(), m = now.getUTCMinutes();
+      if ((h === 10 || h === 22) && m === 0) await startDragonEvent();
+      const { rows: expired } = await pool.query(
+        `SELECT id FROM dragon_events WHERE status='active' AND ends_at <= NOW()`
+      );
+      for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
+    } catch (err) { console.error('[Dragon]', err.message); }
+  }, 60 * 1000);
+}
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

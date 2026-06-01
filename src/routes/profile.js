@@ -237,6 +237,9 @@ router.get('/stats', async (req, res) => {
       luckAmulets:   activeGifts.filter(g => g.is_luck_amulet).length,
       potionPower, potionEndurance, potionSpeed, potionAccuracy, potionHarvestPct: potionHarvestPct2,
       taliPower, taliEndurance,
+      dragonBattles:      p.dragon_battles       || 0,
+      dragonTotalDamage:  p.dragon_total_damage   || 0,
+      dragonGreensEarned: p.dragon_greens_earned  || 0,
     });
   } catch (err) {
     console.error(err);

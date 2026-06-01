@@ -193,6 +193,7 @@ function navigate(page) {
   if (page === 'caves')      { closeCaveNotif(); loadCaves(); }
   if (page === 'inventory')  loadInventory();
   if (page === 'auction')    loadAuction();
+  if (page === 'dragon')     loadDragon();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -1414,7 +1415,13 @@ async function loadStats() {
         ${row(IC.greens(14), 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
         ${row(IC.pickaxe(14), 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
         ${row(IC.pickaxe(14), 'Добуто в печерах', `${IC.gold(14)} ${fmtNum(r.cavesGold)}`)}
-      </div>`;
+      </div>
+      ${(r.dragonBattles > 0) ? `<div class="stats-section">
+        <div class="stats-section-title">🐉 Дракон</div>
+        ${row('🐉', 'Участей у нападах', fmtNum(r.dragonBattles))}
+        ${row('⚔️', 'Загальний урон',    fmtNum(r.dragonTotalDamage))}
+        ${row('🌿', 'Зароблено зелені',  fmtNum(r.dragonGreensEarned))}
+      </div>` : ''}`;
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2184,6 +2191,23 @@ function initSocket() {
     toast(`${IC.gift(14)} ${fromUsername} надіслав тобі подарунок: ${giftName}!`);
     if (document.getElementById('page-profile')?.classList.contains('active'))
       loadProfile();
+  });
+
+  socket.on('dragon:started', ({ eventId, hpMax }) => {
+    toast(`🐉 Дракон нападає! HP: ${fmtNum(hpMax)} — Поспішай до битви!`);
+    if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
+  });
+
+  socket.on('dragon:damage', ({ hpCurrent, hpMax }) => {
+    const bar = document.getElementById('dragon-hp-bar');
+    const lbl = document.getElementById('dragon-hp-label');
+    if (bar) bar.style.width = `${Math.max(0, (hpCurrent / hpMax) * 100)}%`;
+    if (lbl) lbl.textContent = `${fmtNum(hpCurrent)} / ${fmtNum(hpMax)}`;
+  });
+
+  socket.on('dragon:ended', ({ isKilled, top10 }) => {
+    toast(isKilled ? '🐉 Дракона переможено! Нагороди розподілено!' : '🐉 Дракон втік! Час вийшов.');
+    if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
   });
 
   initChatHistory();
@@ -3149,4 +3173,164 @@ async function confirmListItem() {
     closeAuctionListModal();
     loadInventory();
   } catch(e) { toast(e.message, true); }
+}
+
+// ─── DRAGON ──────────────────────────────────────────────────────────────────
+let _dragonAttackCooldown = false;
+let _dragonTimerInterval  = null;
+
+function showDragonTab(tab, btn) {
+  ['battle','leaderboard','history'].forEach(t => {
+    document.getElementById(`dragon-${t}`).style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('#dragon-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'leaderboard') loadDragonLeaderboard();
+  if (tab === 'history')     loadDragonHistory();
+}
+
+async function loadDragon() {
+  try {
+    const r = await API.get('/api/dragon/current');
+    if (_dragonTimerInterval) { clearInterval(_dragonTimerInterval); _dragonTimerInterval = null; }
+    if (r.event) {
+      renderDragonActive(r);
+    } else {
+      renderDragonInactive(r.lastEvent);
+    }
+  } catch(e) { toast(e.message, true); }
+}
+
+function renderDragonActive(r) {
+  const ev = r.event;
+  const hpPct = Math.max(0, (ev.hp_current / ev.hp_max) * 100).toFixed(1);
+  const hpColor = hpPct > 60 ? '#e53935' : hpPct > 30 ? '#ff8f00' : '#7b1fa2';
+
+  const el = document.getElementById('dragon-battle');
+  el.innerHTML = `
+    <div class="dragon-event-card">
+      <div class="dragon-avatar">🐉</div>
+      <div class="dragon-name">Стародавній Дракон</div>
+      <div class="dragon-hp-wrap">
+        <div class="dragon-hp-bar-bg">
+          <div class="dragon-hp-bar" id="dragon-hp-bar" style="width:${hpPct}%;background:${hpColor}"></div>
+        </div>
+        <div class="dragon-hp-label" id="dragon-hp-label">${fmtNum(ev.hp_current)} / ${fmtNum(ev.hp_max)}</div>
+      </div>
+      <div class="dragon-timer" id="dragon-timer">⏳ Завантаження...</div>
+      <div class="dragon-my-stats">
+        <span>Мій урон: <strong id="dragon-my-dmg">${fmtNum(r.myDamage)}</strong></span>
+        <span>Ударів: <strong>${r.myHits}</strong></span>
+        <span>Учасників: <strong>${r.participants}</strong></span>
+      </div>
+      <button class="btn btn-red btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()">⚔️ Атакувати!</button>
+      <div class="dragon-top5" id="dragon-top5">
+        ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
+      </div>
+    </div>`;
+
+  const endsAt = new Date(ev.ends_at).getTime();
+  _dragonTimerInterval = setInterval(() => {
+    const left = Math.max(0, endsAt - Date.now());
+    const m = Math.floor(left / 60000);
+    const s = Math.floor((left % 60000) / 1000);
+    const el = document.getElementById('dragon-timer');
+    if (el) el.textContent = left > 0 ? `⏳ Залишилось: ${m}хв ${s}с` : '⏳ Час вийшов';
+    if (left === 0) { clearInterval(_dragonTimerInterval); loadDragon(); }
+  }, 1000);
+}
+
+function renderDragonInactive(lastEvent) {
+  const el = document.getElementById('dragon-battle');
+  if (!lastEvent) {
+    el.innerHTML = `<div class="text-center" style="padding:24px">
+      <div style="font-size:48px">🐉</div>
+      <p style="color:#888">Дракон ще не нападав.<br>Наступні атаки о <strong>10:00</strong> та <strong>22:00</strong> UTC.</p>
+    </div>`;
+    return;
+  }
+  const killed = lastEvent.is_killed;
+  el.innerHTML = `<div style="padding:8px">
+    <div class="dragon-ended-card">
+      <div style="font-size:32px;text-align:center">${killed ? '💀' : '🏃'}</div>
+      <div style="text-align:center;font-weight:700;margin-bottom:8px">${killed ? 'Дракона переможено!' : 'Дракон втік!'}</div>
+      <div class="dragon-ended-stats">
+        <span>Учасників: <strong>${lastEvent.participant_count || 0}</strong></span>
+        <span>Урон: <strong>${fmtNum(lastEvent.total_damage)}</strong></span>
+      </div>
+      ${lastEvent.my_damage ? `<div class="dragon-ended-reward">
+        <span>Ваш урон: <b>${fmtNum(lastEvent.my_damage)}</b></span>
+        ${lastEvent.reward_green ? `<span>🌿 ${fmtNum(lastEvent.reward_green)}</span>` : ''}
+        ${lastEvent.reward_exp   ? `<span>✨ ${fmtNum(lastEvent.reward_exp)} exp</span>` : ''}
+        ${lastEvent.rare_drop    ? `<span>🎁 ${lastEvent.rare_drop}</span>` : ''}
+      </div>` : ''}
+    </div>
+    <p class="text-muted text-center" style="margin-top:12px">Наступна атака о <strong>10:00</strong> або <strong>22:00</strong> UTC</p>
+  </div>`;
+}
+
+let _dragonLastAttack = 0;
+
+async function attackDragon() {
+  const now = Date.now();
+  if (now - _dragonLastAttack < 10000) {
+    toast(`Зачекай ${Math.ceil((10000 - (now - _dragonLastAttack)) / 1000)}с перед наступною атакою`, true);
+    return;
+  }
+  const btn = document.getElementById('dragon-attack-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await API.post('/api/dragon/attack');
+    _dragonLastAttack = Date.now();
+    const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
+    toast(`⚔️ Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
+    const myDmgEl = document.getElementById('dragon-my-dmg');
+    if (myDmgEl) myDmgEl.textContent = fmtNum(parseInt(myDmgEl.textContent.replace(/\s/g,'')) + r.damage);
+    if (r.isKilled) { toast('🐉 Ти вбив дракона! Фінальний удар твій!'); }
+    await refreshPlayer();
+    if (r.isKilled) loadDragon();
+  } catch(e) {
+    toast(e.message, true);
+    if (e.message.includes('вже переможений') || e.message.includes('Активної')) loadDragon();
+  } finally {
+    if (btn) { btn.disabled = false; }
+  }
+}
+
+async function loadDragonLeaderboard() {
+  const el = document.getElementById('dragon-leaderboard');
+  try {
+    const { leaderboard } = await API.get('/api/dragon/leaderboard');
+    if (!leaderboard.length) { el.innerHTML = '<p class="text-muted text-center">Поки нікого немає</p>'; return; }
+    el.innerHTML = `<table class="dragon-lb-table">
+      <thead><tr><th>#</th><th>Гравець</th><th>Боїв</th><th>Урон</th><th>🌿</th></tr></thead>
+      <tbody>${leaderboard.map((p,i) => `<tr>
+        <td><strong>#${i+1}</strong></td>
+        <td>${p.username}</td>
+        <td>${p.battles}</td>
+        <td>${fmtNum(p.total_damage)}</td>
+        <td>${fmtNum(p.greens_earned)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+async function loadDragonHistory() {
+  const el = document.getElementById('dragon-history');
+  try {
+    const { history } = await API.get('/api/dragon/history');
+    if (!history.length) { el.innerHTML = '<p class="text-muted text-center">Ви ще не брали участі</p>'; return; }
+    el.innerHTML = history.map(h => `
+      <div class="dragon-history-item">
+        <div class="flex-between">
+          <span>${h.is_killed ? '💀 Переможено' : '🏃 Втік'} · ${h.participants} уч.</span>
+          <span class="text-muted" style="font-size:11px">${new Date(h.started_at).toLocaleDateString('uk-UA')}</span>
+        </div>
+        ${h.my_damage ? `<div style="font-size:13px;margin-top:4px">
+          Ваш урон: <b>${fmtNum(h.my_damage)}</b>
+          ${h.reward_green ? `· 🌿 ${fmtNum(h.reward_green)}` : ''}
+          ${h.rare_drop    ? `· 🎁 ${h.rare_drop}` : ''}
+        </div>` : '<div style="font-size:12px;color:#aaa">Ви не брали участі</div>'}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
 }

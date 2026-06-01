@@ -77,6 +77,9 @@
         <div class="menu-btn" onclick="navigate('auction')">
           <span class="menu-icon">🏪</span><span class="menu-label">Аукціон</span>
         </div>
+        <div class="menu-btn" onclick="navigate('dragon')">
+          <span class="menu-icon">🐉</span><span class="menu-label">Дракон</span>
+        </div>
       </div>
     </section>
 
@@ -362,6 +365,26 @@
     <!-- PUBLIC PROFILE (view other player) -->
     <section class="page" id="page-pubprofile">
       <div id="pubprofile-content"></div>
+    </section>
+
+    <!-- DRAGON -->
+    <section class="page" id="page-dragon">
+      <div class="panel mb-12">
+        <div class="panel-header">🐉 Напад Дракона</div>
+        <div class="panel-body" style="padding:0">
+          <div class="category-tabs" id="dragon-tabs">
+            <button class="cat-tab active" onclick="showDragonTab('battle',this)">Битва</button>
+            <button class="cat-tab" onclick="showDragonTab('leaderboard',this)">Рейтинг</button>
+            <button class="cat-tab" onclick="showDragonTab('history',this)">Історія</button>
+          </div>
+          <div id="dragon-battle" style="padding:12px"></div>
+          <div id="dragon-leaderboard" style="display:none;padding:8px"></div>
+          <div id="dragon-history" style="display:none;padding:8px"></div>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('home')">← Назад</button>
+      </div>
     </section>
 
     <!-- ADMIN -->
