@@ -89,7 +89,21 @@ let socket = null;
   setInterval(refreshPlayer, 5000);
   // Global caves mine notifier — runs on every page
   startCavesBgNotifier();
+  // Check for active insect attack on page load (in case socket event was missed)
+  checkInsectsOnInit();
 })();
+
+// ─── INSECT ATTACK INIT CHECK ────────────────────────────────────────────────
+async function checkInsectsOnInit() {
+  try {
+    const { attack } = await API.get('/api/insects/current');
+    if (attack) {
+      document.getElementById('insect-notif-sub').textContent =
+        `Рій: ${fmtNum(attack.swarm_hp)} HP · Штраф якщо не відженеш: ${attack.damage_penalty_pct}%`;
+      document.getElementById('insect-notif').style.display = 'flex';
+    }
+  } catch(e) {}
+}
 
 // ─── CAVE MINE NOTIFIER (global, all pages) ──────────────────────────────────
 let _caveNotifMineIdx = null; // which mine we already notified about
