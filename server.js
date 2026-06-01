@@ -42,6 +42,7 @@ app.use('/api/clans',     require('./src/routes/clans'));
 app.use('/api/jeweler',   require('./src/routes/jeweler'));
 app.use('/api/alchemist', require('./src/routes/alchemist'));
 app.use('/api/gifts',     require('./src/routes/gifts'));
+app.use('/api/auction',   require('./src/routes/auction'));
 
 app.locals.io = io;
 setupSocket(io);

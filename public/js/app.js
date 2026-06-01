@@ -192,6 +192,7 @@ function navigate(page) {
   if (page === 'stats')      loadStats();
   if (page === 'caves')      { closeCaveNotif(); loadCaves(); }
   if (page === 'inventory')  loadInventory();
+  if (page === 'auction')    loadAuction();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -2963,8 +2964,12 @@ function renderInvItem(item, allRunes) {
     : '';
 
   const hasRunes = myRunes.length > 0;
+  const onAuction = item.is_on_auction;
+  const sellBtn = !item.is_equipped && !onAuction && item.category !== 'potion'
+    ? `<button class="btn btn-blue btn-sm" onclick="openAuctionListModal(${item.id})">🏪 Продати</button>`
+    : onAuction ? `<span style="font-size:12px;color:#ff8f00">На аукціоні</span>` : '';
 
-  return `<div class="inv-item-card${item.is_equipped ? ' is-equipped' : ''}">
+  return `<div class="inv-item-card${item.is_equipped ? ' is-equipped' : ''}${onAuction ? ' on-auction' : ''}">
     <div style="display:flex;gap:8px;align-items:flex-start">
       <span>${itemIcon(item.name, 32)}</span>
       <div style="flex:1;min-width:0">
@@ -2976,8 +2981,8 @@ function renderInvItem(item, allRunes) {
       </div>
     </div>
     <div class="inv-item-actions">
-      ${equipBtn}${useBtn}${enchantBtn}
-      <button class="btn btn-red btn-sm" ${item.is_equipped ? 'disabled' : ''}
+      ${equipBtn}${useBtn}${enchantBtn}${sellBtn}
+      <button class="btn btn-red btn-sm" ${item.is_equipped || onAuction ? 'disabled' : ''}
         onclick="discardItem(${item.id},'${item.name.replace(/'/g,"\\'")}',${hasRunes})">Викинути</button>
     </div>
   </div>`;
@@ -2988,6 +2993,160 @@ async function expandInventory() {
     const r = await API.post('/api/profile/expand-inventory');
     toast(`Розширено до ${r.newSlots} слотів!`);
     await refreshPlayer();
+    loadInventory();
+  } catch(e) { toast(e.message, true); }
+}
+
+// ─── AUCTION ─────────────────────────────────────────────────────────────────
+const AUC_ENCHANT_MULT = [1.0, 1.1, 1.25, 1.5, 2.0, 3.0];
+let _aucListInvId = null;
+let _aucListBasePrice = 0;
+let _aucListEnchant = 0;
+
+function loadAuction() {
+  showAuctionTab('browse', document.querySelector('#auction-tabs .cat-tab'));
+}
+
+function showAuctionTab(tab, btn) {
+  document.querySelectorAll('#auction-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('auction-browse').style.display = tab === 'browse' ? '' : 'none';
+  document.getElementById('auction-my').style.display    = tab === 'my'     ? '' : 'none';
+  if (tab === 'browse') loadAuctionLots();
+  if (tab === 'my')     loadMyLots();
+}
+
+async function loadAuctionLots() {
+  const cat      = document.getElementById('auc-filter-cat')?.value || '';
+  const currency = document.getElementById('auc-filter-currency')?.value || '';
+  const sort     = document.getElementById('auc-filter-sort')?.value || 'newest';
+  const el = document.getElementById('auction-lots-list');
+  el.innerHTML = '<p class="text-muted">Завантаження...</p>';
+  try {
+    const params = new URLSearchParams({ sort });
+    if (cat)      params.set('category', cat);
+    if (currency) params.set('currency', currency);
+    const r = await API.get('/api/auction?' + params);
+    el.innerHTML = r.lots.length
+      ? r.lots.map(renderAucLot).join('')
+      : '<p class="text-muted">Лотів немає</p>';
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+async function loadMyLots() {
+  const el = document.getElementById('auction-my-list');
+  el.innerHTML = '<p class="text-muted">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/auction/my');
+    el.innerHTML = r.lots.length
+      ? r.lots.map(lot => `
+          <div class="inv-item-card">
+            <div style="display:flex;gap:8px;align-items:center">
+              <span>${itemIcon(lot.item_name, 28)}</span>
+              <div style="flex:1">
+                <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
+                <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
+                <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${lot.currency === 'gold' ? IC.gold(13) : IC.greens(13)}</div>
+                <div style="font-size:11px;color:#999">До: ${new Date(lot.expires_at).toLocaleDateString('uk-UA')}</div>
+              </div>
+            </div>
+            <div class="inv-item-actions">
+              <button class="btn btn-red btn-sm" onclick="cancelLot(${lot.id})">Зняти з аукціону</button>
+            </div>
+          </div>`).join('')
+      : '<p class="text-muted">У вас немає активних лотів</p>';
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+function aucStats(lot) {
+  const parts = [];
+  if (lot.power_bonus > 0)     parts.push(`⚡+${lot.power_bonus}`);
+  if (lot.endurance_bonus > 0) parts.push(`🛡️+${lot.endurance_bonus}`);
+  if (lot.speed_bonus > 0)     parts.push(`💨+${lot.speed_bonus}`);
+  if (lot.accuracy_bonus > 0)  parts.push(`🎯+${lot.accuracy_bonus}`);
+  return parts.join(' ') || '—';
+}
+
+function renderAucLot(lot) {
+  const curr = lot.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+  return `<div class="inv-item-card">
+    <div style="display:flex;gap:8px;align-items:center">
+      <span>${itemIcon(lot.item_name, 28)}</span>
+      <div style="flex:1">
+        <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
+        <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
+        <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${curr}</div>
+        <div style="font-size:11px;color:#999">Продавець: ${lot.seller_name}</div>
+      </div>
+    </div>
+    <div class="inv-item-actions">
+      <button class="btn btn-orange btn-sm" onclick="buyLot(${lot.id},'${lot.item_name.replace(/'/g,"\\'")}',${lot.price},'${lot.currency}')">Купити</button>
+    </div>
+  </div>`;
+}
+
+async function buyLot(lotId, name, price, currency) {
+  const curr = currency === 'gold' ? '🏅 золота' : '🌿 зелені';
+  showConfirmModal(
+    'Купити лот?',
+    `Купити <b>${name}</b> за <b>${fmtNum(price)} ${curr}</b>?`,
+    async () => {
+      try {
+        const r = await API.post(`/api/auction/buy/${lotId}`);
+        toast(`Куплено! Комісія: ${r.commission}`);
+        await refreshPlayer();
+        loadAuctionLots();
+      } catch(e) { toast(e.message, true); }
+    }
+  );
+}
+
+async function cancelLot(lotId) {
+  showConfirmModal('Зняти лот?', 'Предмет повернеться в інвентар.', async () => {
+    try {
+      await API.post(`/api/auction/cancel/${lotId}`);
+      toast('Лот знято');
+      loadMyLots();
+    } catch(e) { toast(e.message, true); }
+  });
+}
+
+function openAuctionListModal(invId) {
+  const item = (_invData?.items || []).find(i => i.id === invId);
+  if (!item) return;
+  _aucListInvId    = invId;
+  _aucListBasePrice = item.price || 0;
+  _aucListEnchant  = item.upgrade_level || 0;
+
+  document.getElementById('auction-list-item-info').innerHTML =
+    `<b>${item.name}</b>${_aucListEnchant > 0 ? ` ✨+${_aucListEnchant}` : ''}<br>
+     <span style="font-size:12px;color:#888">${aucStats(item)}</span>`;
+  document.getElementById('auction-list-currency').value = 'greens';
+  updateAucMinPrice();
+  document.getElementById('auction-list-modal').style.display = 'flex';
+}
+
+function closeAuctionListModal() {
+  document.getElementById('auction-list-modal').style.display = 'none';
+  _aucListInvId = null;
+}
+
+function updateAucMinPrice() {
+  const mult = AUC_ENCHANT_MULT[_aucListEnchant] || 1;
+  const min  = Math.floor(_aucListBasePrice * mult);
+  document.getElementById('auc-min-price-hint').textContent = min > 0 ? `(мін. ${fmtNum(min)})` : '';
+  const inp = document.getElementById('auction-list-price');
+  if (!inp.value || parseInt(inp.value) < min) inp.value = min || 1;
+}
+
+async function confirmListItem() {
+  const currency = document.getElementById('auction-list-currency').value;
+  const price    = parseInt(document.getElementById('auction-list-price').value);
+  if (!_aucListInvId || !price) return;
+  try {
+    await API.post('/api/auction/list', { invId: _aucListInvId, currency, price });
+    toast('Виставлено на аукціон!');
+    closeAuctionListModal();
     loadInventory();
   } catch(e) { toast(e.message, true); }
 }

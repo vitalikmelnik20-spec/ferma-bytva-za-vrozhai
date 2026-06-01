@@ -1246,3 +1246,24 @@ html {
 }
 .btn-red { background: #e53935; color: #fff; }
 .btn-red:disabled { background: #bbb; }
+
+/* ── Auction ── */
+.auction-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border-bottom: 1px solid #eee;
+}
+.auction-filters select {
+  flex: 1;
+  min-width: 90px;
+  padding: 5px 6px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.inv-item-card.on-auction {
+  border-color: #1565c0;
+  background: #e3f2fd;
+}

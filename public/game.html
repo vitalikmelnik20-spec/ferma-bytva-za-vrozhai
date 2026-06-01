@@ -70,9 +70,12 @@
           <span class="menu-icon"><img src="/icons/menu/clans.png" style="width:24px;height:24px"></span><span class="menu-label">Клани</span>
         </div>
       </div>
-      <div class="menu-grid" style="grid-template-columns:1fr">
+      <div class="menu-grid">
         <div class="menu-btn" onclick="navigate('inventory')">
           <span class="menu-icon"><img src="/icons/ui/inventory.svg" width="24" height="24" style="vertical-align:middle" alt="inventory"></span><span class="menu-label">🎒 Інвентар</span>
+        </div>
+        <div class="menu-btn" onclick="navigate('auction')">
+          <span class="menu-icon">🏪</span><span class="menu-label">Аукціон</span>
         </div>
       </div>
     </section>
@@ -181,6 +184,56 @@
         <div class="panel-body" id="village-caves-status">
           <p class="text-muted">Щоденне джерело золота і досвіду</p>
         </div>
+      </div>
+    </section>
+
+    <!-- AUCTION -->
+    <section class="page" id="page-auction">
+      <div class="panel">
+        <div class="panel-header">🏪 Торговий аукціон</div>
+        <div class="panel-body" style="padding:0">
+          <div class="category-tabs" id="auction-tabs">
+            <button class="cat-tab active" onclick="showAuctionTab('browse',this)">Всі лоти</button>
+            <button class="cat-tab" onclick="showAuctionTab('my',this)">Мої лоти</button>
+          </div>
+
+          <!-- Browse tab -->
+          <div id="auction-browse" style="padding:8px">
+            <div class="auction-filters">
+              <select id="auc-filter-cat" onchange="loadAuctionLots()">
+                <option value="">Всі категорії</option>
+                <option value="weapon">⚔️ Зброя</option>
+                <option value="armor">🛡️ Броня</option>
+                <option value="helmet">⛑️ Шолом</option>
+                <option value="shield">🛡 Щит</option>
+                <option value="potion">🧪 Зілля</option>
+                <option value="rune">🔮 Руна</option>
+                <option value="ring">💍 Кільце</option>
+                <option value="talisman">🔱 Талісман</option>
+              </select>
+              <select id="auc-filter-currency" onchange="loadAuctionLots()">
+                <option value="">Будь-яка валюта</option>
+                <option value="greens">🌿 Зелень</option>
+                <option value="gold">🏅 Золото</option>
+              </select>
+              <select id="auc-filter-sort" onchange="loadAuctionLots()">
+                <option value="newest">Новіші</option>
+                <option value="price_asc">Ціна ↑</option>
+                <option value="price_desc">Ціна ↓</option>
+                <option value="level_asc">Рівень ↑</option>
+              </select>
+            </div>
+            <div id="auction-lots-list"></div>
+          </div>
+
+          <!-- My lots tab -->
+          <div id="auction-my" style="display:none;padding:8px">
+            <div id="auction-my-list"></div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('home')">← Назад</button>
       </div>
     </section>
 
@@ -531,6 +584,31 @@
       </div>
       <div id="tg-setup-error" style="color:#c62828;font-size:13px;margin-bottom:8px;text-align:center"></div>
       <button class="btn btn-green btn-full" onclick="submitTgSetup()"><img src="/icons/res/greens.png" width="14" height="14" style="vertical-align:middle"> Розпочати гру!</button>
+    </div>
+  </div>
+</div>
+
+<!-- Auction list modal -->
+<div class="modal-overlay" id="auction-list-modal" style="display:none" onclick="if(event.target===this)closeAuctionListModal()">
+  <div class="modal-box" style="max-width:340px;width:92%">
+    <div class="modal-header">🏪 Виставити на аукціон</div>
+    <div style="padding:12px 16px">
+      <div id="auction-list-item-info" style="margin-bottom:12px;font-size:14px"></div>
+      <div class="form-group">
+        <label>Валюта</label>
+        <select id="auction-list-currency" onchange="updateAucMinPrice()">
+          <option value="greens">🌿 Зелень</option>
+          <option value="gold">🏅 Золото</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Ціна <span id="auc-min-price-hint" style="color:#888;font-size:12px"></span></label>
+        <input type="number" id="auction-list-price" min="1" style="width:100%">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:0 16px 16px">
+      <button class="btn btn-green btn-sm" style="flex:1" onclick="confirmListItem()">Виставити</button>
+      <button class="btn btn-gray btn-sm" style="flex:1" onclick="closeAuctionListModal()">Скасувати</button>
     </div>
   </div>
 </div>
