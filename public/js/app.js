@@ -2699,13 +2699,29 @@ async function enchantItem(invId) {
   try {
     const info = await API.get('/api/village/enchant/info/' + invId);
     if (info.currentLevel >= info.maxLevel) { toast('Максимальне зачарування!'); return; }
-    const warn = info.nextChance < 100 ? `\n⚠️ Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.` : '';
-    if (!confirm(`Зачарувати до +${info.currentLevel+1}?\nВартість: ${info.nextCost} золота${warn}`)) return;
+
+    let warnParts = [];
+    if (info.nextChance < 100) {
+      warnParts.push(`⚠️ Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.`);
+    }
+    if (info.nextChance < 100 && info.hasRunes) {
+      warnParts.push(`💀 При провалі всі руни в предметі будуть ЗНИЩЕНІ!`);
+    }
+    const warnText = warnParts.length ? '\n\n' + warnParts.join('\n') : '';
+    if (!confirm(`Зачарувати до +${info.currentLevel+1}?\nВартість: ${info.nextCost} золота${warnText}`)) return;
+
     const r = await API.post('/api/village/enchant/' + invId);
     if (r.success) {
-      toast(`${IC.levelup(14)} Зачарування успішне! +${r.newLevel}`);
+      const el = document.getElementById('enchant-items');
+      if (el) el.style.animation = 'enchant-success 0.6s ease';
+      setTimeout(() => { if (el) el.style.animation = ''; }, 600);
+      toast(`✨ Зачарування успішне! +${r.newLevel}`);
     } else {
-      toast(`${IC.skull(14)} Провал! Зачарування скинулось до 0.`, true);
+      const el = document.getElementById('enchant-items');
+      if (el) el.style.animation = 'enchant-fail 0.6s ease';
+      setTimeout(() => { if (el) el.style.animation = ''; }, 600);
+      const runeMsg = r.runesDestroyed > 0 ? ` Знищено рун: ${r.runesDestroyed}.` : '';
+      toast(`💀 Провал! Зачарування скинулось до 0.${runeMsg}`, true);
     }
     await refreshPlayer();
     loadEnchantItems();

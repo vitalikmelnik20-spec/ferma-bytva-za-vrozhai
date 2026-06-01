@@ -59,11 +59,17 @@ router.get('/enchant/info/:inventoryId', async (req, res) => {
     const maxLevel = ENCHANT_TABLE.length - 1;
     const next = currentLevel < maxLevel ? ENCHANT_TABLE[currentLevel + 1] : null;
 
+    const { rows: runeRows } = await pool.query(
+      'SELECT id FROM item_runes WHERE inv_id=$1 LIMIT 1',
+      [req.params.inventoryId]
+    );
+
     res.json({
       currentLevel,
       maxLevel,
       nextCost: next?.cost ?? null,
       nextChance: next?.chance ?? null,
+      hasRunes: runeRows.length > 0,
     });
   } catch (err) {
     console.error(err);
@@ -107,7 +113,16 @@ router.post('/enchant/:inventoryId', async (req, res) => {
       [newLevel, req.params.inventoryId]
     );
 
-    res.json({ success, newLevel, roll, cost });
+    let runesDestroyed = 0;
+    if (!success) {
+      const { rowCount } = await pool.query(
+        'DELETE FROM item_runes WHERE inv_id=$1',
+        [req.params.inventoryId]
+      );
+      runesDestroyed = rowCount;
+    }
+
+    res.json({ success, newLevel, roll, cost, runesDestroyed });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

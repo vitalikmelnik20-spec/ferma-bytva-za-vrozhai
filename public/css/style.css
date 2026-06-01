@@ -1164,3 +1164,18 @@ html {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+
+/* ── Enchant animations ── */
+@keyframes enchant-success {
+  0%   { filter: brightness(1); }
+  30%  { filter: brightness(1.8) drop-shadow(0 0 12px #ffd700); }
+  60%  { filter: brightness(1.5) drop-shadow(0 0 8px #ffd700); }
+  100% { filter: brightness(1); }
+}
+@keyframes enchant-fail {
+  0%   { filter: brightness(1); }
+  20%  { filter: brightness(1.6) drop-shadow(0 0 12px #f44336); }
+  40%  { filter: brightness(0.8) drop-shadow(0 0 8px #f44336); }
+  60%  { filter: brightness(1.4) drop-shadow(0 0 6px #f44336); }
+  100% { filter: brightness(1); }
+}
