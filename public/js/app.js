@@ -91,7 +91,25 @@ let socket = null;
   startCavesBgNotifier();
   // Check for active insect attack on page load (in case socket event was missed)
   checkInsectsOnInit();
+  // Check for active dragon event on page load
+  checkDragonOnInit();
 })();
+
+// ─── DRAGON BANNER ───────────────────────────────────────────────────────────
+async function checkDragonOnInit() {
+  try {
+    const { event } = await API.get('/api/dragon/current');
+    if (event && event.hp_current > 0) {
+      document.getElementById('dragon-notif-sub').textContent =
+        `HP: ${fmtNum(event.hp_current)} / ${fmtNum(event.hp_max)}`;
+      document.getElementById('dragon-notif').style.display = 'flex';
+    }
+  } catch(e) {}
+}
+
+function closeDragonNotif() {
+  document.getElementById('dragon-notif').style.display = 'none';
+}
 
 // ─── INSECT ATTACK INIT CHECK ────────────────────────────────────────────────
 async function checkInsectsOnInit() {
@@ -2260,6 +2278,8 @@ function initSocket() {
 
   socket.on('dragon:started', ({ eventId, hpMax }) => {
     toast(`🐉 Дракон нападає! HP: ${fmtNum(hpMax)} — Поспішай до битви!`);
+    document.getElementById('dragon-notif-sub').textContent = `HP: ${fmtNum(hpMax)} / ${fmtNum(hpMax)}`;
+    document.getElementById('dragon-notif').style.display = 'flex';
     if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
   });
 
@@ -2272,6 +2292,7 @@ function initSocket() {
 
   socket.on('dragon:ended', ({ isKilled, top10 }) => {
     toast(isKilled ? '🐉 Дракона переможено! Нагороди розподілено!' : '🐉 Дракон втік! Час вийшов.');
+    document.getElementById('dragon-notif').style.display = 'none';
     if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
   });
 

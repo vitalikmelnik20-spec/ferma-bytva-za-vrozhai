@@ -619,6 +619,17 @@
   </div>
 </div>
 
+<!-- Dragon attack notification -->
+<div id="dragon-notif" style="display:none">
+  <div class="cave-notif-icon">🐉</div>
+  <div class="cave-notif-text">
+    <div class="cave-notif-title">Дракон атакує!</div>
+    <div class="cave-notif-sub" id="dragon-notif-sub">Поспішай до битви!</div>
+  </div>
+  <button class="cave-notif-btn" style="background:#8e24aa" onclick="navigate('dragon');closeDragonNotif()">Битися!</button>
+  <button class="cave-notif-close" onclick="closeDragonNotif()">✕</button>
+</div>
+
 <!-- Cave mine notification -->
 <div id="cave-notif" style="display:none">
   <div class="cave-notif-icon"><img src="/icons/ui/pickaxe.svg" width="28" height="28" style="vertical-align:middle" alt="pickaxe"></div>
