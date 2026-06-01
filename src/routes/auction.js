@@ -79,7 +79,7 @@ router.get('/my', async (req, res) => {
 // POST /api/auction/list — list an inventory item
 router.post('/list', async (req, res) => {
   const { invId, currency, price } = req.body;
-  const VALID_CURRENCIES = ['greens', 'gold'];
+  const VALID_CURRENCIES = ['greens', 'gold', 'diamonds'];
 
   if (!VALID_CURRENCIES.includes(currency))
     return res.status(400).json({ error: 'Невірна валюта (greens / gold)' });
@@ -137,12 +137,13 @@ router.post('/buy/:lotId', async (req, res) => {
     if (lot.seller_id === req.session.playerId)
       return res.status(400).json({ error: 'Не можна купити власний лот' });
 
-    const col = lot.currency === 'gold' ? 'gold' : 'greens';
+    const col = lot.currency === 'gold' ? 'gold' : lot.currency === 'diamonds' ? 'diamonds' : 'greens';
     const { rows: [buyer] } = await pool.query(
       `SELECT ${col} FROM players WHERE id=$1`, [req.session.playerId]
     );
     if (buyer[col] < lot.price)
-      return res.status(400).json({ error: `Недостатньо ${col === 'gold' ? 'золота' : 'зелені'}. Потрібно: ${lot.price}` });
+      const colName = col === 'gold' ? 'золота' : col === 'diamonds' ? 'алмазів' : 'зелені';
+      return res.status(400).json({ error: `Недостатньо ${colName}. Потрібно: ${lot.price}` });
 
     const commission = Math.ceil(lot.price * COMMISSION);
     const sellerGets = lot.price - commission;

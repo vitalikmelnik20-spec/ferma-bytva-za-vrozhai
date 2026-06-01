@@ -3121,7 +3121,7 @@ async function loadMyLots() {
               <div style="flex:1">
                 <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
                 <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
-                <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${lot.currency === 'gold' ? IC.gold(13) : IC.greens(13)}</div>
+                <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${lot.currency === 'gold' ? IC.gold(13) : lot.currency === 'diamonds' ? IC.diamonds(13) : IC.greens(13)}</div>
                 <div style="font-size:11px;color:#999">До: ${new Date(lot.expires_at).toLocaleDateString('uk-UA')}</div>
               </div>
             </div>
@@ -3143,7 +3143,7 @@ function aucStats(lot) {
 }
 
 function renderAucLot(lot) {
-  const curr = lot.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+  const curr = lot.currency === 'gold' ? IC.gold(13) : lot.currency === 'diamonds' ? IC.diamonds(13) : IC.greens(13);
   return `<div class="inv-item-card">
     <div style="display:flex;gap:8px;align-items:center">
       <span>${itemIcon(lot.item_name, 28)}</span>
@@ -3161,7 +3161,7 @@ function renderAucLot(lot) {
 }
 
 async function buyLot(lotId, name, price, currency) {
-  const curr = currency === 'gold' ? '🏅 золота' : '🌿 зелені';
+  const curr = currency === 'gold' ? '🏅 золота' : currency === 'diamonds' ? '💎 алмазів' : '🌿 зелені';
   showConfirmModal(
     'Купити лот?',
     `Купити <b>${name}</b> за <b>${fmtNum(price)} ${curr}</b>?`,
