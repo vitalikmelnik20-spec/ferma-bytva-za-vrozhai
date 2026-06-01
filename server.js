@@ -186,6 +186,14 @@ setInterval(async () => {
       for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
     } catch (err) { console.error('[Dragon]', err.message); }
   }, 60 * 1000);
+
+  // §10: dragon:damage broadcast every 5 seconds (TZ spec)
+  setInterval(async () => {
+    try {
+      const ev = await getActiveEvent();
+      if (ev) io.emit('dragon:damage', { eventId: ev.id, hpCurrent: ev.hp_current, hpMax: ev.hp_max });
+    } catch (err) { console.error('[Dragon:broadcast]', err.message); }
+  }, 5 * 1000);
 }
 
 const PORT = process.env.PORT || 3000;

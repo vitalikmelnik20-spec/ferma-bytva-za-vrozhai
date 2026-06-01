@@ -151,8 +151,6 @@ router.post('/attack', async (req, res) => {
     );
 
     const io = req.app.locals.io;
-    io.emit('dragon:damage', { eventId: ev.id, hpCurrent: newDragonHp, hpMax: ev.hp_max, damage });
-
     if (isKilled) await finalizeEvent(ev.id, true, req.session.playerId, io);
 
     res.json({ damage, isCrit, counterDmg, newPlayerHp, newDragonHp, hpMax: ev.hp_max, isKilled });

@@ -3398,6 +3398,11 @@ async function attackDragon() {
     const r = await API.post('/api/dragon/attack');
     const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
     toast(`⚔️ Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
+    // Update HP bar immediately from REST response (no need to wait for 5-sec broadcast)
+    const bar = document.getElementById('dragon-hp-bar');
+    const lbl = document.getElementById('dragon-hp-label');
+    if (bar) bar.style.width = `${Math.max(0, (r.newDragonHp / r.hpMax) * 100)}%`;
+    if (lbl) lbl.textContent = `${fmtNum(r.newDragonHp)} / ${fmtNum(r.hpMax)}`;
     const myDmgEl = document.getElementById('dragon-my-dmg');
     if (myDmgEl) myDmgEl.textContent = fmtNum(parseInt(myDmgEl.textContent.replace(/\s/g,'')) + r.damage);
     if (r.isKilled) { toast('🐉 Ти вбив дракона! Фінальний удар твій!'); }
