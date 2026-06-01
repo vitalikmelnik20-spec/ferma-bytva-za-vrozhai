@@ -141,9 +141,10 @@ router.post('/buy/:lotId', async (req, res) => {
     const { rows: [buyer] } = await pool.query(
       `SELECT ${col} FROM players WHERE id=$1`, [req.session.playerId]
     );
-    if (buyer[col] < lot.price)
+    if (buyer[col] < lot.price) {
       const colName = col === 'gold' ? 'золота' : col === 'diamonds' ? 'алмазів' : 'зелені';
       return res.status(400).json({ error: `Недостатньо ${colName}. Потрібно: ${lot.price}` });
+    }
 
     const commission = Math.ceil(lot.price * COMMISSION);
     const sellerGets = lot.price - commission;
