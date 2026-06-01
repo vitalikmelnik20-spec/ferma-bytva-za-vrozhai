@@ -325,9 +325,30 @@
       <div class="panel mb-12">
         <div class="panel-header flex-between">
           <img src="/icons/menu/clans.png" width="16" height="16" style="vertical-align:middle" alt="clans"> Клани
-          <button class="btn btn-green btn-sm" onclick="showCreateClan()">+ Створити</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-red btn-sm" onclick="navigate('clan-defense')">⚔️ Оборона</button>
+            <button class="btn btn-green btn-sm" onclick="showCreateClan()">+ Створити</button>
+          </div>
         </div>
         <div class="panel-body" id="clans-list"></div>
+      </div>
+    </section>
+
+    <!-- CLAN DEFENSE -->
+    <section class="page" id="page-clan-defense">
+      <div class="panel mb-12">
+        <div class="panel-header">⚔️ Оборона бази клану</div>
+        <div class="panel-body" style="padding:0">
+          <div class="category-tabs" id="cdef-tabs">
+            <button class="cat-tab active" onclick="showCdefTab('battle',this)">Битва</button>
+            <button class="cat-tab" onclick="showCdefTab('history',this)">Історія</button>
+          </div>
+          <div id="cdef-battle"  style="padding:12px"></div>
+          <div id="cdef-history" style="display:none;padding:8px"></div>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('clans')">← Назад</button>
       </div>
     </section>
 

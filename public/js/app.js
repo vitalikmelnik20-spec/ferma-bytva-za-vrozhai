@@ -194,7 +194,8 @@ function navigate(page) {
   if (page === 'inventory')  loadInventory();
   if (page === 'auction')    loadAuction();
   if (page === 'dragon')     loadDragon();
-  if (page === 'daily')      loadDaily();
+  if (page === 'daily')        loadDaily();
+  if (page === 'clan-defense') loadClanDefense();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -2199,6 +2200,31 @@ function initSocket() {
       loadProfile();
   });
 
+  socket.on('clan_defense:wave', ({ wave, waveName, waveHp, baseHp, baseHpMax, prevWaveDefeated }) => {
+    const msg = prevWaveDefeated === null
+      ? `⚔️ Оборона бази розпочалась! Хвиля 1: ${waveName}`
+      : prevWaveDefeated
+        ? `✅ Хвиля ${wave - 1} відбита! → Хвиля ${wave}: ${waveName} (${fmtNum(waveHp)} HP)`
+        : `❌ Хвиля ${wave - 1} прорвалась! База: ${fmtNum(baseHp)}/${fmtNum(baseHpMax)} → Хвиля ${wave}`;
+    toast(msg, !prevWaveDefeated && prevWaveDefeated !== null);
+    if (document.getElementById('page-clan-defense')?.classList.contains('active')) loadClanDefense();
+  });
+
+  socket.on('clan_defense:damage', ({ waveHpCurrent, waveHpMax }) => {
+    const bar = document.getElementById('cdef-wave-hp-bar');
+    const lbl = document.getElementById('cdef-wave-hp-lbl');
+    if (bar) bar.style.width = `${Math.max(0, (waveHpCurrent / waveHpMax) * 100)}%`;
+    if (lbl) lbl.textContent = `${fmtNum(waveHpCurrent)} / ${fmtNum(waveHpMax)}`;
+  });
+
+  socket.on('clan_defense:ended', ({ waves_survived, is_victory, base_destroyed, playerGreens, playerGlory }) => {
+    if (is_victory)       toast(`🏆 База вистояла! Всі 12 хвиль відбито! +${playerGreens}🌿 +${playerGlory} слави`);
+    else if (base_destroyed) toast(`💀 База зруйнована! Отримай досвід за участь`, true);
+    else                  toast(`⚔️ Оборона завершена! ${waves_survived} хвиль відбито. +${playerGreens}🌿`);
+    refreshPlayer();
+    if (document.getElementById('page-clan-defense')?.classList.contains('active')) loadClanDefense();
+  });
+
   socket.on('daily:available', ({ eventType }) => {
     const names = { quest: '📋 Квест', tournament: '⚔️ Турнір', wheel: '🎰 Колесо Фортуни' };
     toast(`🎉 Новий щоденний івент: ${names[eventType] || eventType}!`);
@@ -3629,4 +3655,148 @@ async function spinWheel() {
   } finally {
     _spinning = false;
   }
+}
+
+// ─── CLAN DEFENSE ─────────────────────────────────────────────────────────────
+let _cdefTimerInterval = null;
+let _cdefDefending     = false;
+
+function showCdefTab(tab, btn) {
+  ['battle','history'].forEach(t => {
+    document.getElementById(`cdef-${t}`).style.display = t === tab ? '' : 'none';
+  });
+  document.querySelectorAll('#cdef-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'history') loadCdefHistory();
+}
+
+async function loadClanDefense() {
+  const el = document.getElementById('cdef-battle');
+  if (_cdefTimerInterval) { clearInterval(_cdefTimerInterval); _cdefTimerInterval = null; }
+  try {
+    const r = await API.get('/api/clan-defense/current');
+    if (!r.event) {
+      renderCdefInactive(el, r.lastEvent, r.reason);
+    } else {
+      renderCdefActive(el, r);
+    }
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+const WAVE_DANGER = ['','🟢','🟢','🟢','🟡','🟡','🟡','🟠','🟠','🟠','🔴','🔴','💀'];
+
+function renderCdefActive(el, r) {
+  const ev      = r.event;
+  const basePct = Math.max(0, (ev.base_hp_current / ev.base_hp_max) * 100).toFixed(1);
+  const wavePct = Math.max(0, (ev.wave_hp_current / r.waveHpMax) * 100).toFixed(1);
+  const waveIdx = ev.current_wave - 1;
+
+  el.innerHTML = `
+    <div class="cdef-base-card">
+      <div class="cdef-base-title">🏰 База клану</div>
+      <div class="cdef-hp-row">
+        <div class="cdef-hp-bar-bg">
+          <div class="cdef-hp-bar base" style="width:${basePct}%"></div>
+        </div>
+        <span class="cdef-hp-lbl">${fmtNum(ev.base_hp_current)} / ${fmtNum(ev.base_hp_max)}</span>
+      </div>
+    </div>
+    <div class="cdef-wave-card">
+      <div class="cdef-wave-header">
+        <span>${WAVE_DANGER[ev.current_wave] || '⚔️'} Хвиля ${ev.current_wave}/12: ${r.waveName}</span>
+        <span class="cdef-wave-timer" id="cdef-wave-timer">⏳ ...</span>
+      </div>
+      <div class="cdef-hp-row">
+        <div class="cdef-hp-bar-bg">
+          <div class="cdef-hp-bar wave" id="cdef-wave-hp-bar" style="width:${wavePct}%"></div>
+        </div>
+        <span class="cdef-hp-lbl" id="cdef-wave-hp-lbl">${fmtNum(ev.wave_hp_current)} / ${fmtNum(r.waveHpMax)}</span>
+      </div>
+    </div>
+    <div class="cdef-stats">
+      <span>Учасників: <b>${r.participants}</b></span>
+      <span>Мій урон: <b>${fmtNum(r.myDamage)}</b></span>
+      <span>Хвиль відбито: <b>${ev.waves_survived}</b></span>
+    </div>
+    <button class="btn btn-red btn-full cdef-defend-btn" id="cdef-defend-btn" onclick="cdefDefend()">⚔️ Захищати!</button>
+  `;
+
+  const waveEndsAt = new Date(ev.wave_starts_at).getTime() + 5 * 60 * 1000;
+  _cdefTimerInterval = setInterval(() => {
+    const left = Math.max(0, waveEndsAt - Date.now());
+    const timerEl = document.getElementById('cdef-wave-timer');
+    if (timerEl) {
+      const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+      timerEl.textContent = left > 0 ? `⏳ ${m}:${s.toString().padStart(2,'0')}` : '⏳ Перехід...';
+    }
+    if (left === 0) { clearInterval(_cdefTimerInterval); setTimeout(() => loadClanDefense(), 5000); }
+  }, 1000);
+}
+
+function renderCdefInactive(el, lastEvent, reason) {
+  if (reason === 'not_in_clan') {
+    el.innerHTML = `<div class="text-center" style="padding:20px">
+      <p style="color:#888">Ви не в клані.<br>Вступіть до клану, щоб брати участь в обороні бази!</p>
+      <button class="btn btn-green" onclick="navigate('clans')">Клани</button>
+    </div>`;
+    return;
+  }
+  if (!lastEvent) {
+    el.innerHTML = `<div class="text-center" style="padding:20px">
+      <div style="font-size:48px">🏰</div>
+      <p style="color:#888">Подія ще не починалась.<br>Наступна оборона — <strong>субота о 20:00 UTC</strong>.</p>
+    </div>`;
+    return;
+  }
+  const statusIcon = lastEvent.is_victory ? '🏆' : lastEvent.status === 'defeated' ? '💀' : '⚔️';
+  el.innerHTML = `
+    <div class="cdef-result-card">
+      <div style="text-align:center;font-size:32px">${statusIcon}</div>
+      <div style="text-align:center;font-weight:700;font-size:15px;margin:6px 0">
+        ${lastEvent.is_victory ? 'Перемога! База вистояла!' : lastEvent.status === 'defeated' ? 'База зруйнована...' : 'Оборона завершена'}
+      </div>
+      <div class="cdef-result-stats">
+        <span>Хвиль відбито: <b>${lastEvent.waves_survived}/12</b></span>
+        ${lastEvent.my_damage ? `<span>Ваш урон: <b>${fmtNum(lastEvent.my_damage)}</b></span>` : ''}
+      </div>
+    </div>
+    <p class="text-muted text-center" style="margin-top:10px">Наступна оборона — <b>субота о 20:00 UTC</b></p>
+  `;
+}
+
+let _cdefLastDefend = 0;
+async function cdefDefend() {
+  const now = Date.now();
+  if (now - _cdefLastDefend < 2000) return;
+  _cdefLastDefend = now;
+  const btn = document.getElementById('cdef-defend-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await API.post('/api/clan-defense/defend');
+    toast(`⚔️ Удар по хвилі: ${fmtNum(r.damage)} урону!`);
+  } catch(e) {
+    toast(e.message, true);
+    if (e.message.includes('Немає')) loadClanDefense();
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function loadCdefHistory() {
+  const el = document.getElementById('cdef-history');
+  try {
+    const { history } = await API.get('/api/clan-defense/history');
+    if (!history.length) { el.innerHTML = '<p class="text-muted text-center">Ще не було обороних подій</p>'; return; }
+    el.innerHTML = history.map(h => `
+      <div class="dragon-history-item">
+        <div class="flex-between">
+          <span>${h.is_victory ? '🏆 Перемога' : h.status === 'defeated' ? '💀 Поразка' : '⚔️ Завершено'} · ${h.participant_count} уч.</span>
+          <span class="text-muted" style="font-size:11px">${new Date(h.started_at).toLocaleDateString('uk-UA')}</span>
+        </div>
+        <div style="font-size:13px;margin-top:4px">
+          Хвиль: <b>${h.waves_survived}/12</b>
+          ${h.my_damage ? ` · Ваш урон: <b>${fmtNum(h.my_damage)}</b>` : ''}
+        </div>
+      </div>`).join('');
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
 }

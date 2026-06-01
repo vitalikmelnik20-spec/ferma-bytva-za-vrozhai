@@ -45,7 +45,8 @@ app.use('/api/gifts',     require('./src/routes/gifts'));
 app.use('/api/auction',   require('./src/routes/auction'));
 app.use('/api/dragon',    require('./src/routes/dragon'));
 app.use('/api/insects',   require('./src/routes/insects'));
-app.use('/api/daily',     require('./src/routes/daily'));
+app.use('/api/daily',        require('./src/routes/daily'));
+app.use('/api/clan-defense', require('./src/routes/clanDefense'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -128,6 +129,20 @@ setInterval(async () => {
     }
   } catch (err) { console.error('[Insects]', err.message); }
 }, 10 * 60 * 1000);
+
+// Clan defense scheduler — starts Saturday 20:00 UTC, advances waves every minute
+{
+  const { startClanDefenseEvents, advanceClanDefenseWaves } = require('./src/routes/clanDefense');
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      if (now.getUTCDay() === 6 && now.getUTCHours() === 20 && now.getUTCMinutes() === 0) {
+        await startClanDefenseEvents(io);
+      }
+      await advanceClanDefenseWaves(io);
+    } catch (err) { console.error('[ClanDefense]', err.message); }
+  }, 60 * 1000);
+}
 
 // Dragon event scheduler — fires at 10:00 and 22:00 UTC, checks every minute
 {

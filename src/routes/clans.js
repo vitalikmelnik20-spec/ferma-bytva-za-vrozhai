@@ -410,7 +410,11 @@ router.post('/treasury/deposit', async (req, res) => {
       `INSERT INTO clan_treasury_log (clan_id,player_id,amount,currency,action) VALUES ($1,$2,$3,$4,'deposit')`,
       [membership.clan_id, req.session.playerId, amount, currency]
     );
-    if (currency === 'greens') updateClanTask(req.session.playerId, 'treasury_deposit', amount);
+    if (currency === 'greens') {
+      updateClanTask(req.session.playerId, 'treasury_deposit', amount);
+      const { updateDailyQuestProgress } = require('./daily');
+      await updateDailyQuestProgress(req.session.playerId, 'clan', amount);
+    }
 
     res.json({ success: true });
   } catch (err) {
