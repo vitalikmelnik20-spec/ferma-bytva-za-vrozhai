@@ -63,10 +63,14 @@ async function checkRingEffect(winnerId, loserId, battleId, io) {
 }
 
 function calcStats(player, training, gifts) {
-  const giftPower     = gifts.reduce((s, g) => s + g.power_bonus, 0);
-  const giftEndurance = gifts.reduce((s, g) => s + g.endurance_bonus, 0);
-  const giftSpeed     = gifts.reduce((s, g) => s + g.speed_bonus, 0);
-  const giftAccuracy  = gifts.reduce((s, g) => s + g.accuracy_bonus, 0);
+  const luckCount  = gifts.filter(g => g.is_luck_amulet).length;
+  const luckMult   = 1 + luckCount * 0.5;
+  const statGifts  = gifts.filter(g => !g.is_luck_amulet);
+
+  const giftPower     = Math.floor(statGifts.reduce((s, g) => s + (g.power_bonus     || 0), 0) * luckMult);
+  const giftEndurance = Math.floor(statGifts.reduce((s, g) => s + (g.endurance_bonus || 0), 0) * luckMult);
+  const giftSpeed     = Math.floor(statGifts.reduce((s, g) => s + (g.speed_bonus     || 0), 0) * luckMult);
+  const giftAccuracy  = Math.floor(statGifts.reduce((s, g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
 
   return {
     power:     training.power_level     + player.equip_power     + giftPower,

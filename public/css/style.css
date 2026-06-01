@@ -1021,7 +1021,15 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
   transition: background .15s, border-color .15s;
 }
 .gift-card:hover { background: #fff3cd; border-color: #ffc107; }
-.gift-card-icon { margin-bottom: 6px; }
+.gift-card-icon { margin-bottom: 6px; font-size: 24px; }
 .gift-card-name { font-size: 13px; font-weight: 700; margin-bottom: 3px; color: #4e342e; }
 .gift-card-stat { font-size: 11px; color: #795548; margin-bottom: 5px; }
 .gift-card-cost { font-size: 12px; font-weight: 600; color: #388e3c; }
+.gift-active-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid #333;
+}
+.gift-active-row:last-child { border-bottom: none; }

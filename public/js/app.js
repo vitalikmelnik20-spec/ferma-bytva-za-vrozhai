@@ -1140,6 +1140,38 @@ async function changeCity() {
   } catch(e) { toast(e.message, true); }
 }
 
+function renderActiveGifts(gifts) {
+  if (!gifts || !gifts.length)
+    return `<p class="text-muted">Активних подарунків немає</p>`;
+
+  const timeLeft = (exp) => {
+    const s = Math.max(0, Math.floor((new Date(exp) - Date.now()) / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h > 0 ? `${h}г ${m}хв` : `${m}хв`;
+  };
+
+  const bonusText = (g) => {
+    if (g.is_luck_amulet) return '×1.5 до всіх подарунків';
+    const parts = [];
+    if (g.power_bonus     > 0) parts.push(`${IC.power(12)} +${g.power_bonus}`);
+    if (g.endurance_bonus > 0) parts.push(`${IC.endurance(12)} +${g.endurance_bonus}`);
+    if (g.speed_bonus     > 0) parts.push(`${IC.speed(12)} +${g.speed_bonus}`);
+    if (g.accuracy_bonus  > 0) parts.push(`${IC.accuracy(12)} +${g.accuracy_bonus}`);
+    if (g.harvest_bonus   > 0) parts.push(`🌾 +${g.harvest_bonus}%`);
+    return parts.join(' ') || '—';
+  };
+
+  return gifts.map(g => `
+    <div class="gift-active-row">
+      <div style="flex:1">
+        <div style="font-weight:600">${g.gift_name}</div>
+        <div style="font-size:12px;color:#aaa">від ${g.giver_username || g.giver_name}</div>
+        <div style="font-size:12px;margin-top:2px">${bonusText(g)}</div>
+      </div>
+      <div style="font-size:11px;color:#888;white-space:nowrap">⏱ ${timeLeft(g.expires_at)}</div>
+    </div>`).join('');
+}
+
 async function loadProfile() {
   try {
     const r = await API.get('/api/profile');
@@ -1211,6 +1243,13 @@ async function loadProfile() {
         <div class="panel-body">
           <button class="btn btn-blue btn-sm mb-8" onclick="loadMail()">Відкрити пошту</button>
           <div id="mail-section"></div>
+        </div>
+      </div>
+
+      <div class="panel mb-12">
+        <div class="panel-header">${IC.gift(14)} Подарунки</div>
+        <div class="panel-body" id="gifts-section">
+          ${renderActiveGifts(r.gifts)}
         </div>
       </div>
 
@@ -1390,6 +1429,7 @@ async function loadFriends() {
             ? `<button class="btn btn-green btn-sm" onclick="acceptFriend(${f.id})">Прийняти</button>`
             : ''}
           ${f.status === 'accepted' ? `<button class="btn btn-blue btn-sm" onclick="viewProfile(${f.friend_id})">Профіль</button>` : ''}
+          ${f.status === 'accepted' ? `<button class="btn btn-orange btn-sm" onclick="sendGift(${f.friend_id})">${IC.gift(13)}</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="removeFriend(${f.id})">✕</button>
         </div>
       </div>`).join('');
@@ -1909,21 +1949,22 @@ async function viewProfile(id) {
 }
 
 const GIFT_LIST = [
-  { type: 'power_statue',    name: 'Статуетка мощі',     stat: 'Мощь +10%',      cost: 50  },
-  { type: 'endurance_seal',  name: 'Печать стійкості',    stat: 'Стійкість +10%', cost: 50  },
-  { type: 'accuracy_scroll', name: 'Манускрипт точності', stat: 'Точність +10%',  cost: 50  },
-  { type: 'speed_flask',     name: 'Флакон швидкості',    stat: 'Швидкість +10%', cost: 50  },
-  { type: 'harvest_idol',    name: 'Ідол врожаю',         stat: 'Врожай +10%',    cost: 80  },
-  { type: 'luck_amulet',     name: 'Амулет удачі',        stat: 'Удача +10%',     cost: 150 },
+  { type: 'power_statue',    name: 'Статуетка мощі',     icon: '⚡', stat: '+10% твоєї мощі на 24 год',        cost: 50,  minLevel: 1  },
+  { type: 'endurance_seal',  name: 'Печать стійкості',   icon: '🛡️', stat: '+10% твоєї стійкості на 24 год',   cost: 50,  minLevel: 1  },
+  { type: 'accuracy_scroll', name: 'Манускрипт точності',icon: '🎯', stat: '+10% твоєї точності на 24 год',    cost: 50,  minLevel: 3  },
+  { type: 'speed_flask',     name: 'Флакон швидкості',   icon: '💨', stat: '+10% твоєї швидкості на 24 год',   cost: 50,  minLevel: 3  },
+  { type: 'harvest_idol',    name: 'Ідол врожаю',        icon: '🌾', stat: '+15% до зелені з огороду на 24 год', cost: 80,  minLevel: 5  },
+  { type: 'luck_amulet',     name: 'Амулет удачі',       icon: '🍀', stat: 'Підсилює всі подарунки другу на 50%', cost: 150, minLevel: 10 },
 ];
 
 function sendGift(targetId) {
   window._giftTargetId = targetId;
   document.getElementById('gift-modal-body').innerHTML = GIFT_LIST.map(g => `
     <div class="gift-card" onclick="confirmSendGift('${g.type}')">
-      <div class="gift-card-icon">${IC.gift(28)}</div>
+      <div class="gift-card-icon">${g.icon}</div>
       <div class="gift-card-name">${g.name}</div>
       <div class="gift-card-stat">${g.stat}</div>
+      <div style="font-size:11px;color:#888;margin-top:2px">Мін. рів ${g.minLevel}</div>
       <div class="gift-card-cost">${IC.greens(13)} ${g.cost}</div>
     </div>`).join('');
   document.getElementById('gift-modal').style.display = 'flex';
@@ -2031,6 +2072,12 @@ function initSocket() {
   socket.on('ring:stolen', ({ fromName, amount, goldLeft }) => {
     toast(`${IC.ring(14)} ${fromName} вкрав у тебе ${IC.gold(13)} ${amount} золота!`, true);
     refreshPlayer();
+  });
+
+  socket.on('gift:received', ({ giftName, fromUsername }) => {
+    toast(`${IC.gift(14)} ${fromUsername} надіслав тобі подарунок: ${giftName}!`);
+    if (document.getElementById('page-profile')?.classList.contains('active'))
+      loadProfile();
   });
 
   initChatHistory();

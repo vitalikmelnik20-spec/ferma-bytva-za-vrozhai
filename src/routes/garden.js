@@ -211,7 +211,20 @@ router.post('/:plotId/harvest', async (req, res) => {
     const bonuses = await getClanBonuses(req.session.playerId);
     const farmPct    = (bonuses.farm    || 0) * 5;
     const academyPct = (bonuses.academy || 0) * 5;
-    const greensEarned = Math.floor(plant.greens_reward * (1 + farmPct / 100));
+
+    // Gift bonuses: harvest_idol +15%, luck_amulet ×1.5 per amulet
+    const { rows: giftRows } = await pool.query(
+      `SELECT harvest_bonus, is_luck_amulet FROM active_gifts
+       WHERE receiver_id=$1 AND expires_at > NOW()`,
+      [req.session.playerId]
+    );
+    const luckCount = giftRows.filter(g => g.is_luck_amulet).length;
+    const luckMult  = 1 + luckCount * 0.5;
+    const harvestGiftPct = giftRows
+      .filter(g => !g.is_luck_amulet)
+      .reduce((s, g) => s + (g.harvest_bonus || 0), 0) * luckMult;
+
+    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct) / 100));
     const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
 
     // Give rewards

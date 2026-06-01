@@ -270,6 +270,8 @@ CREATE TABLE IF NOT EXISTS active_gifts (
   endurance_bonus  INTEGER DEFAULT 0,
   speed_bonus      INTEGER DEFAULT 0,
   accuracy_bonus   INTEGER DEFAULT 0,
+  harvest_bonus    INTEGER DEFAULT 0,
+  is_luck_amulet   BOOLEAN DEFAULT false,
   expires_at       TIMESTAMP,
   created_at       TIMESTAMP DEFAULT NOW()
 );

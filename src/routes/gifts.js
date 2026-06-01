@@ -5,12 +5,12 @@ const { pool } = require('../db');
 router.use(requireAuth);
 
 const GIFT_TYPES = {
-  power_statue:    { cost: 50,  stat: 'power_level',     field: 'power_bonus',     name: 'Статуетка мощі',       minLevel: 1  },
-  endurance_seal:  { cost: 50,  stat: 'endurance_level', field: 'endurance_bonus', name: 'Печать стійкості',     minLevel: 1  },
-  accuracy_scroll: { cost: 50,  stat: 'accuracy_level',  field: 'accuracy_bonus',  name: 'Манускрипт точності',  minLevel: 3  },
-  speed_flask:     { cost: 50,  stat: 'speed_level',     field: 'speed_bonus',     name: 'Флакон швидкості',     minLevel: 3  },
-  harvest_idol:    { cost: 80,  stat: null,              field: null,              name: 'Ідол врожаю',          minLevel: 5  },
-  luck_amulet:     { cost: 150, stat: null,              field: null,              name: 'Амулет удачі',         minLevel: 10 },
+  power_statue:    { cost: 50,  stat: 'power_level',     field: 'power_bonus',     name: 'Статуетка мощі',      minLevel: 1,  harvestBonus: 0,  isLuck: false },
+  endurance_seal:  { cost: 50,  stat: 'endurance_level', field: 'endurance_bonus', name: 'Печать стійкості',    minLevel: 1,  harvestBonus: 0,  isLuck: false },
+  accuracy_scroll: { cost: 50,  stat: 'accuracy_level',  field: 'accuracy_bonus',  name: 'Манускрипт точності', minLevel: 3,  harvestBonus: 0,  isLuck: false },
+  speed_flask:     { cost: 50,  stat: 'speed_level',     field: 'speed_bonus',     name: 'Флакон швидкості',    minLevel: 3,  harvestBonus: 0,  isLuck: false },
+  harvest_idol:    { cost: 80,  stat: null,              field: null,              name: 'Ідол врожаю',         minLevel: 5,  harvestBonus: 15, isLuck: false },
+  luck_amulet:     { cost: 150, stat: null,              field: null,              name: 'Амулет удачі',        minLevel: 10, harvestBonus: 0,  isLuck: true  },
 };
 
 router.post('/send', async (req, res) => {
@@ -50,21 +50,25 @@ router.post('/send', async (req, res) => {
     const expiresAt = new Date(Date.now() + 24 * 3600000);
 
     const bonusFields = {
-      power_bonus: gift.field === 'power_bonus' ? bonus : 0,
+      power_bonus:    gift.field === 'power_bonus'    ? bonus : 0,
       endurance_bonus: gift.field === 'endurance_bonus' ? bonus : 0,
-      speed_bonus: gift.field === 'speed_bonus' ? bonus : 0,
+      speed_bonus:    gift.field === 'speed_bonus'    ? bonus : 0,
       accuracy_bonus: gift.field === 'accuracy_bonus' ? bonus : 0,
+      harvest_bonus:  gift.harvestBonus,
+      is_luck_amulet: gift.isLuck,
     };
 
     await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [gift.cost, req.session.playerId]);
 
     const { rows: [newGift] } = await pool.query(
       `INSERT INTO active_gifts
-         (giver_id, receiver_id, gift_name, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id`,
+         (giver_id, receiver_id, gift_name, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus,
+          harvest_bonus, is_luck_amulet, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id`,
       [req.session.playerId, friendId, gift.name,
        bonusFields.power_bonus, bonusFields.endurance_bonus,
-       bonusFields.speed_bonus, bonusFields.accuracy_bonus, expiresAt]
+       bonusFields.speed_bonus, bonusFields.accuracy_bonus,
+       bonusFields.harvest_bonus, bonusFields.is_luck_amulet, expiresAt]
     );
 
     const io = req.app.locals.io;
