@@ -249,6 +249,69 @@ router.get('/stats', async (req, res) => {
   }
 });
 
+// GET /api/profile/inventory — must be before /:id to avoid route conflict
+router.get('/inventory', async (req, res) => {
+  try {
+    const { rows: [player] } = await pool.query(
+      'SELECT inventory_slots FROM players WHERE id=$1', [req.session.playerId]
+    );
+
+    const { rows: items } = await pool.query(
+      `SELECT inv.id, inv.item_id, inv.is_equipped, inv.upgrade_level,
+              inv.is_on_auction,
+              it.name, it.category, it.power_bonus, it.endurance_bonus,
+              it.speed_bonus, it.accuracy_bonus, it.price, it.min_level
+       FROM inventory inv
+       JOIN items it ON it.id = inv.item_id
+       WHERE inv.player_id=$1
+       ORDER BY inv.is_equipped DESC, it.min_level`,
+      [req.session.playerId]
+    );
+
+    const { rows: ingredients } = await pool.query(
+      'SELECT ingredient_name, quantity FROM player_ingredients WHERE player_id=$1 AND quantity>0 ORDER BY ingredient_name',
+      [req.session.playerId]
+    );
+
+    const { rows: itemRunes } = await pool.query(
+      `SELECT ir.inv_id, ir.slot_index, it.name AS rune_name
+       FROM item_runes ir
+       JOIN inventory rinv ON rinv.id = ir.rune_inv_id
+       JOIN inventory inv  ON inv.id  = ir.inv_id
+       JOIN items it ON it.id = rinv.item_id
+       WHERE inv.player_id=$1`,
+      [req.session.playerId]
+    );
+
+    const slots = player.inventory_slots || 50;
+    res.json({ items, ingredients, itemRunes, slots, used: items.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// POST /api/profile/expand-inventory — must be before /:id
+router.post('/expand-inventory', async (req, res) => {
+  try {
+    const { rows: [player] } = await pool.query(
+      'SELECT gold, inventory_slots FROM players WHERE id=$1', [req.session.playerId]
+    );
+    const slots = player.inventory_slots || 50;
+    if (slots >= 200) return res.status(400).json({ error: 'Досягнуто максимум 200 слотів' });
+    if (player.gold < 100) return res.status(400).json({ error: 'Потрібно 100 золота' });
+
+    await pool.query(
+      'UPDATE players SET gold=gold-100, inventory_slots=COALESCE(inventory_slots,50)+10 WHERE id=$1',
+      [req.session.playerId]
+    );
+    res.json({ success: true, newSlots: slots + 10 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 // Public profile
 router.get('/:id', async (req, res) => {
   try {
@@ -389,68 +452,6 @@ router.put('/city', async (req, res) => {
   res.json({ success: true });
 });
 
-// GET /api/profile/inventory — all items with tabs info, ingredients, slot count
-router.get('/inventory', async (req, res) => {
-  try {
-    const { rows: [player] } = await pool.query(
-      'SELECT inventory_slots FROM players WHERE id=$1', [req.session.playerId]
-    );
-
-    const { rows: items } = await pool.query(
-      `SELECT inv.id, inv.item_id, inv.is_equipped, inv.upgrade_level,
-              inv.is_on_auction,
-              it.name, it.category, it.power_bonus, it.endurance_bonus,
-              it.speed_bonus, it.accuracy_bonus, it.price, it.min_level
-       FROM inventory inv
-       JOIN items it ON it.id = inv.item_id
-       WHERE inv.player_id=$1
-       ORDER BY inv.is_equipped DESC, it.min_level`,
-      [req.session.playerId]
-    );
-
-    const { rows: ingredients } = await pool.query(
-      'SELECT ingredient_name, quantity FROM player_ingredients WHERE player_id=$1 AND quantity>0 ORDER BY ingredient_name',
-      [req.session.playerId]
-    );
-
-    const { rows: itemRunes } = await pool.query(
-      `SELECT ir.inv_id, ir.slot_index, it.name AS rune_name
-       FROM item_runes ir
-       JOIN inventory rinv ON rinv.id = ir.rune_inv_id
-       JOIN inventory inv  ON inv.id  = ir.inv_id
-       JOIN items it ON it.id = rinv.item_id
-       WHERE inv.player_id=$1`,
-      [req.session.playerId]
-    );
-
-    const slots = player.inventory_slots || 50;
-    res.json({ items, ingredients, itemRunes, slots, used: items.length });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Помилка сервера' });
-  }
-});
-
-// POST /api/profile/expand-inventory — buy +10 slots for 100 gold
-router.post('/expand-inventory', async (req, res) => {
-  try {
-    const { rows: [player] } = await pool.query(
-      'SELECT gold, inventory_slots FROM players WHERE id=$1', [req.session.playerId]
-    );
-    const slots = player.inventory_slots || 50;
-    if (slots >= 200) return res.status(400).json({ error: 'Досягнуто максимум 200 слотів' });
-    if (player.gold < 100) return res.status(400).json({ error: 'Потрібно 100 золота' });
-
-    await pool.query(
-      'UPDATE players SET gold=gold-100, inventory_slots=COALESCE(inventory_slots,50)+10 WHERE id=$1',
-      [req.session.playerId]
-    );
-    res.json({ success: true, newSlots: slots + 10 });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Помилка сервера' });
-  }
-});
 
 // POST /api/profile/discard/:invId — discard item, get 2-5% price as greens; runes destroyed
 router.post('/discard/:invId', async (req, res) => {
