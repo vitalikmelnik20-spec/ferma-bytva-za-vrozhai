@@ -738,50 +738,112 @@ function itemIcon(name, size=36) {
   return `<img src="/icons/items/${file}.svg" width="${size}" height="${size}" style="display:block">`;
 }
 let currentMarketFilter = 'all';
+let currentMarketCat = null;
+
+const MARKET_CATEGORIES = [
+  { cat: 'weapon',    label: 'Зброя',     icon: '/icons/items/sword.svg',       currency: '🌿 / 🏅' },
+  { cat: 'armor',     label: 'Броня',     icon: '/icons/items/chainmail.svg',   currency: '🌿' },
+  { cat: 'helmet',    label: 'Шоломи',    icon: '/icons/items/helmet.svg',      currency: '🌿' },
+  { cat: 'shield',    label: 'Щити',      icon: '/icons/items/iron-shield.svg', currency: '🌿' },
+  { cat: 'potion',    label: 'Настої',    icon: '/icons/items/potion-base.svg', currency: '🌿' },
+  { cat: 'rune',      label: 'Руни',      icon: '/icons/items/rune-fire.svg',   currency: '🌿' },
+  { cat: 'accessory', label: 'Аксесуари', icon: '/icons/items/ring.svg',        currency: '🌿 / 🏅' },
+];
 
 async function loadMarket() {
   try {
     marketData = await API.get('/api/market');
-    filterMarket(currentMarketFilter);
+    const catView = document.getElementById('market-cat-view');
+    if (catView && catView.style.display !== 'none' && currentMarketCat) {
+      renderMarketCategory();
+    } else {
+      renderMarketGrid();
+    }
     renderInventory();
   } catch (e) { toast(e.message, true); }
 }
 
-function filterMarket(cat) {
-  currentMarketFilter = cat;
-  document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
-  event?.target?.classList.add('active');
-  if (!marketData) return;
+function renderMarketGrid() {
+  const el = document.getElementById('market-cat-grid');
+  if (!el || !marketData) return;
+  el.innerHTML = MARKET_CATEGORIES.map(c => {
+    const count = c.cat === 'accessory'
+      ? marketData.items.filter(i => i.category === 'ring' || i.category === 'talisman').length
+      : marketData.items.filter(i => i.category === c.cat).length;
+    return `
+    <div class="market-cat-card" onclick="openMarketCategory('${c.cat}')">
+      <img src="${c.icon}" width="38" height="38" style="margin-bottom:6px">
+      <div class="market-cat-label">${c.label}</div>
+      <div class="market-cat-meta">${c.currency} · ${count} тов.</div>
+    </div>`;
+  }).join('');
+}
 
-  const items = cat === 'all' ? marketData.items : marketData.items.filter(i => i.category === cat);
+function openMarketCategory(cat) {
+  currentMarketCat = cat;
+  currentMarketFilter = cat;
+  const info = MARKET_CATEGORIES.find(c => c.cat === cat);
+  document.getElementById('market-cat-title').textContent = info?.label || cat;
+  document.getElementById('market-grid-view').style.display = 'none';
+  document.getElementById('market-cat-view').style.display = 'block';
+  renderMarketCategory();
+}
+
+function showMarketGrid() {
+  currentMarketCat = null;
+  document.getElementById('market-cat-view').style.display = 'none';
+  document.getElementById('market-grid-view').style.display = 'block';
+}
+
+function renderMarketCategory() {
+  if (!marketData || !currentMarketCat) return;
+  const myLevelOnly = document.getElementById('market-my-level')?.checked;
+  let items = currentMarketCat === 'accessory'
+    ? marketData.items.filter(i => i.category === 'ring' || i.category === 'talisman')
+    : marketData.items.filter(i => i.category === currentMarketCat);
+  if (myLevelOnly) items = items.filter(i => i.min_level <= marketData.playerLevel);
+
   document.getElementById('market-items').innerHTML = items.map(item => {
     const isRing     = item.category === 'ring';
     const isTalisman = item.category === 'talisman';
     const usesGold   = item.price_gold > 0;
+    const price      = usesGold ? item.price_gold : item.price;
+    const canAfford  = usesGold ? marketData.playerGold >= price : marketData.playerGreens >= price;
     const priceHtml  = usesGold
-      ? `<div class="item-price">${IC.gold(14)} ${fmtNum(item.price_gold)}</div>`
-      : `<div class="item-price">${IC.greens(14)} ${fmtNum(item.price)}</div>`;
+      ? `<div class="item-price">${IC.gold(14)} ${fmtNum(price)}</div>`
+      : `<div class="item-price">${IC.greens(14)} ${fmtNum(price)}</div>`;
     const ownedInInv = marketData.inventory.some(i => i.item_id === item.id || i.name === item.name);
     const buyBtn = ownedInInv
-      ? `<span class="text-muted" style="font-size:12px">${IC.check(14)} Є</span>`
-      : `<button class="btn ${usesGold ? 'btn-orange' : 'btn-green'} btn-sm" onclick="buyMarketItem(${item.id},${isRing},${isTalisman})">Купити</button>`;
+      ? `<span style="color:#4caf50;font-size:12px;font-weight:600">✅ Є у тебе</span>`
+      : `<button class="btn ${canAfford ? (usesGold ? 'btn-orange' : 'btn-green') : 'btn-gray'} btn-sm"
+           onclick="buyMarketItem(${item.id},${isRing},${isTalisman})"
+           ${canAfford ? '' : 'disabled'}>Купити</button>`;
     const bonuses = (isRing || isTalisman)
-      ? `<div class="item-bonuses" style="color:#5d4037;font-size:12px">${JEWELER_INFO[item.name] || item.name}</div>`
+      ? `<div class="item-bonuses" style="color:#5d4037;font-size:12px">${JEWELER_INFO[item.name] || ''}</div>`
       : `<div class="item-bonuses">${bonusStr(item)}</div>`;
     return `
     <div class="item-card">
-      ${itemIcon(item.name)}
+      ${itemIcon(item.name, 32)}
       <div class="item-info">
         <div class="item-name">${item.name}</div>
         ${bonuses}
         <div class="item-level">Рівень ${item.min_level}+</div>
       </div>
-      <div>
+      <div style="text-align:right;min-width:70px">
         ${priceHtml}
         ${buyBtn}
       </div>
     </div>`;
   }).join('') || '<p class="text-muted">Немає товарів</p>';
+}
+
+function filterMarket(cat) {
+  currentMarketFilter = cat;
+  if (cat === 'all') {
+    showMarketGrid();
+  } else {
+    openMarketCategory(cat);
+  }
 }
 
 function bonusStr(item) {

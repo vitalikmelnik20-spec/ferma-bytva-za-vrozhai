@@ -1165,6 +1165,40 @@ html {
   overscroll-behavior: contain;
 }
 
+/* ── Market category grid ── */
+.market-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  padding: 4px 0;
+}
+.market-cat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px 10px;
+  background: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(0,0,0,0.08);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  text-align: center;
+  user-select: none;
+}
+.market-cat-card:active { transform: scale(0.95); }
+.market-cat-card:hover  { box-shadow: 0 4px 14px rgba(255,140,0,0.2); border-color: var(--orange); }
+.market-cat-label { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.market-cat-meta  { font-size: 11px; color: var(--text-light); }
+.market-level-filter {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
 /* ── Enchant animations ── */
 @keyframes enchant-success {
   0%   { filter: brightness(1); }
