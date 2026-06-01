@@ -1055,3 +1055,112 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
   transition: border-color .15s;
 }
 .rune-slot.empty:hover { border-color: #7c4dff; }
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE / iOS OPTIMIZATION  (iPhone 13 Pro: 390×844, etc.)
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Remove tap highlight, speed up touch response ── */
+*, *::before, *::after {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* ── Body: prevent overscroll bounce on iOS ── */
+body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+}
+
+/* ── Header: respect Dynamic Island / notch ── */
+.game-header {
+  padding-top: max(8px, env(safe-area-inset-top));
+  position: sticky;
+}
+
+/* ── Game content: enough bottom padding for nav + home bar ── */
+.game-content {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ── Bottom nav: sit above home indicator ── */
+.bottom-nav {
+  padding-bottom: max(4px, env(safe-area-inset-bottom));
+}
+.nav-btn { padding: 6px 2px 4px; font-size: 9px; }
+.nav-btn .nav-icon { font-size: 20px; }
+
+/* ── Modals: respect safe areas ── */
+.modal-overlay {
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.modal-content {
+  max-height: calc(92vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 16px;
+  margin: env(safe-area-inset-top) 8px 0;
+}
+
+/* ── Minimum touch target: 44×44px (Apple HIG) ── */
+.btn-sm { min-height: 34px; padding: 6px 12px; }
+.btn    { min-height: 44px; }
+.nav-btn { min-height: 44px; }
+.menu-btn { min-height: 70px; }
+
+/* ── Panels: tighter margin on small screens ── */
+@media (max-width: 430px) {
+  .panel { margin: 0 6px 10px; }
+  .panel-header { font-size: 14px; padding: 8px 12px; }
+  .panel-body { padding: 10px 12px; }
+  .npc-block { margin: 6px 6px 8px; padding: 10px 12px; }
+  .menu-grid { gap: 6px; margin: 0 6px 6px; }
+  .menu-btn { padding: 12px 6px; }
+  .menu-btn .menu-icon { font-size: 30px; }
+  .menu-btn .menu-label { font-size: 13px; }
+  .plots-grid { gap: 8px; }
+  .plot-card { min-height: 100px; padding: 8px; }
+  .header-logo { font-size: 15px; }
+  .header-stat { font-size: 11px; padding: 2px 5px; }
+  .opponent-card { padding: 8px 10px; }
+  .item-card { padding: 8px 10px; }
+  .stats-row { font-size: 13px; }
+  .stat-row { gap: 6px; }
+  .stat-cost { font-size: 11px; }
+  .chat-input-wrap { gap: 6px; }
+}
+
+/* ── Prevent font scaling on iOS ── */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* ── Smooth scroll for page content ── */
+.game-content, .modal-content {
+  scroll-behavior: smooth;
+}
+
+/* ── Input fields: prevent iOS zoom on focus (font-size >= 16px) ── */
+@media (max-width: 480px) {
+  input[type="text"],
+  input[type="password"],
+  input[type="number"],
+  textarea, select {
+    font-size: max(16px, 1em) !important;
+  }
+}
+
+/* ── Fix for position:fixed elements on iOS Safari ── */
+.toast {
+  bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
+/* ── Scrollable panels inside modals ── */
+#rune-modal-body,
+#gift-modal-body,
+#clan-modal-body {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
