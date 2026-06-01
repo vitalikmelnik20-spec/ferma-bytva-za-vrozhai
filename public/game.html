@@ -560,6 +560,27 @@
   </div>
 </div>
 
+<!-- Insect attack notification -->
+<div id="insect-notif" style="display:none">
+  <div class="cave-notif-icon">🪲</div>
+  <div class="cave-notif-text">
+    <div class="cave-notif-title">Комахи атакують!</div>
+    <div class="cave-notif-sub" id="insect-notif-sub">Захисти свій город!</div>
+  </div>
+  <button class="cave-notif-btn" style="background:#e65100" onclick="openInsectFight()">Захистити!</button>
+  <button class="cave-notif-close" onclick="closeInsectNotif()">✕</button>
+</div>
+
+<!-- Insect fight modal -->
+<div class="modal-overlay" id="insect-modal" style="display:none" onclick="if(event.target===this)closeInsectModal()">
+  <div class="modal-box" style="max-width:340px;width:92%">
+    <div class="modal-header">🪲 Рій комах атакує огород!</div>
+    <div style="padding:14px" id="insect-modal-body">
+      <p class="text-muted text-center">Завантаження...</p>
+    </div>
+  </div>
+</div>
+
 <!-- Cave mine notification -->
 <div id="cave-notif" style="display:none">
   <div class="cave-notif-icon"><img src="/icons/ui/pickaxe.svg" width="28" height="28" style="vertical-align:middle" alt="pickaxe"></div>

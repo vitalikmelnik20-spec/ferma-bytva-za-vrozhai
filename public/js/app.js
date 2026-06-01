@@ -1416,6 +1416,11 @@ async function loadStats() {
         ${row(IC.pickaxe(14), 'Пройдено шахт',    fmtNum(r.cavesMinesDone))}
         ${row(IC.pickaxe(14), 'Добуто в печерах', `${IC.gold(14)} ${fmtNum(r.cavesGold)}`)}
       </div>
+      ${(r.insectsDefeated > 0) ? `<div class="stats-section">
+        <div class="stats-section-title">🪲 Комахи</div>
+        ${row('🪲', 'Роїв знищено',         fmtNum(r.insectsDefeated))}
+        ${row('🌿', 'Врожаю врятовано',     fmtNum(r.insectsGreensSaved))}
+      </div>` : ''}
       ${(r.dragonBattles > 0) ? `<div class="stats-section">
         <div class="stats-section-title">🐉 Дракон</div>
         ${row('🐉', 'Участей у нападах', fmtNum(r.dragonBattles))}
@@ -2191,6 +2196,17 @@ function initSocket() {
     toast(`${IC.gift(14)} ${fromUsername} надіслав тобі подарунок: ${giftName}!`);
     if (document.getElementById('page-profile')?.classList.contains('active'))
       loadProfile();
+  });
+
+  socket.on('insects:started', ({ swarmHp, penaltyPct }) => {
+    document.getElementById('insect-notif-sub').textContent = `Рій: ${fmtNum(swarmHp)} HP · Штраф якщо не відженеш: ${penaltyPct}%`;
+    document.getElementById('insect-notif').style.display = 'flex';
+  });
+
+  socket.on('insects:defeated', ({ rewardGreen, rewardExp }) => {
+    closeInsectModal();
+    toast(`🪲 Рій знищено! +🌿 ${fmtNum(rewardGreen)} зелені +✨ ${rewardExp} exp`);
+    refreshPlayer();
   });
 
   socket.on('dragon:started', ({ eventId, hpMax }) => {
@@ -3333,4 +3349,82 @@ async function loadDragonHistory() {
         </div>` : '<div style="font-size:12px;color:#aaa">Ви не брали участі</div>'}
       </div>`).join('');
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+// ─── INSECTS ─────────────────────────────────────────────────────────────────
+function closeInsectNotif() {
+  document.getElementById('insect-notif').style.display = 'none';
+}
+
+function openInsectFight() {
+  closeInsectNotif();
+  document.getElementById('insect-modal').style.display = 'flex';
+  loadInsectFight();
+}
+
+function closeInsectModal() {
+  document.getElementById('insect-modal').style.display = 'none';
+}
+
+let _insectFighting = false;
+
+async function loadInsectFight() {
+  const body = document.getElementById('insect-modal-body');
+  try {
+    const { attack, growingPlots } = await API.get('/api/insects/current');
+    if (!attack) {
+      body.innerHTML = `<p class="text-center" style="color:#666">Комах немає.<br>Твій огород у безпеці! 🌿</p>
+        <button class="btn btn-gray btn-full" onclick="closeInsectModal()">Закрити</button>`;
+      return;
+    }
+    const hpPct  = Math.max(0, (attack.swarm_hp / attack.swarm_max_hp) * 100).toFixed(1);
+    const endsAt = new Date(attack.ends_at).getTime();
+    const left   = Math.max(0, endsAt - Date.now());
+    const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+    body.innerHTML = `
+      <div style="text-align:center;font-size:36px;margin-bottom:4px">🪲</div>
+      <div style="font-weight:700;text-align:center;margin-bottom:8px">Рій комах (${growingPlots} грядок)</div>
+      <div class="dragon-hp-bar-bg" style="margin-bottom:4px">
+        <div class="dragon-hp-bar" style="width:${hpPct}%;background:#e65100"></div>
+      </div>
+      <div style="text-align:center;font-size:13px;color:#888;margin-bottom:6px">
+        HP: ${fmtNum(attack.swarm_hp)} / ${fmtNum(attack.swarm_max_hp)}
+      </div>
+      <div style="text-align:center;color:#ff8f00;font-size:13px;margin-bottom:4px">⏳ ${m}хв ${s}с</div>
+      <div style="text-align:center;font-size:12px;color:#c62828;margin-bottom:12px">
+        ⚠️ Якщо не відженеш — штраф -${attack.damage_penalty_pct}% до врожаю!
+      </div>
+      <button class="btn btn-full" style="background:#e65100;color:#fff;font-size:15px;padding:12px" onclick="fightInsect()" id="insect-fight-btn">🪲 Прогнати!</button>
+    `;
+  } catch(e) {
+    body.innerHTML = `<p class="text-muted">${e.message}</p>`;
+  }
+}
+
+async function fightInsect() {
+  if (_insectFighting) return;
+  _insectFighting = true;
+  const btn = document.getElementById('insect-fight-btn');
+  if (btn) btn.disabled = true;
+  try {
+    const r = await API.post('/api/insects/fight');
+    if (!r.isDefeated) {
+      const hpPct = Math.max(0, (r.newHp / r.hpMax) * 100).toFixed(1);
+      const body  = document.getElementById('insect-modal-body');
+      const barEl = body?.querySelector('.dragon-hp-bar');
+      const lblEl = body?.querySelector('[id="insect-hp-lbl"]');
+      if (barEl) barEl.style.width = `${hpPct}%`;
+      const lbls = body?.querySelectorAll('div');
+      if (lbls) lbls.forEach(d => {
+        if (d.textContent.startsWith('HP:')) d.textContent = `HP: ${fmtNum(r.newHp)} / ${fmtNum(r.hpMax)}`;
+      });
+      toast(`🪲 Урон по рою: ${r.damage}`);
+    }
+  } catch(e) {
+    toast(e.message, true);
+    if (e.message.includes('Немає')) loadInsectFight();
+  } finally {
+    _insectFighting = false;
+    if (btn) btn.disabled = false;
+  }
 }

@@ -44,6 +44,7 @@ app.use('/api/alchemist', require('./src/routes/alchemist'));
 app.use('/api/gifts',     require('./src/routes/gifts'));
 app.use('/api/auction',   require('./src/routes/auction'));
 app.use('/api/dragon',    require('./src/routes/dragon'));
+app.use('/api/insects',   require('./src/routes/insects'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -88,6 +89,37 @@ setInterval(async () => {
     console.error('[Regen] помилка:', err.message);
   }
 }, 60 * 1000);
+
+// Insect attack scheduler — every 10 min, spawn for eligible players (~once/day random)
+setInterval(async () => {
+  try {
+    const { rows: eligible } = await pool.query(
+      `SELECT DISTINCT pl.player_id FROM plots pl
+       WHERE pl.status='growing'
+         AND NOT EXISTS (
+           SELECT 1 FROM insect_attacks ia
+           WHERE ia.player_id=pl.player_id
+             AND ia.started_at >= CURRENT_DATE
+         )`
+    );
+    for (const { player_id } of eligible) {
+      if (Math.random() >= 0.10) continue;
+      const { rows: [{ count }] } = await pool.query(
+        `SELECT COUNT(*) FROM plots WHERE player_id=$1 AND status='growing'`, [player_id]
+      );
+      const plots = parseInt(count);
+      if (plots === 0) continue;
+      const swarmHp     = plots * 100;
+      const penaltyPct  = 20 + Math.floor(Math.random() * 31);
+      await pool.query(
+        `INSERT INTO insect_attacks (player_id, ends_at, swarm_hp, swarm_max_hp, damage_penalty_pct)
+         VALUES ($1, NOW() + interval '30 minutes', $2, $2, $3)`,
+        [player_id, swarmHp, penaltyPct]
+      );
+      io.to(`player:${player_id}`).emit('insects:started', { swarmHp, penaltyPct });
+    }
+  } catch (err) { console.error('[Insects]', err.message); }
+}, 10 * 60 * 1000);
 
 // Dragon event scheduler — fires at 10:00 and 22:00 UTC, checks every minute
 {

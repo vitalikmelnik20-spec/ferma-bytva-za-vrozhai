@@ -252,7 +252,18 @@ router.post('/:plotId/harvest', async (req, res) => {
     );
     const reaperRingPct = reaperRing ? reaperRing.bonus_value : 0;
 
-    const greensEarned = Math.floor(plant.greens_reward * (1 + (farmPct + harvestGiftPct + potionHarvestPct + reaperRingPct) / 100));
+    // Insect attack penalty: check for expired (not defeated) attack today
+    const { rows: [insectAttack] } = await pool.query(
+      `SELECT damage_penalty_pct FROM insect_attacks
+       WHERE player_id=$1 AND is_defeated=false AND ends_at <= NOW() AND started_at >= CURRENT_DATE
+       ORDER BY id DESC LIMIT 1`,
+      [req.session.playerId]
+    );
+    const insectPenaltyPct = insectAttack ? insectAttack.damage_penalty_pct : 0;
+
+    const greensEarned = Math.floor(plant.greens_reward
+      * (1 + (farmPct + harvestGiftPct + potionHarvestPct + reaperRingPct) / 100)
+      * (1 - insectPenaltyPct / 100));
     const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
 
     // Give rewards
