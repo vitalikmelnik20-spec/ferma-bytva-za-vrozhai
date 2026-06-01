@@ -42,11 +42,18 @@ function fmtNum(n) {
   return Number(n).toLocaleString('uk-UA');
 }
 
-// Kyiv timezone date/time formatters
-const _KV = { timeZone: 'Europe/Kiev' };
-function kyivDate(d)     { return new Date(d).toLocaleDateString('uk-UA', _KV); }
-function kyivTime(d)     { return new Date(d).toLocaleTimeString('uk-UA', { ..._KV, hour: '2-digit', minute: '2-digit' }); }
-function kyivDateTime(d) { return new Date(d).toLocaleString('uk-UA', { ..._KV, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+// Kyiv timezone date/time formatters (formatToParts — no timezone label in output)
+const _KV_FMT = new Intl.DateTimeFormat('uk-UA', {
+  timeZone: 'Europe/Kiev',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', hour12: false
+});
+function _kyiv(d) {
+  return Object.fromEntries(_KV_FMT.formatToParts(new Date(d)).map(p => [p.type, p.value]));
+}
+function kyivDate(d)     { const p = _kyiv(d); return `${p.day}.${p.month}.${p.year}`; }
+function kyivTime(d)     { const p = _kyiv(d); return `${p.hour}:${p.minute}`; }
+function kyivDateTime(d) { const p = _kyiv(d); return `${p.day}.${p.month} ${p.hour}:${p.minute}`; }
 
 function playerAvatar(faction, gender) {
   if (faction === 'elves') return gender === 'female' ? '🧝‍♀️' : '🧝‍♂️';

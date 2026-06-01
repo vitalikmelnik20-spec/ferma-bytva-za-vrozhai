@@ -30,7 +30,8 @@ module.exports = (io) => {
           [playerId, text, 'global']
         );
 
-        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
+        const _p = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        const time = `${_p.find(x=>x.type==='hour').value}:${_p.find(x=>x.type==='minute').value}`;
         io.emit('chat:message', {
           username: p.username,
           faction: p.faction,
@@ -66,7 +67,8 @@ module.exports = (io) => {
           [playerId, clanId, text, 'clan']
         );
 
-        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
+        const _p = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        const time = `${_p.find(x=>x.type==='hour').value}:${_p.find(x=>x.type==='minute').value}`;
         io.to(`clan:${clanId}`).emit('clan:message', {
           username: p.username,
           faction: p.faction,
