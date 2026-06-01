@@ -19,8 +19,19 @@ router.post('/send', async (req, res) => {
   if (!gift) return res.status(400).json({ error: 'Невідомий тип подарунку' });
 
   try {
+    // Fetch sender's greens, level, username AND full stat (training + equipment)
     const { rows: [sender] } = await pool.query(
-      `SELECT greens, level, ${gift.stat ? gift.stat + ',' : ''} username FROM players WHERE id=$1`,
+      `SELECT p.greens, p.level, p.username,
+              COALESCE(t.power_level,    0) + COALESCE(SUM(CASE WHEN i.is_equipped THEN it.power_bonus     ELSE 0 END),0) AS total_power,
+              COALESCE(t.endurance_level,0) + COALESCE(SUM(CASE WHEN i.is_equipped THEN it.endurance_bonus ELSE 0 END),0) AS total_endurance,
+              COALESCE(t.speed_level,    0) + COALESCE(SUM(CASE WHEN i.is_equipped THEN it.speed_bonus     ELSE 0 END),0) AS total_speed,
+              COALESCE(t.accuracy_level, 0) + COALESCE(SUM(CASE WHEN i.is_equipped THEN it.accuracy_bonus  ELSE 0 END),0) AS total_accuracy
+       FROM players p
+       LEFT JOIN training t  ON t.player_id = p.id
+       LEFT JOIN inventory i ON i.player_id = p.id
+       LEFT JOIN items it    ON it.id = i.item_id
+       WHERE p.id=$1
+       GROUP BY p.id, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level`,
       [req.session.playerId]
     );
     if (sender.level < gift.minLevel)
@@ -46,7 +57,14 @@ router.post('/send', async (req, res) => {
     if (alreadySent.length > 0)
       return res.status(400).json({ error: 'Ви вже надіслали подарунок цьому другу сьогодні' });
 
-    const bonus = gift.stat ? Math.floor(sender[gift.stat] * 0.1) : 0;
+    // 10% of sender's total stat (training + equipment)
+    const statToTotal = {
+      power_level:     'total_power',
+      endurance_level: 'total_endurance',
+      speed_level:     'total_speed',
+      accuracy_level:  'total_accuracy',
+    };
+    const bonus = gift.stat ? Math.max(1, Math.floor(sender[statToTotal[gift.stat]] * 0.1)) : 0;
     const expiresAt = new Date(Date.now() + 24 * 3600000);
 
     const bonusFields = {
