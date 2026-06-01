@@ -3227,8 +3227,12 @@ async function confirmListItem() {
 }
 
 // ─── DRAGON ──────────────────────────────────────────────────────────────────
-let _dragonAttackCooldown = false;
-let _dragonTimerInterval  = null;
+let _dragonTimerInterval       = null;
+let _dragonAttackCdInterval    = null; // countdown to attack window
+let _dragonAttackWinInterval   = null; // 10s attack window
+let _dragonAttackState         = 'idle'; // 'waiting' | 'ready' | 'missed' | 'attacking'
+let _dragonAttackCd            = 0;
+let _dragonWindowCd            = 0;
 
 function showDragonTab(tab, btn) {
   ['battle','leaderboard','history'].forEach(t => {
@@ -3240,10 +3244,17 @@ function showDragonTab(tab, btn) {
   if (tab === 'history')     loadDragonHistory();
 }
 
+function _dragonClearTimers() {
+  if (_dragonTimerInterval)     { clearInterval(_dragonTimerInterval);     _dragonTimerInterval     = null; }
+  if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
+  if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
+  _dragonAttackState = 'idle';
+}
+
 async function loadDragon() {
   try {
     const r = await API.get('/api/dragon/current');
-    if (_dragonTimerInterval) { clearInterval(_dragonTimerInterval); _dragonTimerInterval = null; }
+    _dragonClearTimers();
     if (r.event) {
       renderDragonActive(r);
     } else {
@@ -3274,7 +3285,7 @@ function renderDragonActive(r) {
         <span>Ударів: <strong>${r.myHits}</strong></span>
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
-      <button class="btn btn-red btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()">⚔️ Атакувати!</button>
+      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>⏳ Зачекай...</button>
       <div class="dragon-top5" id="dragon-top5">
         ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
@@ -3285,10 +3296,12 @@ function renderDragonActive(r) {
     const left = Math.max(0, endsAt - Date.now());
     const m = Math.floor(left / 60000);
     const s = Math.floor((left % 60000) / 1000);
-    const el = document.getElementById('dragon-timer');
-    if (el) el.textContent = left > 0 ? `⏳ Залишилось: ${m}хв ${s}с` : '⏳ Час вийшов';
-    if (left === 0) { clearInterval(_dragonTimerInterval); loadDragon(); }
+    const timerEl = document.getElementById('dragon-timer');
+    if (timerEl) timerEl.textContent = left > 0 ? `⏳ Залишилось: ${m}хв ${s}с` : '⏳ Час вийшов';
+    if (left === 0) { _dragonClearTimers(); loadDragon(); }
   }, 1000);
+
+  startDragonAttackTimer();
 }
 
 function renderDragonInactive(lastEvent) {
@@ -3320,32 +3333,81 @@ function renderDragonInactive(lastEvent) {
   </div>`;
 }
 
-let _dragonLastAttack = 0;
+function _updateDragonAttackBtn() {
+  const btn = document.getElementById('dragon-attack-btn');
+  if (!btn) return;
+  if (_dragonAttackState === 'waiting') {
+    btn.disabled = true;
+    btn.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
+    btn.style.cssText = 'background:#9e9e9e;color:#fff';
+  } else if (_dragonAttackState === 'ready') {
+    btn.disabled = false;
+    btn.textContent = `⚔️ АТАКУВАТИ! (${_dragonWindowCd}с)`;
+    btn.style.cssText = 'background:#c62828;color:#fff;animation:dragon-pulse 0.4s ease infinite alternate';
+  } else if (_dragonAttackState === 'missed') {
+    btn.disabled = true;
+    btn.textContent = '⏰ Удар пропущено...';
+    btn.style.cssText = 'background:#9e9e9e;color:#fff';
+  } else if (_dragonAttackState === 'attacking') {
+    btn.disabled = true;
+    btn.textContent = '⚔️ Атакую...';
+    btn.style.cssText = 'background:#e53935;color:#fff';
+  }
+}
+
+function startDragonAttackTimer() {
+  if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
+  if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
+  _dragonAttackState = 'waiting';
+  _dragonAttackCd    = 30 + Math.floor(Math.random() * 91); // 30–120s
+  _updateDragonAttackBtn();
+  _dragonAttackCdInterval = setInterval(() => {
+    _dragonAttackCd--;
+    if (_dragonAttackCd <= 0) {
+      clearInterval(_dragonAttackCdInterval); _dragonAttackCdInterval = null;
+      _openDragonAttackWindow();
+      return;
+    }
+    _updateDragonAttackBtn();
+  }, 1000);
+}
+
+function _openDragonAttackWindow() {
+  _dragonAttackState = 'ready';
+  _dragonWindowCd    = 10;
+  _updateDragonAttackBtn();
+  _dragonAttackWinInterval = setInterval(() => {
+    _dragonWindowCd--;
+    if (_dragonWindowCd <= 0) {
+      clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null;
+      _dragonAttackState = 'missed';
+      _updateDragonAttackBtn();
+      setTimeout(() => startDragonAttackTimer(), 1200);
+      return;
+    }
+    _updateDragonAttackBtn();
+  }, 1000);
+}
 
 async function attackDragon() {
-  const now = Date.now();
-  if (now - _dragonLastAttack < 10000) {
-    toast(`Зачекай ${Math.ceil((10000 - (now - _dragonLastAttack)) / 1000)}с перед наступною атакою`, true);
-    return;
-  }
-  const btn = document.getElementById('dragon-attack-btn');
-  if (btn) btn.disabled = true;
+  if (_dragonAttackState !== 'ready') return;
+  if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
+  _dragonAttackState = 'attacking';
+  _updateDragonAttackBtn();
   try {
     const r = await API.post('/api/dragon/attack');
-    _dragonLastAttack = Date.now();
     const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
     toast(`⚔️ Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
     const myDmgEl = document.getElementById('dragon-my-dmg');
     if (myDmgEl) myDmgEl.textContent = fmtNum(parseInt(myDmgEl.textContent.replace(/\s/g,'')) + r.damage);
     if (r.isKilled) { toast('🐉 Ти вбив дракона! Фінальний удар твій!'); }
     await refreshPlayer();
-    if (r.isKilled) loadDragon();
+    if (r.isKilled) { loadDragon(); return; }
   } catch(e) {
     toast(e.message, true);
-    if (e.message.includes('вже переможений') || e.message.includes('Активної')) loadDragon();
-  } finally {
-    if (btn) { btn.disabled = false; }
+    if (e.message.includes('вже переможений') || e.message.includes('Активної')) { loadDragon(); return; }
   }
+  startDragonAttackTimer();
 }
 
 async function loadDragonLeaderboard() {

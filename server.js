@@ -99,6 +99,20 @@ setInterval(async () => {
   }
 }, 60 * 1000);
 
+// Auction lot cleanup — every 6 hours, expire old lots and release inventory
+setInterval(async () => {
+  try {
+    const { rows: expired } = await pool.query(
+      `SELECT id, inv_id FROM auction_lots WHERE status='active' AND expires_at <= NOW()`
+    );
+    for (const lot of expired) {
+      await pool.query(`UPDATE auction_lots SET status='expired' WHERE id=$1`, [lot.id]);
+      if (lot.inv_id) await pool.query(`UPDATE inventory SET is_on_auction=false WHERE id=$1`, [lot.inv_id]);
+    }
+    if (expired.length) console.log(`[Auction] ${expired.length} лотів завершено`);
+  } catch (err) { console.error('[Auction cleanup]', err.message); }
+}, 6 * 60 * 60 * 1000);
+
 // Insect attack scheduler — every 10 min, spawn for eligible players (~once/day random)
 setInterval(async () => {
   try {
@@ -151,10 +165,10 @@ setInterval(async () => {
   async function startDragonEvent() {
     const existing = await getActiveEvent();
     if (existing) return;
-    const hp = 50000 + Math.floor(Math.random() * 50000);
+    const hp = 1000000;
     const { rows: [ev] } = await pool.query(
       `INSERT INTO dragon_events (hp_max, hp_current, ends_at)
-       VALUES ($1, $1, NOW() + interval '30 minutes') RETURNING *`,
+       VALUES ($1, $1, NOW() + interval '2 hours') RETURNING *`,
       [hp]
     );
     io.emit('dragon:started', { eventId: ev.id, hpMax: ev.hp_max });
