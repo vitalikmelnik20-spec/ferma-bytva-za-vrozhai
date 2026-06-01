@@ -1,3 +1,4 @@
+process.env.TZ = 'Europe/Kiev';
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -150,7 +151,7 @@ setInterval(async () => {
   setInterval(async () => {
     try {
       const now = new Date();
-      if (now.getUTCDay() === 6 && now.getUTCHours() === 20 && now.getUTCMinutes() === 0) {
+      if (now.getDay() === 6 && now.getHours() === 20 && now.getMinutes() === 0) {
         await startClanDefenseEvents(io);
       }
       await advanceClanDefenseWaves(io);
@@ -178,7 +179,7 @@ setInterval(async () => {
   setInterval(async () => {
     try {
       const now = new Date();
-      const h = now.getUTCHours(), m = now.getUTCMinutes();
+      const h = now.getHours(), m = now.getMinutes();
       if ((h === 10 || h === 22) && m === 0) await startDragonEvent();
       const { rows: expired } = await pool.query(
         `SELECT id FROM dragon_events WHERE status='active' AND ends_at <= NOW()`

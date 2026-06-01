@@ -1496,7 +1496,7 @@ async function initChatHistory() {
 }
 
 function chatMsgHtml(m) {
-  const time = new Date(m.created_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+  const time = kyivTime(m.created_at);
   return `<div class="chat-msg">
     <span class="msg-time">${m.time || time}</span>
     <span class="msg-author ${m.faction}">[${m.level}] ${m.username}</span>: ${escHtml(m.message)}
@@ -1914,7 +1914,7 @@ async function loadTreasuryLog() {
         const sign  = row.action === 'deposit' ? '+' : '-';
         const color = row.action === 'deposit' ? '#2e7d32' : '#c62828';
         const cur   = row.currency === 'greens' ? IC.greens(11) : IC.gold(11);
-        const time  = new Date(row.created_at).toLocaleString('uk-UA', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+        const time  = kyivDateTime(row.created_at);
         return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f5f5f5">
           <span>${row.username}</span>
           <span style="color:${color}">${sign}${fmtNum(row.amount)} ${cur}</span>
@@ -1964,7 +1964,7 @@ async function loadWarHistory() {
         const foe = w.attacker_id === r.myClanId
           ? `[${w.defender_tag}] ${w.defender_name}`
           : `[${w.attacker_tag}] ${w.attacker_name}`;
-        const date = new Date(w.started_at).toLocaleDateString('uk-UA');
+        const date = kyivDate(w.started_at);
         return `<div style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
           <span>${foe}</span>
           <span style="color:${won?'#2e7d32':'#c62828'}">${won ? 'Перемога' : 'Поразка'}</span>
@@ -2777,7 +2777,7 @@ async function loadAlchemist() {
           : (r.activePotions || []).map(p => {
             const remains = p.battles_left != null
               ? `Залишилось боїв: <b>${p.battles_left}</b>`
-              : `До: <b>${new Date(p.expires_at).toLocaleString('uk-UA')}</b>`;
+              : `До: <b>${kyivDateTime(p.expires_at)}</b>`;
             const typeIcon = { power:'⚔️', endurance:'🛡️', speed:'⚡', accuracy:'🎯', harvest:'🌾', damage_reduce:'🔰' }[p.effect_type] || '🧪';
             return `<div class="item-card">
               <span style="font-size:22px">${typeIcon}</span>
@@ -3122,7 +3122,7 @@ async function loadMyLots() {
                 <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
                 <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
                 <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${lot.currency === 'gold' ? IC.gold(13) : lot.currency === 'diamonds' ? IC.diamonds(13) : IC.greens(13)}</div>
-                <div style="font-size:11px;color:#999">До: ${new Date(lot.expires_at).toLocaleDateString('uk-UA')}</div>
+                <div style="font-size:11px;color:#999">До: ${kyivDate(lot.expires_at)}</div>
               </div>
             </div>
             <div class="inv-item-actions">
@@ -3442,7 +3442,7 @@ async function loadDragonHistory() {
       <div class="dragon-history-item">
         <div class="flex-between">
           <span>${h.is_killed ? '💀 Переможено' : '🏃 Втік'} · ${h.participants} уч.</span>
-          <span class="text-muted" style="font-size:11px">${new Date(h.started_at).toLocaleDateString('uk-UA')}</span>
+          <span class="text-muted" style="font-size:11px">${kyivDate(h.started_at)}</span>
         </div>
         ${h.my_damage ? `<div style="font-size:13px;margin-top:4px">
           Ваш урон: <b>${fmtNum(h.my_damage)}</b>
@@ -3858,7 +3858,7 @@ async function loadCdefHistory() {
       <div class="dragon-history-item">
         <div class="flex-between">
           <span>${h.is_victory ? '🏆 Перемога' : h.status === 'defeated' ? '💀 Поразка' : '⚔️ Завершено'} · ${h.participant_count} уч.</span>
-          <span class="text-muted" style="font-size:11px">${new Date(h.started_at).toLocaleDateString('uk-UA')}</span>
+          <span class="text-muted" style="font-size:11px">${kyivDate(h.started_at)}</span>
         </div>
         <div style="font-size:13px;margin-top:4px">
           Хвиль: <b>${h.waves_survived}/12</b>

@@ -30,7 +30,7 @@ module.exports = (io) => {
           [playerId, text, 'global']
         );
 
-        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
         io.emit('chat:message', {
           username: p.username,
           faction: p.faction,
@@ -66,7 +66,7 @@ module.exports = (io) => {
           [playerId, clanId, text, 'clan']
         );
 
-        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit' });
+        const time = new Date().toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Kiev' });
         io.to(`clan:${clanId}`).emit('clan:message', {
           username: p.username,
           faction: p.faction,

@@ -42,6 +42,12 @@ function fmtNum(n) {
   return Number(n).toLocaleString('uk-UA');
 }
 
+// Kyiv timezone date/time formatters
+const _KV = { timeZone: 'Europe/Kiev' };
+function kyivDate(d)     { return new Date(d).toLocaleDateString('uk-UA', _KV); }
+function kyivTime(d)     { return new Date(d).toLocaleTimeString('uk-UA', { ..._KV, hour: '2-digit', minute: '2-digit' }); }
+function kyivDateTime(d) { return new Date(d).toLocaleString('uk-UA', { ..._KV, day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+
 function playerAvatar(faction, gender) {
   if (faction === 'elves') return gender === 'female' ? '🧝‍♀️' : '🧝‍♂️';
   return gender === 'female' ? '👹' : '👹';
