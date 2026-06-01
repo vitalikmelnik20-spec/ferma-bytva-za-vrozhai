@@ -3309,7 +3309,7 @@ function renderDragonInactive(lastEvent) {
   if (!lastEvent) {
     el.innerHTML = `<div class="text-center" style="padding:24px">
       <div style="font-size:48px">🐉</div>
-      <p style="color:#888">Дракон ще не нападав.<br>Наступні атаки о <strong>10:00</strong> та <strong>22:00</strong> UTC.</p>
+      <p style="color:#888">Дракон ще не нападав.<br>Наступні атаки о <strong>10:00</strong> та <strong>22:00</strong>.</p>
     </div>`;
     return;
   }
@@ -3329,7 +3329,7 @@ function renderDragonInactive(lastEvent) {
         ${lastEvent.rare_drop    ? `<span>🎁 ${lastEvent.rare_drop}</span>` : ''}
       </div>` : ''}
     </div>
-    <p class="text-muted text-center" style="margin-top:12px">Наступна атака о <strong>10:00</strong> або <strong>22:00</strong> UTC</p>
+    <p class="text-muted text-center" style="margin-top:12px">Наступна атака о <strong>10:00</strong> або <strong>22:00</strong></p>
   </div>`;
 }
 
@@ -3811,7 +3811,7 @@ function renderCdefInactive(el, lastEvent, reason) {
   if (!lastEvent) {
     el.innerHTML = `<div class="text-center" style="padding:20px">
       <div style="font-size:48px">🏰</div>
-      <p style="color:#888">Подія ще не починалась.<br>Наступна оборона — <strong>субота о 20:00 UTC</strong>.</p>
+      <p style="color:#888">Подія ще не починалась.<br>Наступна оборона — <strong>субота о 20:00</strong>.</p>
     </div>`;
     return;
   }
@@ -3827,7 +3827,7 @@ function renderCdefInactive(el, lastEvent, reason) {
         ${lastEvent.my_damage ? `<span>Ваш урон: <b>${fmtNum(lastEvent.my_damage)}</b></span>` : ''}
       </div>
     </div>
-    <p class="text-muted text-center" style="margin-top:10px">Наступна оборона — <b>субота о 20:00 UTC</b></p>
+    <p class="text-muted text-center" style="margin-top:10px">Наступна оборона — <b>субота о 20:00</b></p>
   `;
 }
 
