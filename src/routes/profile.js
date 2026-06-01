@@ -398,9 +398,9 @@ router.get('/inventory', async (req, res) => {
 
     const { rows: items } = await pool.query(
       `SELECT inv.id, inv.item_id, inv.is_equipped, inv.upgrade_level,
+              inv.is_on_auction,
               it.name, it.category, it.power_bonus, it.endurance_bonus,
-              it.speed_bonus, it.accuracy_bonus, it.price, it.min_level,
-              it.description
+              it.speed_bonus, it.accuracy_bonus, it.price, it.min_level
        FROM inventory inv
        JOIN items it ON it.id = inv.item_id
        WHERE inv.player_id=$1
