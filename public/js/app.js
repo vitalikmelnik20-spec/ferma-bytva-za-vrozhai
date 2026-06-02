@@ -3620,7 +3620,7 @@ function showDragonTab(tab, btn) {
 }
 
 function _dragonClearTimers() {
-  if (_dragonTimerInterval)     { clearInterval(_dragonTimerInterval);     _dragonTimerInterval     = null; }
+  if (_dragonTimerInterval)     { clearTimeout(_dragonTimerInterval);      _dragonTimerInterval     = null; }
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'idle';
@@ -3654,33 +3654,32 @@ function renderDragonActive(r) {
         </div>
         <div class="dragon-hp-label" id="dragon-hp-label">${fmtNum(ev.hp_current)} / ${fmtNum(ev.hp_max)}</div>
       </div>
-      <div class="dragon-timer" id="dragon-timer">⏳ Завантаження...</div>
       <div class="dragon-my-stats">
         <span>Мій урон: <strong id="dragon-my-dmg">${fmtNum(r.myDamage)}</strong></span>
         <span>Ударів: <strong>${r.myHits}</strong></span>
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
+      <div class="dragon-timer" id="dragon-timer" style="font-size:14px;margin:6px 0"></div>
       <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>⏳ Зачекай...</button>
-      <div id="dragon-cd-label" style="text-align:center;font-size:13px;color:#aaa;margin:-6px 0 6px;min-height:18px"></div>
+      <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${new Date(ev.ends_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</strong></div>
       <div class="dragon-top5" id="dragon-top5">
         ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
     </div>`;
 
-  const endsAt = new Date(ev.ends_at).getTime();
-  _dragonTimerInterval = setInterval(() => {
-    const left = Math.max(0, endsAt - Date.now());
-    const m = Math.floor(left / 60000);
-    const s = Math.floor((left % 60000) / 1000);
-    const timerEl = document.getElementById('dragon-timer');
-    if (timerEl) timerEl.textContent = left > 0 ? `⏳ Залишилось: ${m}хв ${s}с` : '⏳ Час вийшов';
-    if (left === 0) {
-      const btn = document.getElementById('dragon-attack-btn');
-      if (btn) { btn.disabled = true; btn.textContent = '⏰ Подія завершена'; btn.style.cssText = 'background:#9e9e9e;color:#fff'; }
-      _dragonClearTimers();
-      loadDragon();
-    }
-  }, 1000);
+  // Check once if event already expired on client clock — avoid clock-skew loop
+  if (new Date(ev.ends_at).getTime() <= Date.now()) {
+    renderDragonInactive(null);
+    return;
+  }
+
+  // Schedule loadDragon once when event ends (single timeout, no repeating interval)
+  const msLeft = new Date(ev.ends_at).getTime() - Date.now();
+  _dragonTimerInterval = setTimeout(() => {
+    _dragonTimerInterval = null;
+    _dragonClearTimers();
+    loadDragon();
+  }, msLeft);
 
   _enableDragonAttack();
 }
@@ -3718,8 +3717,8 @@ function _enableDragonAttack() {
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'ready';
-  const lbl = document.getElementById('dragon-cd-label');
-  if (lbl) lbl.textContent = '';
+  const timer = document.getElementById('dragon-timer');
+  if (timer) timer.textContent = '';
   const btn = document.getElementById('dragon-attack-btn');
   if (!btn) return;
   btn.disabled = false;
@@ -3742,18 +3741,17 @@ function startDragonAttackTimer() {
     btn.style.animation = '';
     btn.textContent = 'Перезаряджання...';
   }
-  const lbl = document.getElementById('dragon-cd-label');
-  if (lbl) lbl.textContent = `наступний удар через ${_dragonAttackCd}с`;
+  const timer = document.getElementById('dragon-timer');
+  if (timer) timer.textContent = `⏳ Наступний удар через: ${_dragonAttackCd}с`;
   _dragonAttackCdInterval = setInterval(() => {
     _dragonAttackCd--;
-    const l = document.getElementById('dragon-cd-label');
     if (_dragonAttackCd <= 0) {
       clearInterval(_dragonAttackCdInterval); _dragonAttackCdInterval = null;
-      if (l) l.textContent = '';
       _enableDragonAttack();
       return;
     }
-    if (l) l.textContent = `наступний удар через ${_dragonAttackCd}с`;
+    const t = document.getElementById('dragon-timer');
+    if (t) t.textContent = `⏳ Наступний удар через: ${_dragonAttackCd}с`;
   }, 1000);
 }
 
