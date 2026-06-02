@@ -3673,7 +3673,12 @@ function renderDragonActive(r) {
     const s = Math.floor((left % 60000) / 1000);
     const timerEl = document.getElementById('dragon-timer');
     if (timerEl) timerEl.textContent = left > 0 ? `⏳ Залишилось: ${m}хв ${s}с` : '⏳ Час вийшов';
-    if (left === 0) { _dragonClearTimers(); loadDragon(); }
+    if (left === 0) {
+      const btn = document.getElementById('dragon-attack-btn');
+      if (btn) { btn.disabled = true; btn.textContent = '⏰ Подія завершена'; btn.style.cssText = 'background:#9e9e9e;color:#fff'; }
+      _dragonClearTimers();
+      loadDragon();
+    }
   }, 1000);
 
   _enableDragonAttack();
