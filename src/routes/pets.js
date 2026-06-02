@@ -342,6 +342,66 @@ router.post('/train', async (req, res) => {
   }
 });
 
+// ─── POST /api/pets/train-bulk ────────────────────────────────────────────────
+// Прокачати стат до цільового рівня за одну операцію
+router.post('/train-bulk', async (req, res) => {
+  const { stat, targetLevel } = req.body;
+  const VALID_STATS = ['power', 'endurance', 'speed', 'accuracy'];
+  if (!VALID_STATS.includes(stat)) return res.status(400).json({ error: 'Невідомий стат' });
+  if (!targetLevel || targetLevel < 2 || targetLevel > 50)
+    return res.status(400).json({ error: 'Цільовий рівень: 2–50' });
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [pet] } = await client.query(
+      'SELECT * FROM pets WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!pet) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Тваринки немає' }); }
+
+    const { rows: [training] } = await client.query(
+      'SELECT * FROM pet_training WHERE pet_id=$1 FOR UPDATE', [pet.id]
+    );
+    const lvlCol = `${stat}_level`;
+    const currentLvl = training[lvlCol];
+    if (currentLvl >= targetLevel) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Стат вже на рівні ${currentLvl}` });
+    }
+
+    let totalCost = 0;
+    for (let lvl = currentLvl + 1; lvl <= targetLevel; lvl++) {
+      totalCost += Math.floor(lvl * lvl * 10 + lvl * 20);
+    }
+    const levels = targetLevel - currentLvl;
+
+    const { rows: [player] } = await client.query(
+      'SELECT greens FROM players WHERE id=$1', [req.session.playerId]
+    );
+    if (player.greens < totalCost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${totalCost}` });
+    }
+
+    await client.query('UPDATE players SET greens=greens-$1 WHERE id=$2', [totalCost, req.session.playerId]);
+    await client.query(
+      `UPDATE pet_training SET ${lvlCol}=$1, total_green_spent=total_green_spent+$2 WHERE pet_id=$3`,
+      [targetLevel, totalCost, pet.id]
+    );
+    await client.query(`UPDATE pets SET ${stat}=${stat}+$1 WHERE id=$2`, [levels, pet.id]);
+
+    await client.query('COMMIT');
+    res.json({ ok: true, stat, newLevel: targetLevel, cost: totalCost, levels });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[pets/train-bulk]', err.message);
+    res.status(500).json({ error: 'Помилка сервера' });
+  } finally {
+    client.release();
+  }
+});
+
 // ─── POST /api/pets/equip ─────────────────────────────────────────────────────
 router.post('/equip', async (req, res) => {
   const { slot, level } = req.body;

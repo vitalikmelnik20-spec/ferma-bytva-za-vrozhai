@@ -1351,9 +1351,7 @@ async function loadProfile() {
           ${statRow(IC.speed(14), 'Швидкість', p.speed_level,     'speed')}
           ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  'accuracy')}
           <div class="divider"></div>
-          <div style="font-weight:700;margin-bottom:6px">${IC.paw(14)} Питомець</div>
-          ${statRow(IC.power(14), 'Мощь пит.',    p.pet_power,     'pet_power')}
-          ${statRow(IC.endurance(14), 'Стійк. пит.', p.pet_endurance, 'pet_endurance')}
+          <div id="profile-pet-train-mini"></div>
         </div>
       </div>
 
@@ -1463,6 +1461,60 @@ async function loadStats() {
         ${row('🌿', 'Зароблено зелені',  fmtNum(r.dragonGreensEarned))}
       </div>` : ''}`;
   } catch (e) { toast(e.message, true); }
+
+  // Підвантажити міні-блок тренування тваринки у профілі
+  loadProfilePetTrain();
+}
+
+async function loadProfilePetTrain() {
+  const el = document.getElementById('profile-pet-train-mini');
+  if (!el) return;
+  try {
+    const { pet, training } = await API.get('/api/pets/my');
+    if (!pet) {
+      el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">🐾 Питомець</div>
+        <div style="font-size:13px;color:#888">Тваринки немає · <a href="#" onclick="navigate('pets');return false">Купити у Питомнику</a></div>`;
+      return;
+    }
+    const catalog = { mink:'🐟',beaver:'🦫',wolf:'🐺',bear:'🐻',lizard:'🦎',silver_wolf:'🐺✨',ice_lizard:'🦎❄️',mighty_bear:'🐻💪',fire_wolf:'🐺🔥',dragonling:'🐲',golden_eagle:'🦅' };
+    const icon = catalog[pet.pet_type] || '🐾';
+    const deadBadge = pet.is_dead ? ' <span style="color:#c62828;font-size:11px">💀</span>' : '';
+    const activeBadge = pet.is_active ? ' <span style="color:#388e3c;font-size:11px">⚔️</span>' : '';
+
+    const statMini = ['power','endurance','speed','accuracy'].map(s => {
+      const lvl = training[`${s}_level`] || 1;
+      const cost = lvl < 50 ? Math.floor((lvl+1)*(lvl+1)*10+(lvl+1)*20) : null;
+      return `<div class="stat-row">
+        <span class="stat-icon">${STAT_LABELS[s].split(' ')[0]}</span>
+        <div class="stat-info">
+          <div class="stat-name">${STAT_LABELS[s].split(' ').slice(1).join(' ')}</div>
+          <div class="stat-bar-wrap"><div class="stat-bar" style="width:${Math.round((lvl-1)/49*100)}%;background:#66bb6a"></div></div>
+        </div>
+        <span class="stat-level">Рів.${lvl}</span>
+        ${cost ? `<span class="stat-cost">${IC.greens(13)}${fmtNum(cost)}</span>
+        <button class="btn btn-orange btn-sm" onclick="trainPetFromProfile('${s}')">▲</button>` : '<span style="color:#388e3c;font-size:11px">MAX</span>'}
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="font-weight:700;margin-bottom:6px">🐾 Питомець${deadBadge}${activeBadge} — ${icon} ${pet.name}</div>
+      ${pet.is_dead ? `<div style="color:#c62828;font-size:12px;margin-bottom:6px">💀 Мертва — <a href="#" onclick="navigate('pets');return false">відновити у Питомнику</a></div>` : ''}
+      ${statMini}
+      <div style="margin-top:6px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('pets')">🐾 Відкрити Питомник</button>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="font-size:13px;color:#888">🐾 Помилка завантаження тваринки</div>`;
+  }
+}
+
+async function trainPetFromProfile(stat) {
+  try {
+    const r = await API.post('/api/pets/train', { stat });
+    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}!`);
+    loadProfilePetTrain();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
 }
 
 async function trainStat(stat) {
@@ -4221,9 +4273,16 @@ async function renderPetsTrain() {
           <div style="background:#66bb6a;height:100%;width:${pct}%;transition:width .3s"></div>
         </div>
         ${lvl < 50
-          ? `<button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
-               ▲ Прокачати (рів.${nextLvl}) · ${fmtNum(cost)} 🌿
-             </button>`
+          ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+               <button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
+                 ▲ +1 · ${fmtNum(cost)} 🌿
+               </button>
+               ${[5,10,20,50].filter(t => t > lvl).slice(0,2).map(t => {
+                 let bulkCost = 0;
+                 for (let l = lvl+1; l <= t; l++) bulkCost += Math.floor(l*l*10+l*20);
+                 return `<button class="btn btn-gray btn-sm" onclick="trainPetBulk('${stat}',${t})">до рів.${t} · ${fmtNum(bulkCost)} 🌿</button>`;
+               }).join('')}
+             </div>`
           : `<span style="color:#388e3c;font-size:13px;font-weight:600">✅ Максимум</span>`}
       </div>`;
   }).join('');
@@ -4253,6 +4312,16 @@ async function renderPetsTrain() {
 async function trainPet(stat) {
   try {
     const r = await API.post('/api/pets/train', { stat });
+    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} 🌿`);
+    await loadPets();
+    renderPetsTrain();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function trainPetBulk(stat, targetLevel) {
+  try {
+    const r = await API.post('/api/pets/train-bulk', { stat, targetLevel });
     toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} 🌿`);
     await loadPets();
     renderPetsTrain();

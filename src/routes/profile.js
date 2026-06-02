@@ -29,11 +29,9 @@ router.get('/', async (req, res) => {
   try {
     const { rows: [player] } = await pool.query(
       `SELECT p.*, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,
-              pt.power_level as pet_power, pt.endurance_level as pet_endurance,
               c.id as clan_id, c.name as clan_name, c.tag as clan_tag, cm.role as clan_role
        FROM players p
        LEFT JOIN training t ON t.player_id = p.id
-       LEFT JOIN pets pt ON pt.player_id = p.id
        LEFT JOIN clan_members cm ON cm.player_id = p.id
        LEFT JOIN clans c ON c.id = cm.clan_id
        WHERE p.id = $1`,
@@ -69,12 +67,10 @@ router.get('/', async (req, res) => {
     );
 
     const trainCosts = {
-      power: trainCost(player.power_level),
+      power:     trainCost(player.power_level),
       endurance: trainCost(player.endurance_level),
-      speed: trainCost(player.speed_level),
-      accuracy: trainCost(player.accuracy_level),
-      pet_power: trainCost(player.pet_power),
-      pet_endurance: trainCost(player.pet_endurance),
+      speed:     trainCost(player.speed_level),
+      accuracy:  trainCost(player.accuracy_level),
     };
 
     const { rows: itemRunes } = await pool.query(
@@ -380,14 +376,10 @@ router.get('/:id', async (req, res) => {
 // Train stat
 router.post('/train/:stat', async (req, res) => {
   const VALID_STATS = {
-    power: 'power_level',
+    power:     'power_level',
     endurance: 'endurance_level',
-    speed: 'speed_level',
-    accuracy: 'accuracy_level'
-  };
-  const PET_STATS = {
-    pet_power: 'power_level',
-    pet_endurance: 'endurance_level'
+    speed:     'speed_level',
+    accuracy:  'accuracy_level',
   };
 
   const stat = req.params.stat;
@@ -408,20 +400,6 @@ router.post('/train/:stat', async (req, res) => {
 
       res.json({ success: true, newLevel: currentLevel + 1, nextCost: trainCost(currentLevel + 1) });
 
-    } else if (PET_STATS[stat]) {
-      const col = PET_STATS[stat];
-      const { rows: [pet] } = await pool.query('SELECT * FROM pets WHERE player_id=$1', [req.session.playerId]);
-      const currentLevel = pet[col];
-      const cost = trainCost(currentLevel);
-
-      const { rows: [player] } = await pool.query('SELECT greens FROM players WHERE id=$1', [req.session.playerId]);
-      if (player.greens < cost)
-        return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${cost}` });
-
-      await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [cost, req.session.playerId]);
-      await pool.query(`UPDATE pets SET ${col} = ${col} + 1 WHERE player_id=$1`, [req.session.playerId]);
-
-      res.json({ success: true, newLevel: currentLevel + 1, nextCost: trainCost(currentLevel + 1) });
     } else {
       res.status(400).json({ error: 'Невірний стат' });
     }
