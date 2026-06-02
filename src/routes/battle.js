@@ -517,8 +517,12 @@ router.post('/round', async (req, res) => {
       defender: { zone: defZone,    ...dRoll },
       aPetAction,
       dPetAction,
-      aPetHp: fight.aPetHp,
-      dPetHp: fight.dPetHp,
+      aPetHp:    fight.aPetHp,
+      dPetHp:    fight.dPetHp,
+      aPetName:  fight.aPet?.name  || null,
+      dPetName:  fight.dPet?.name  || null,
+      aPetHpMax: fight.aPet?.hp_max || null,
+      dPetHpMax: fight.dPet?.hp_max || null,
     };
 
     fight.rounds.push(roundData);
@@ -661,6 +665,13 @@ router.post('/round', async (req, res) => {
           totalDamage: fight.aPetTotalDamage, died: aPetDied } : null,
         dPet: fight.dPet ? { name: fight.dPet.name, icon: fight.dPet.icon,
           totalDamage: fight.dPetTotalDamage, died: dPetDied } : null,
+        petResult: (fight.aPet || fight.dPet) ? {
+          attackerPetAlive:   !aPetDied,
+          defenderPetAlive:   !dPetDied,
+          attackerPetDamage:  fight.aPetTotalDamage,
+          defenderPetDamage:  fight.dPetTotalDamage,
+        } : null,
+        attackerPlayerDamage: fight.attackerDamageDealt - fight.aPetTotalDamage,
       });
     }
 

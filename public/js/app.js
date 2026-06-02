@@ -601,23 +601,30 @@ async function selectZoneForRound(zone) {
     let petLines = '';
     if (pd.aPetAction) {
       const p = pd.aPetAction;
+      const petName = pd.aPetName || 'Твій питомець';
       const tgt = p.target === 'enemyPet' ? 'ворожого питомця' : p.target === 'enemy' ? 'ворога напряму' : '—';
-      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 Твій питомець — промах</div>`;
-      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 Твій питомець — заблоковано ворожим питомцем</div>`;
-      else petLines += `<div style="color:#2e7d32">🐾 Твій питомець б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 ${petName} — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 ${petName} — заблоковано ворожим питомцем</div>`;
+      else petLines += `<div style="color:#2e7d32">🐾 ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
     }
     if (pd.dPetAction) {
       const p = pd.dPetAction;
+      const petName = pd.dPetName || 'Ворожий питомець';
       const tgt = p.target === 'myPet' ? 'твого питомця' : p.target === 'myPlayer' ? 'тебе напряму' : '—';
-      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 Ворожий питомець — промах</div>`;
-      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 Ворожий питомець — заблоковано твоїм питомцем</div>`;
-      else petLines += `<div style="color:#b71c1c">🐾 Ворожий питомець б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 ${petName} — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 ${petName} — заблоковано твоїм питомцем</div>`;
+      else petLines += `<div style="color:#b71c1c">🐾 ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
     }
-    if (pd.aPetAction && pd.aPetHp !== undefined && pd.dPetHp !== undefined) {
+    if ((pd.aPetAction || pd.dPetAction) && pd.aPetHp !== undefined && pd.dPetHp !== undefined) {
       const aAlive = pd.aPetHp > 0;
       const dAlive = pd.dPetHp > 0;
-      if (pd.aPetAction || pd.dPetAction)
-        petLines += `<div style="font-size:11px;color:#aaa">HP питомців: твій ${aAlive?pd.aPetHp:'💀'} · ворожий ${dAlive?pd.dPetHp:'💀'}</div>`;
+      const aHpStr = pd.aPetName
+        ? `${pd.aPetName}: ${aAlive ? `${pd.aPetHp}/${pd.aPetHpMax}` : '💀'}`
+        : (aAlive ? pd.aPetHp : '💀');
+      const dHpStr = pd.dPetName
+        ? `${pd.dPetName}: ${dAlive ? `${pd.dPetHp}/${pd.dPetHpMax}` : '💀'}`
+        : (dAlive ? pd.dPetHp : '💀');
+      petLines += `<div style="font-size:11px;color:#aaa">HP: ${aHpStr} · ${dHpStr}</div>`;
     }
 
     const entry = document.createElement('div');
@@ -684,7 +691,15 @@ function showBattleResult(r) {
     <div style="${bs}">
       <div style="font-size:13px;line-height:1.8">
         <b>Нанесена шкода:</b><br>
-        ${r.attackerName}: <b>${r.attackerDamageDealt}</b> &nbsp;|&nbsp; ${r.defenderName}: <b>${r.defenderDamageDealt}</b>
+        ${r.attackerName}: <b>${r.attackerDamageDealt}</b>
+        ${r.petResult && r.petResult.attackerPetDamage > 0
+          ? `<span style="color:#aaa;font-size:11px"> (гравець: ${r.attackerPlayerDamage ?? r.attackerDamageDealt - r.petResult.attackerPetDamage} + питомець: ${r.petResult.attackerPetDamage})</span>`
+          : ''}
+        &nbsp;|&nbsp;
+        ${r.defenderName}: <b>${r.defenderDamageDealt}</b>
+        ${r.petResult && r.petResult.defenderPetDamage > 0
+          ? `<span style="color:#aaa;font-size:11px"> (гравець: ${r.defenderDamageDealt - r.petResult.defenderPetDamage} + питомець: ${r.petResult.defenderPetDamage})</span>`
+          : ''}
       </div>
     </div>
 
