@@ -165,7 +165,7 @@ router.post('/gifts/send/:targetId', async (req, res) => {
 
     await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [gift.price, req.session.playerId]);
 
-    const expiresAt = new Date(Date.now() + 24 * 3600000);
+    const expiresAt = new Date(Date.now() + 48 * 3600000);
     await pool.query(
       `INSERT INTO active_gifts (giver_id, receiver_id, gift_name, power_bonus, endurance_bonus, speed_bonus, accuracy_bonus, expires_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
@@ -362,7 +362,7 @@ router.get('/chat/history', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT cm.message, cm.created_at,
-              p.username, p.faction, p.level
+              p.id as player_id, p.username, p.faction, p.level
        FROM chat_messages cm JOIN players p ON p.id=cm.player_id
        WHERE cm.chat_type='global'
        ORDER BY cm.created_at DESC LIMIT 50`

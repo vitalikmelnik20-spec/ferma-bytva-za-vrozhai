@@ -98,7 +98,7 @@ router.get('/current', async (req, res) => {
       `SELECT COUNT(*) FROM dragon_participants WHERE event_id=$1`, [ev.id]
     );
     const { rows: top5 } = await pool.query(
-      `SELECT p.username, dp.damage_dealt FROM dragon_participants dp
+      `SELECT p.id as player_id, p.username, dp.damage_dealt FROM dragon_participants dp
        JOIN players p ON p.id=dp.player_id WHERE dp.event_id=$1 ORDER BY dp.damage_dealt DESC LIMIT 5`,
       [ev.id]
     );

@@ -85,6 +85,10 @@ const IC = {
   petIcon:   (icon, s=22) => icon?.startsWith('/') ? `<img src="${icon}" width="${s}" height="${s}" style="vertical-align:middle">` : `<span style="font-size:${s}px;line-height:1;vertical-align:middle">${icon||IC.paw(s)}</span>`,
 };
 
+// Clickable player name link
+const plink = (id, username, faction = '') =>
+  `<span class="${faction}" style="cursor:pointer;text-decoration:underline dotted" onclick="viewProfile(${id})">${username}</span>`;
+
 let gardenData = null;
 let marketData = null;
 let currentPickRound = 1;
@@ -570,7 +574,7 @@ async function loadOpponents() {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
               <span style="background:${s.badge};color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px">${op.tierLabel}</span>
-              <span class="${op.faction}" style="font-weight:700;font-size:15px">${op.username}</span>
+              <span style="font-weight:700;font-size:15px">${plink(op.id, op.username, op.faction)}</span>
               <span style="color:#888;font-size:12px">Рів.${op.level}</span>
             </div>
             <div style="font-size:12px;color:#666;margin-bottom:4px">
@@ -624,7 +628,7 @@ async function fightNext() {
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
               <span style="background:${s.badge};color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px">${op.tierLabel}</span>
-              <span class="${op.faction}" style="font-weight:700;font-size:15px">${op.username}</span>
+              <span style="font-weight:700;font-size:15px">${plink(op.id, op.username, op.faction)}</span>
               <span style="color:#888;font-size:12px">Рів.${op.level}</span>
             </div>
             <div style="font-size:12px;color:#666;margin-bottom:4px">
@@ -1444,7 +1448,7 @@ function renderActiveGifts(gifts) {
     <div class="gift-active-row">
       <div style="flex:1">
         <div style="font-weight:600">${g.gift_name}</div>
-        <div style="font-size:12px;color:#aaa">від ${g.giver_username || g.giver_name}</div>
+        <div style="font-size:12px;color:#aaa">від ${plink(g.giver_id, g.giver_username || g.giver_name)}</div>
         <div style="font-size:12px;margin-top:2px">${bonusText(g)}</div>
       </div>
       <div style="font-size:11px;color:#888;white-space:nowrap">⏱ ${timeLeft(g.expires_at)}</div>
@@ -1762,7 +1766,7 @@ function chatMsgHtml(m) {
   const time = kyivTime(m.created_at);
   return `<div class="chat-msg">
     <span class="msg-time">${m.time || time}</span>
-    <span class="msg-author ${m.faction}">[${m.level}] ${m.username}</span>: ${escHtml(m.message)}
+    <span class="msg-author">[${m.level}] ${plink(m.player_id, m.username, m.faction)}</span>: ${escHtml(m.message)}
   </div>`;
 }
 
@@ -1798,7 +1802,7 @@ async function loadFriends() {
       <div class="opponent-card">
         <div class="opponent-avatar">${f.friend_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
-          <div class="opponent-name ${f.friend_faction}">${f.friend_name} <span class="text-muted">Рів.${f.friend_level}</span></div>
+          <div class="opponent-name">${plink(f.friend_id, f.friend_name, f.friend_faction)} <span class="text-muted">Рів.${f.friend_level}</span></div>
           <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? `${IC.timer(14)} Очікує підтвердження` : `${IC.bell(14)} Новий запит`) : `${IC.check(14)} Друг`}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
@@ -1848,7 +1852,7 @@ async function doSearch(query) {
       <div class="opponent-card">
         <div class="opponent-avatar">${p.is_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
-          <div class="opponent-name ${p.faction}">${p.username} <span class="text-muted">Рів.${p.level}</span></div>
+          <div class="opponent-name">${plink(p.id, p.username, p.faction)} <span class="text-muted">Рів.${p.level}</span></div>
           <div class="text-muted">Слава: ${p.glory}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
@@ -1876,7 +1880,7 @@ async function loadRating() {
       return `<div class="rating-row">
         <span class="rating-pos ${cls}">${pos}</span>
         <div class="rating-info">
-          <div class="rating-name ${p.faction}">${p.username} <span class="text-muted">Рів.${p.level}</span></div>
+          <div class="rating-name">${plink(p.id, p.username, p.faction)} <span class="text-muted">Рів.${p.level}</span></div>
           <div class="rating-sub">${p.clan_name ? `[${p.clan_tag}] ${p.clan_name} | ` : ''}${IC.glory(14)}${p.wins}W</div>
         </div>
         <span class="rating-pts">${fmtNum(p.rating_points)} pts</span>
@@ -2037,7 +2041,7 @@ async function renderMyClan(el) {
       <div class="opponent-card">
         <div class="opponent-avatar">${m.is_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
-          <div class="opponent-name ${m.faction}">${m.username} <span class="text-muted">Рів.${m.level}</span></div>
+          <div class="opponent-name">${plink(m.id, m.username, m.faction)} <span class="text-muted">Рів.${m.level}</span></div>
           <div class="text-muted" style="font-size:11px">${roleName(m.role)}</div>
         </div>
         ${isSenior && m.id !== player.id && m.role !== 'leader' ? `
@@ -2179,7 +2183,7 @@ async function loadTreasuryLog() {
         const cur   = row.currency === 'greens' ? IC.greens(11) : IC.gold(11);
         const time  = kyivDateTime(row.created_at);
         return `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f5f5f5">
-          <span>${row.username}</span>
+          <span>${plink(row.player_id, row.username)}</span>
           <span style="color:${color}">${sign}${fmtNum(row.amount)} ${cur}</span>
           <span class="text-muted">${time}</span>
         </div>`;
@@ -2644,7 +2648,7 @@ function initSocket() {
     const container = document.getElementById('chat-messages');
     const div = document.createElement('div');
     div.className = 'chat-msg';
-    div.innerHTML = `<span class="msg-time">${m.time}</span> <span class="msg-author ${m.faction}">[${m.level}] ${m.username}</span>: ${escHtml(m.message)}`;
+    div.innerHTML = `<span class="msg-time">${m.time}</span> <span class="msg-author">[${m.level}] ${plink(m.playerId, m.username, m.faction)}</span>: ${escHtml(m.message)}`;
     container.appendChild(div);
     // Keep last 200 messages
     while (container.children.length > 200) container.firstChild.remove();
@@ -3756,7 +3760,7 @@ function renderDragonActive(r) {
       <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>${IC.timer(14)} Зачекай...</button>
       <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${new Date(ev.ends_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</strong></div>
       <div class="dragon-top5" id="dragon-top5">
-        ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
+        ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${plink(p.player_id, p.username)}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
     </div>`;
 

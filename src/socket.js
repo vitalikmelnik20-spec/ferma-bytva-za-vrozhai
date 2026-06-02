@@ -33,6 +33,7 @@ module.exports = (io) => {
         const _p = new Intl.DateTimeFormat('uk-UA', { timeZone: 'Europe/Kiev', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
         const time = `${_p.find(x=>x.type==='hour').value}:${_p.find(x=>x.type==='minute').value}`;
         io.emit('chat:message', {
+          playerId,
           username: p.username,
           faction: p.faction,
           level: p.level,
