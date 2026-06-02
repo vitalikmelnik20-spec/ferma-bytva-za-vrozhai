@@ -101,6 +101,9 @@ let _dragonWindowCd            = 0;
 
 // Pets state (declared here to avoid TDZ errors)
 let petsData = null;
+const RARITY_LABEL = { 1: `${IC.star(14)} Звичайна`, 2: `${IC.star(13)}${IC.star(13)} Рідкісна`, 3: `${IC.star(13)}${IC.star(13)}${IC.star(13)} Легендарна` };
+const STAT_LABELS   = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
+const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor: 'Панцир', boots: 'Чоботи' };
 
 // ─── INIT ────────────────────────────────────────────────────────────────────
 (async function init() {
@@ -4277,10 +4280,6 @@ async function loadCdefHistory() {
 }
 
 // ─── ПИТОМНИК ─────────────────────────────────────────────────────────────────
-
-const RARITY_LABEL = { 1: `${IC.star(14)} Звичайна`, 2: `${IC.star(13)}${IC.star(13)} Рідкісна`, 3: `${IC.star(13)}${IC.star(13)}${IC.star(13)} Легендарна` };
-const STAT_LABELS   = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
-const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor: 'Панцир', boots: 'Чоботи' };
 
 function showPetsTab(tab, btn) {
   ['my','shop','train'].forEach(t => {
