@@ -48,6 +48,7 @@ app.use('/api/dragon',    require('./src/routes/dragon'));
 app.use('/api/insects',   require('./src/routes/insects'));
 app.use('/api/daily',        require('./src/routes/daily'));
 app.use('/api/clan-defense', require('./src/routes/clanDefense'));
+app.use('/api/pets',         require('./src/routes/pets'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -99,6 +100,18 @@ setInterval(async () => {
     console.error('[Regen] помилка:', err.message);
   }
 }, 60 * 1000);
+
+// Pet HP regeneration — every hour, add 10% of hp_max, capped at hp_max
+setInterval(async () => {
+  try {
+    await pool.query(`
+      UPDATE pets SET hp_current = LEAST(hp_max, hp_current + GREATEST(1, FLOOR(hp_max * 0.10)::INTEGER))
+      WHERE hp_current < hp_max AND is_dead = false
+    `);
+  } catch (err) {
+    console.error('[PetRegen]', err.message);
+  }
+}, 60 * 60 * 1000);
 
 // Auction lot cleanup — every 6 hours, expire old lots and release inventory
 setInterval(async () => {

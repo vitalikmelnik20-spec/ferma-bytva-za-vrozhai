@@ -426,6 +426,26 @@
     </section>
 
     <!-- ADMIN -->
+    <!-- ПИТОМНИК -->
+    <section class="page" id="page-pets">
+      <div class="panel mb-12">
+        <div class="panel-header">🐾 Питомник</div>
+        <div class="panel-body" style="padding:0">
+          <div class="category-tabs" id="pets-tabs">
+            <button class="cat-tab active" onclick="showPetsTab('my',this)">Тваринка</button>
+            <button class="cat-tab" onclick="showPetsTab('shop',this)">Магазин</button>
+            <button class="cat-tab" onclick="showPetsTab('train',this)">Тренування</button>
+          </div>
+          <div id="pets-my"    style="padding:12px"></div>
+          <div id="pets-shop"  style="display:none;padding:12px"></div>
+          <div id="pets-train" style="display:none;padding:12px"></div>
+        </div>
+      </div>
+      <div style="padding:8px">
+        <button class="btn btn-gray btn-sm" onclick="navigate('home')">← Назад</button>
+      </div>
+    </section>
+
     <section class="page" id="page-admin">
       <div class="panel mb-12">
         <div class="panel-header"><img src="/icons/ui/admin.svg" width="16" height="16" style="vertical-align:middle" alt="admin"> Адмін панель</div>
@@ -458,6 +478,9 @@
     </button>
     <button class="nav-btn" data-page="chat" onclick="navigate('chat')">
       <span class="nav-icon"><img src="/icons/menu/chat.png" style="width:24px;height:24px"></span>Чат
+    </button>
+    <button class="nav-btn" data-page="pets" onclick="navigate('pets')">
+      <span class="nav-icon">🐾</span>Питомник
     </button>
   </nav>
 

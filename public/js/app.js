@@ -228,6 +228,7 @@ function navigate(page) {
   if (page === 'dragon')     loadDragon();
   if (page === 'daily')        loadDaily();
   if (page === 'clan-defense') loadClanDefense();
+  if (page === 'pets')         loadPets();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -3901,4 +3902,255 @@ async function loadCdefHistory() {
         </div>
       </div>`).join('');
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+// ─── ПИТОМНИК ─────────────────────────────────────────────────────────────────
+let petsData = null; // кеш даних тваринки
+
+const RARITY_LABEL = { 1: '⭐ Звичайна', 2: '⭐⭐ Рідкісна', 3: '⭐⭐⭐ Легендарна' };
+const STAT_LABELS   = { power: '⚡ Міць', endurance: '🛡️ Стійкість', speed: '💨 Швидкість', accuracy: '🎯 Точність' };
+const SLOT_NAMES    = { collar: '🔴 Ошийник', amulet: '🔵 Амулет', armor: '🟢 Панцир', boots: '🟡 Чоботи' };
+
+function showPetsTab(tab, btn) {
+  ['my','shop','train'].forEach(t => {
+    document.getElementById(`pets-${t}`).style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('#pets-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (tab === 'shop')  renderPetsShop();
+  if (tab === 'train') renderPetsTrain();
+}
+
+async function loadPets() {
+  try {
+    petsData = await API.get('/api/pets/my');
+    renderPetsMy();
+  } catch(e) {
+    document.getElementById('pets-my').innerHTML = `<p class="text-muted">${e.message}</p>`;
+  }
+}
+
+function renderPetsMy() {
+  const el = document.getElementById('pets-my');
+  if (!petsData) return;
+  const { pet, training, equipment, stats } = petsData;
+
+  if (!pet) {
+    el.innerHTML = `
+      <div style="text-align:center;padding:24px">
+        <div style="font-size:48px;margin-bottom:12px">🐾</div>
+        <p style="color:#666;margin-bottom:16px">У вас ще немає тваринки</p>
+        <button class="btn btn-green" onclick="showPetsTab('shop', document.querySelector('#pets-tabs .cat-tab:nth-child(2)'))">🛒 До магазину</button>
+      </div>`;
+    return;
+  }
+
+  const eff = pet.effective || {};
+  const isDead = pet.is_dead;
+  const hpPct = Math.min(100, Math.floor((pet.hp_current / (eff.hp_max || pet.hp_max)) * 100));
+
+  const eqSlots = ['collar','amulet','armor','boots'].map(slot => {
+    const eq = equipment.find(e => e.slot === slot);
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0">
+      <span>${SLOT_NAMES[slot]}</span>
+      ${eq ? `<span style="color:#388e3c;font-weight:600">+${eq.bonus_value} (рів.${eq.item_level})</span>` : `<span class="text-muted">Порожньо</span>`}
+    </div>`}).join('');
+
+  el.innerHTML = `
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:52px">${pet.icon}</div>
+      <div style="font-weight:700;font-size:18px;margin:4px 0">${pet.name}</div>
+      <div style="color:#888;font-size:13px">${RARITY_LABEL[pet.rarity] || ''}</div>
+      ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:4px">💀 МЕРТВА</div>` : ''}
+    </div>
+
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:2px">
+        <span>❤️ HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
+      </div>
+      <div style="background:#f0f0f0;border-radius:6px;height:10px;overflow:hidden">
+        <div style="background:${hpPct > 50 ? '#43a047' : hpPct > 25 ? '#fb8c00' : '#e53935'};height:100%;width:${hpPct}%;transition:width .3s"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+      ${Object.entries(STAT_LABELS).map(([k,lbl]) => `
+        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:12px;color:#888">${lbl}</div>
+          <div style="font-weight:700;font-size:20px">${eff[k] || pet[k]}</div>
+        </div>`).join('')}
+    </div>
+
+    ${pet.abilityDesc ? `
+      <div style="background:#f3e5f5;border-radius:8px;padding:10px;margin-bottom:12px">
+        <div style="font-weight:600;color:#7b1fa2;margin-bottom:4px">✨ Унікальна здібність</div>
+        <div style="font-size:13px">${pet.abilityDesc}</div>
+      </div>` : ''}
+
+    <div style="margin-bottom:16px">
+      <div style="font-weight:600;margin-bottom:8px">Екіпіровка</div>
+      ${eqSlots}
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${isDead
+        ? `<button class="btn btn-red" onclick="revivePet()">💊 Відновити</button>`
+        : `<button class="btn ${pet.is_active ? 'btn-gray' : 'btn-green'}" onclick="togglePet()">
+             ${pet.is_active ? '🏠 Лишити вдома' : '⚔️ Взяти в бій'}
+           </button>
+           <button class="btn btn-blue btn-sm" onclick="healPet()">💉 Вилікувати</button>`
+      }
+    </div>
+
+    ${stats ? `
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;font-size:13px;color:#666">
+        Боїв: <b>${stats.battles_participated}</b> · Перемог: <b>${stats.wins}</b> ·
+        Загинула: <b>${stats.deaths}</b>р · Урон: <b>${fmtNum(stats.total_damage)}</b>
+      </div>` : ''}
+  `;
+}
+
+async function togglePet() {
+  try {
+    const r = await API.post('/api/pets/toggle');
+    toast(r.is_active ? '⚔️ Тваринка йде в бій!' : '🏠 Тваринка залишається вдома');
+    await loadPets();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function revivePet() {
+  // Показати вартість та підтвердження
+  try {
+    const { pet, training } = await API.get('/api/pets/my');
+    if (!pet) return;
+    const spent = training?.total_green_spent || 0;
+    const green = Math.floor(spent * 0.5);
+    const gold  = spent === 0 ? 100 : Math.min(500, 50 + Math.floor(spent / 1000) * 50);
+    const msg = green > 0
+      ? `Відновлення коштує ${fmtNum(green)} 🌿 + ${fmtNum(gold)} 🏅. Продовжити?`
+      : `Відновлення коштує ${fmtNum(gold)} 🏅. Продовжити?`;
+    if (!confirm(msg)) return;
+    const r = await API.post('/api/pets/revive');
+    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)}`);
+    await loadPets();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function healPet() {
+  try {
+    const r = await API.post('/api/pets/heal');
+    toast(`💉 HP відновлено! Витрачено ${fmtNum(r.cost)} 🌿`);
+    await loadPets();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function renderPetsShop() {
+  const el = document.getElementById('pets-shop');
+  el.innerHTML = '<p class="text-muted">Завантаження...</p>';
+  try {
+    const { catalog, equipment, hasPet } = await API.get('/api/pets/shop');
+
+    const petRows = catalog.map(p => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0">
+        <div>
+          <span style="font-size:22px;margin-right:8px">${p.icon}</span>
+          <span style="font-weight:600">${p.name}</span>
+          <span style="font-size:11px;color:#888;margin-left:6px">${RARITY_LABEL[p.rarity]}</span>
+          <div style="font-size:12px;color:#666;margin-top:2px">
+            ⚡${p.power} 🛡️${p.endurance} 💨${p.speed} 🎯${p.accuracy} ❤️${p.hp}
+          </div>
+        </div>
+        <button class="btn btn-green btn-sm" onclick="buyPet('${p.type}')" ${hasPet ? 'disabled' : ''}>
+          ${p.price} ${p.currency === 'diamonds' ? '💎' : '🏅'}
+        </button>
+      </div>`).join('');
+
+    const eqRows = equipment.map(eq => `
+      <div style="margin-bottom:12px">
+        <div style="font-weight:600;margin-bottom:4px">${SLOT_NAMES[eq.slot]} — ${eq.name}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          ${eq.levels.map(l => `
+            <button class="btn btn-gray btn-sm" onclick="buyEquip('${eq.slot}',${l.level})" ${!hasPet ? 'disabled' : ''}>
+              +${l.bonus} · ${l.price}🏅
+            </button>`).join('')}
+        </div>
+      </div>`).join('');
+
+    el.innerHTML = `
+      <div style="font-weight:700;margin-bottom:8px">Тваринки</div>
+      ${hasPet ? '<p style="color:#888;font-size:13px;margin-bottom:8px">У вас вже є тваринка. Нову можна придбати лише якщо поточна загинула і ви її видалите.</p>' : ''}
+      ${petRows}
+      <div style="font-weight:700;margin:16px 0 8px">Екіпіровка</div>
+      ${eqRows}
+    `;
+  } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
+}
+
+async function buyPet(petType) {
+  if (!confirm(`Купити тваринку? Ця дія незворотня — тваринка одна на все життя.`)) return;
+  try {
+    const r = await API.post('/api/pets/buy', { petType });
+    toast(`🐾 ${r.pet.name} тепер ваша тваринка!`);
+    await loadPets();
+    showPetsTab('my', document.querySelector('#pets-tabs .cat-tab'));
+  } catch(e) { toast(e.message, true); }
+}
+
+async function buyEquip(slot, level) {
+  try {
+    const r = await API.post('/api/pets/equip', { slot, level });
+    toast(`✅ ${SLOT_NAMES[slot]} рівень ${level} (+${r.bonus}) встановлено!`);
+    await loadPets();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function renderPetsTrain() {
+  const el = document.getElementById('pets-train');
+  if (!petsData?.pet) {
+    el.innerHTML = '<p class="text-muted">Спочатку придбайте тваринку</p>';
+    return;
+  }
+  const { pet, training } = petsData;
+  if (!training) { el.innerHTML = '<p class="text-muted">Дані тренування недоступні</p>'; return; }
+
+  const rows = ['power','endurance','speed','accuracy'].map(stat => {
+    const lvl = training[`${stat}_level`] || 1;
+    const nextLvl = lvl + 1;
+    const cost = lvl >= 50 ? null : Math.floor(nextLvl * nextLvl * 10 + nextLvl * 20);
+    const pct = Math.floor(lvl / 50 * 100);
+    return `
+      <div style="margin-bottom:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+          <span style="font-weight:600">${STAT_LABELS[stat]}</span>
+          <span style="color:#666;font-size:13px">Рів. ${lvl}/50 · ${pet[stat]} базовий</span>
+        </div>
+        <div style="background:#f0f0f0;border-radius:6px;height:8px;margin-bottom:6px;overflow:hidden">
+          <div style="background:#66bb6a;height:100%;width:${pct}%"></div>
+        </div>
+        ${lvl < 50
+          ? `<button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
+               ▲ Прокачати · ${fmtNum(cost)} 🌿
+             </button>`
+          : `<span style="color:#388e3c;font-size:13px">✅ Максимум</span>`}
+      </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <p style="font-size:13px;color:#666;margin-bottom:16px">
+      Витрачено зелені: <b>${fmtNum(training.total_green_spent)}</b> 🌿
+    </p>
+    ${rows}
+  `;
+}
+
+async function trainPet(stat) {
+  try {
+    const r = await API.post('/api/pets/train', { stat });
+    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} 🌿`);
+    await loadPets();
+    renderPetsTrain();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
 }
