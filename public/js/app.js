@@ -3676,7 +3676,7 @@ function renderDragonActive(r) {
     if (left === 0) { _dragonClearTimers(); loadDragon(); }
   }, 1000);
 
-  startDragonAttackTimer();
+  _openDragonAttackWindow();
 }
 
 function renderDragonInactive(lastEvent) {

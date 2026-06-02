@@ -189,6 +189,17 @@ setInterval(async () => {
     console.log(`[Dragon] Подія розпочалась! HP: ${hp}`);
   }
 
+  // Finalize any events that expired while the server was offline
+  (async () => {
+    try {
+      const { rows: expired } = await pool.query(
+        `SELECT id FROM dragon_events WHERE status='active' AND ends_at <= NOW()`
+      );
+      for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
+      if (expired.length) console.log(`[Dragon] Завершено ${expired.length} протерміновані події при запуску`);
+    } catch (err) { console.error('[Dragon startup]', err.message); }
+  })();
+
   setInterval(async () => {
     try {
       const now = new Date();
