@@ -1679,3 +1679,65 @@ html {
   from { transform: scale(1);    box-shadow: 0 0 0 rgba(198,40,40,0); }
   to   { transform: scale(1.03); box-shadow: 0 0 12px rgba(198,40,40,0.6); }
 }
+
+/* ── Питомник / Тваринки ──────────────────────────────── */
+.pet-card {
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  border: 2px solid transparent;
+  position: relative;
+}
+.pet-card.rarity-1 {
+  background: #fafafa;
+  border-color: #e0e0e0;
+}
+.pet-card.rarity-2 {
+  background: linear-gradient(135deg,#e8f5e9,#f1f8e9);
+  border-color: #66bb6a;
+}
+.pet-card.rarity-3 {
+  background: linear-gradient(135deg,#fce4ec,#f3e5f5);
+  border-color: #ce93d8;
+}
+.pet-card-icon { font-size: 36px; margin-bottom: 6px; text-align: center; }
+.pet-card-name { font-weight: 700; font-size: 15px; text-align: center; margin-bottom: 2px; }
+.pet-card-rarity { font-size: 11px; text-align: center; margin-bottom: 8px; }
+.rarity-1 .pet-card-rarity { color: #888; }
+.rarity-2 .pet-card-rarity { color: #388e3c; }
+.rarity-3 .pet-card-rarity { color: #8e24aa; font-weight: 600; }
+.pet-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.pet-stat-chip {
+  background: rgba(0,0,0,.05);
+  border-radius: 6px;
+  padding: 3px 6px;
+  display: flex;
+  justify-content: space-between;
+}
+.pet-ability-box {
+  background: rgba(142,36,170,.10);
+  border-left: 3px solid #ab47bc;
+  border-radius: 0 6px 6px 0;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: #6a1b9a;
+  margin-bottom: 8px;
+}
+.pet-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  color: #888;
+  margin: 16px 0 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eee;
+}
+.pet-section-title.rare  { color: #388e3c; border-color: #a5d6a7; }
+.pet-section-title.legendary { color: #8e24aa; border-color: #ce93d8; }

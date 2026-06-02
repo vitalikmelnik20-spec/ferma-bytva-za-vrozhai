@@ -3956,12 +3956,16 @@ function renderPetsMy() {
       ${eq ? `<span style="color:#388e3c;font-weight:600">+${eq.bonus_value} (рів.${eq.item_level})</span>` : `<span class="text-muted">Порожньо</span>`}
     </div>`}).join('');
 
+  const rarityColors = { 1: '#9e9e9e', 2: '#388e3c', 3: '#8e24aa' };
+  const rarityBg     = { 1: '#fafafa', 2: 'linear-gradient(135deg,#e8f5e9,#f1f8e9)', 3: 'linear-gradient(135deg,#fce4ec,#f3e5f5)' };
+  const rarityBorder = { 1: '#e0e0e0', 2: '#66bb6a', 3: '#ce93d8' };
+
   el.innerHTML = `
-    <div style="text-align:center;margin-bottom:16px">
-      <div style="font-size:52px">${pet.icon}</div>
-      <div style="font-weight:700;font-size:18px;margin:4px 0">${pet.name}</div>
-      <div style="color:#888;font-size:13px">${RARITY_LABEL[pet.rarity] || ''}</div>
-      ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:4px">💀 МЕРТВА</div>` : ''}
+    <div style="border-radius:12px;border:2px solid ${rarityBorder[pet.rarity]};background:${rarityBg[pet.rarity]};padding:14px;margin-bottom:14px;text-align:center">
+      <div style="font-size:52px;margin-bottom:6px">${pet.icon}</div>
+      <div style="font-weight:700;font-size:18px;margin-bottom:2px">${pet.name}</div>
+      <div style="color:${rarityColors[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity] || ''}</div>
+      ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:6px;font-size:15px">💀 МЕРТВА</div>` : ''}
     </div>
 
     <div style="margin-bottom:12px">
@@ -3971,12 +3975,13 @@ function renderPetsMy() {
       <div style="background:#f0f0f0;border-radius:6px;height:10px;overflow:hidden">
         <div style="background:${hpPct > 50 ? '#43a047' : hpPct > 25 ? '#fb8c00' : '#e53935'};height:100%;width:${hpPct}%;transition:width .3s"></div>
       </div>
+      <div style="font-size:11px;color:#aaa;margin-top:2px">Регенерація: +10% HP/год</div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
       ${Object.entries(STAT_LABELS).map(([k,lbl]) => `
-        <div style="background:#f9f9f9;border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:12px;color:#888">${lbl}</div>
+        <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;text-align:center">
+          <div style="font-size:11px;color:#888">${lbl}</div>
           <div style="font-weight:700;font-size:20px">${eff[k] || pet[k]}</div>
         </div>`).join('')}
     </div>
@@ -4045,43 +4050,89 @@ async function healPet() {
   } catch(e) { toast(e.message, true); }
 }
 
+function _petCard(p, hasPet) {
+  const statRow = `
+    <div class="pet-stats-grid">
+      <div class="pet-stat-chip"><span>⚡ Міць</span><b>${p.power}</b></div>
+      <div class="pet-stat-chip"><span>🛡️ Стійк</span><b>${p.endurance}</b></div>
+      <div class="pet-stat-chip"><span>💨 Швид</span><b>${p.speed}</b></div>
+      <div class="pet-stat-chip"><span>🎯 Точн</span><b>${p.accuracy}</b></div>
+      <div class="pet-stat-chip" style="grid-column:1/-1"><span>❤️ HP</span><b>${p.hp}</b></div>
+    </div>`;
+  const abilityBox = p.abilityDesc
+    ? `<div class="pet-ability-box">✨ ${p.abilityDesc}</div>`
+    : '';
+  const btnLabel = `${p.price} ${p.currency === 'diamonds' ? '💎' : '🏅'}`;
+  return `
+    <div class="pet-card rarity-${p.rarity}">
+      <div class="pet-card-icon">${p.icon}</div>
+      <div class="pet-card-name">${p.name}</div>
+      <div class="pet-card-rarity">${RARITY_LABEL[p.rarity]}</div>
+      ${statRow}
+      ${abilityBox}
+      <button class="btn btn-sm" style="width:100%;${p.currency==='diamonds'?'background:#8e24aa;color:#fff':''}"
+        onclick="buyPet('${p.type}')" ${hasPet ? 'disabled' : ''}>${btnLabel} Придбати</button>
+    </div>`;
+}
+
 async function renderPetsShop() {
   const el = document.getElementById('pets-shop');
   el.innerHTML = '<p class="text-muted">Завантаження...</p>';
   try {
     const { catalog, equipment, hasPet } = await API.get('/api/pets/shop');
 
-    const petRows = catalog.map(p => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0f0">
-        <div>
-          <span style="font-size:22px;margin-right:8px">${p.icon}</span>
-          <span style="font-weight:600">${p.name}</span>
-          <span style="font-size:11px;color:#888;margin-left:6px">${RARITY_LABEL[p.rarity]}</span>
-          <div style="font-size:12px;color:#666;margin-top:2px">
-            ⚡${p.power} 🛡️${p.endurance} 💨${p.speed} 🎯${p.accuracy} ❤️${p.hp}
-          </div>
-        </div>
-        <button class="btn btn-green btn-sm" onclick="buyPet('${p.type}')" ${hasPet ? 'disabled' : ''}>
-          ${p.price} ${p.currency === 'diamonds' ? '💎' : '🏅'}
-        </button>
-      </div>`).join('');
+    const hasPetNote = hasPet
+      ? `<div style="background:#fff3e0;border-radius:8px;padding:10px;font-size:13px;color:#e65100;margin-bottom:12px">
+           ⚠️ У вас вже є тваринка. Нову купити неможливо — тваринка одна на все життя.
+         </div>`
+      : '';
 
-    const eqRows = equipment.map(eq => `
-      <div style="margin-bottom:12px">
-        <div style="font-weight:600;margin-bottom:4px">${SLOT_NAMES[eq.slot]} — ${eq.name}</div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          ${eq.levels.map(l => `
-            <button class="btn btn-gray btn-sm" onclick="buyEquip('${eq.slot}',${l.level})" ${!hasPet ? 'disabled' : ''}>
-              +${l.bonus} · ${l.price}🏅
-            </button>`).join('')}
-        </div>
-      </div>`).join('');
+    const common    = catalog.filter(p => p.rarity === 1);
+    const rare      = catalog.filter(p => p.rarity === 2);
+    const legendary = catalog.filter(p => p.rarity === 3);
+
+    // Equipment: show current level for pet (if any)
+    const myEq = petsData?.equipment || [];
+    const eqRows = equipment.map(eq => {
+      const owned = myEq.find(e => e.slot === eq.slot);
+      return `
+        <div style="margin-bottom:14px">
+          <div style="font-weight:600;margin-bottom:6px">${SLOT_NAMES[eq.slot]} — ${eq.name}</div>
+          ${owned ? `<div style="font-size:12px;color:#388e3c;margin-bottom:4px">Встановлено: рівень ${owned.item_level} (+${owned.bonus_value})</div>` : ''}
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            ${eq.levels.map(l => {
+              const isCurrent = owned?.item_level === l.level;
+              return `<button class="btn btn-sm ${isCurrent ? 'btn-green' : 'btn-gray'}"
+                onclick="buyEquip('${eq.slot}',${l.level})" ${!hasPet ? 'disabled' : ''}>
+                +${l.bonus} · ${l.price}🏅${isCurrent ? ' ✓' : ''}
+              </button>`;
+            }).join('')}
+          </div>
+        </div>`;
+    }).join('');
 
     el.innerHTML = `
-      <div style="font-weight:700;margin-bottom:8px">Тваринки</div>
-      ${hasPet ? '<p style="color:#888;font-size:13px;margin-bottom:8px">У вас вже є тваринка. Нову можна придбати лише якщо поточна загинула і ви її видалите.</p>' : ''}
-      ${petRows}
-      <div style="font-weight:700;margin:16px 0 8px">Екіпіровка</div>
+      ${hasPetNote}
+
+      <div class="pet-section-title">⭐ Звичайні — за золото</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${common.map(p => _petCard(p, hasPet)).join('')}
+      </div>
+
+      <div class="pet-section-title rare">⭐⭐ Рідкісні — +25% до всіх статів</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${rare.map(p => _petCard(p, hasPet)).join('')}
+        <div></div>
+      </div>
+
+      <div class="pet-section-title legendary">⭐⭐⭐ Легендарні — +50% статів + унікальна здібність</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        ${legendary.map(p => _petCard(p, hasPet)).join('')}
+        <div></div>
+      </div>
+
+      <div class="pet-section-title" style="margin-top:20px">🛡️ Екіпіровка тваринки</div>
+      ${!hasPet ? '<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>' : ''}
       ${eqRows}
     `;
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
@@ -4112,35 +4163,66 @@ async function renderPetsTrain() {
     el.innerHTML = '<p class="text-muted">Спочатку придбайте тваринку</p>';
     return;
   }
-  const { pet, training } = petsData;
+  const { pet, training, equipment } = petsData;
   if (!training) { el.innerHTML = '<p class="text-muted">Дані тренування недоступні</p>'; return; }
+
+  // Базові стати тваринки (до тренувань) — pet.power вже включає тренування
+  // Тому базовий = pet.power - (training.power_level - 1) (рівень 1 = +0)
+  const BASE_STAT = {
+    power:     pet.power     - (training.power_level     - 1),
+    endurance: pet.endurance - (training.endurance_level - 1),
+    speed:     pet.speed     - (training.speed_level     - 1),
+    accuracy:  pet.accuracy  - (training.accuracy_level  - 1),
+  };
 
   const rows = ['power','endurance','speed','accuracy'].map(stat => {
     const lvl = training[`${stat}_level`] || 1;
     const nextLvl = lvl + 1;
     const cost = lvl >= 50 ? null : Math.floor(nextLvl * nextLvl * 10 + nextLvl * 20);
-    const pct = Math.floor(lvl / 50 * 100);
+    const costNext = lvl >= 49 ? null : Math.floor((nextLvl+1)*(nextLvl+1)*10 + (nextLvl+1)*20);
+    const pct = Math.floor((lvl - 1) / 49 * 100);
+    const trainBonus = lvl - 1;
+    const eqBonus = (stat === 'power' ? equipment.find(e=>e.slot==='collar')?.bonus_value
+                   : stat === 'endurance' ? equipment.find(e=>e.slot==='amulet')?.bonus_value
+                   : stat === 'accuracy' ? equipment.find(e=>e.slot==='boots')?.bonus_value
+                   : 0) || 0;
+    const total = BASE_STAT[stat] + trainBonus + eqBonus;
+
     return `
-      <div style="margin-bottom:14px">
-        <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-          <span style="font-weight:600">${STAT_LABELS[stat]}</span>
-          <span style="color:#666;font-size:13px">Рів. ${lvl}/50 · ${pet[stat]} базовий</span>
+      <div style="background:#fff;border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <span style="font-weight:700">${STAT_LABELS[stat]}</span>
+          <span style="font-size:20px;font-weight:700;color:#2e7d32">${total}</span>
         </div>
-        <div style="background:#f0f0f0;border-radius:6px;height:8px;margin-bottom:6px;overflow:hidden">
-          <div style="background:#66bb6a;height:100%;width:${pct}%"></div>
+        <div style="font-size:11px;color:#999;margin-bottom:6px">
+          База ${BASE_STAT[stat]}
+          ${trainBonus > 0 ? ` + тренування ${trainBonus}` : ''}
+          ${eqBonus > 0 ? ` + екіп. ${eqBonus}` : ''}
+          · Рів. <b>${lvl}/50</b>
+        </div>
+        <div style="background:#f0f0f0;border-radius:6px;height:6px;margin-bottom:8px;overflow:hidden">
+          <div style="background:#66bb6a;height:100%;width:${pct}%;transition:width .3s"></div>
         </div>
         ${lvl < 50
           ? `<button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
-               ▲ Прокачати · ${fmtNum(cost)} 🌿
+               ▲ Прокачати (рів.${nextLvl}) · ${fmtNum(cost)} 🌿
              </button>`
-          : `<span style="color:#388e3c;font-size:13px">✅ Максимум</span>`}
+          : `<span style="color:#388e3c;font-size:13px;font-weight:600">✅ Максимум</span>`}
       </div>`;
   }).join('');
 
+  // Таблиця витрат
+  const totalAll = Math.floor(training.total_green_spent);
+  const reviveCost = Math.floor(totalAll * 0.5);
+
   el.innerHTML = `
-    <p style="font-size:13px;color:#666;margin-bottom:16px">
-      Витрачено зелені: <b>${fmtNum(training.total_green_spent)}</b> 🌿
-    </p>
+    <div style="background:#f1f8e9;border-radius:8px;padding:10px;margin-bottom:14px;font-size:13px">
+      💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> 🌿
+      · Вартість відновлення: <b>${fmtNum(reviveCost)}</b> 🌿
+    </div>
+    <div style="font-size:12px;color:#999;margin-bottom:12px">
+      Формула: рівень² × 10 + рівень × 20 · Макс рівень: 50
+    </div>
     ${rows}
   `;
 }
