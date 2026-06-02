@@ -4037,8 +4037,10 @@ function renderPetsMy() {
   const eff = pet.effective || {};
   const isDead = pet.is_dead;
   const hpPct = Math.min(100, Math.floor((pet.hp_current / (eff.hp_max || pet.hp_max)) * 100));
-  const reviveGreenCost = Math.max(0, Math.floor((training?.total_green_spent || 0) * 0.5));
-  const reviveCostLabel = reviveGreenCost > 0 ? `${fmtNum(reviveGreenCost)} 🌿` : 'безкоштовно';
+  const _revSpent = training?.total_green_spent || 0;
+  const reviveGreenCost = Math.max(0, Math.floor(_revSpent * 0.5));
+  const reviveGoldCost  = _revSpent === 0 ? 100 : Math.min(500, 50 * (Math.floor(_revSpent / 5000) + 1));
+  const reviveCostLabel = [reviveGreenCost > 0 ? `${fmtNum(reviveGreenCost)} 🌿` : null, `${fmtNum(reviveGoldCost)} 🏅`].filter(Boolean).join(' + ');
 
   const eqSlots = ['collar','amulet','armor','boots'].map(slot => {
     const eq = equipment.find(e => e.slot === slot);
@@ -4100,9 +4102,10 @@ function renderPetsMy() {
 
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${isDead
-        ? `<div style="background:#ffebee;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
-             💀 Тваринка загинула. Для відновлення потрібно: <b>${reviveCostLabel}</b><br>
-             <span style="color:#777;font-size:11px">Після відновлення HP = 50% від максимуму</span>
+        ? `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
+             💀 Тваринка загинула.<br>
+             Вартість відновлення: <b>${reviveCostLabel}</b><br>
+             <span style="color:#777;font-size:11px">Після відновлення HP = 50% від максимуму · HP надалі відновлюється на 10%/год</span>
            </div>
            <button class="btn btn-red" onclick="revivePet()">💊 Відновити (${reviveCostLabel})</button>`
         : `<button class="btn ${pet.is_active ? 'btn-gray' : 'btn-green'}" onclick="togglePet()">
@@ -4132,12 +4135,15 @@ async function revivePet() {
   try {
     const { training } = petsData || await API.get('/api/pets/my');
     const spent = training?.total_green_spent || 0;
-    // §6.2: вартість = сума витрат на прокачку × 0.5
     const green = Math.max(0, Math.floor(spent * 0.5));
-    const costStr = green > 0 ? `${fmtNum(green)} 🌿` : 'безкоштовно';
-    if (!confirm(`Відновлення тваринки коштує ${costStr}.\nПісля відновлення HP буде 50% від максимуму.\nПродовжити?`)) return;
+    const gold  = spent === 0 ? 100 : Math.min(500, 50 * (Math.floor(spent / 5000) + 1));
+    const costParts = [];
+    if (green > 0) costParts.push(`${fmtNum(green)} 🌿`);
+    costParts.push(`${fmtNum(gold)} 🏅`);
+    if (!confirm(`Відновлення тваринки коштує: ${costParts.join(' + ')}.\nПісля відновлення HP = 50% від максимуму.\nПродовжити?`)) return;
     const r = await API.post('/api/pets/revive');
-    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)}${r.greenCost > 0 ? ` · Витрачено: ${fmtNum(r.greenCost)} 🌿` : ''}`);
+    const spent2 = [r.greenCost > 0 ? `${fmtNum(r.greenCost)} 🌿` : null, `${fmtNum(r.goldCost)} 🏅`].filter(Boolean).join(' + ');
+    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)} · Витрачено: ${spent2}`);
     await loadPets();
     refreshPlayer();
   } catch(e) { toast(e.message, true); }
@@ -4204,16 +4210,27 @@ async function renderPetsShop() {
     const myEq = petsData?.equipment || [];
     const eqRows = equipment.map(eq => {
       const owned = myEq.find(e => e.slot === eq.slot);
+      const curLvl = owned?.item_level || 0;
+      const statLabel = eq.slot === 'armor' ? 'HP' : STAT_LABELS[eq.stat] || eq.stat;
       return `
-        <div style="margin-bottom:14px">
-          <div style="font-weight:600;margin-bottom:6px">${SLOT_NAMES[eq.slot]} — ${eq.name}</div>
-          ${owned ? `<div style="font-size:12px;color:#388e3c;margin-bottom:4px">Встановлено: рівень ${owned.item_level} (+${owned.bonus_value})</div>` : ''}
+        <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px;margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-weight:700">${SLOT_NAMES[eq.slot]}</span>
+            ${owned
+              ? `<span style="color:#388e3c;font-size:13px;font-weight:600">✓ Рів.${owned.item_level} (+${owned.bonus_value} ${statLabel})</span>`
+              : `<span style="color:#aaa;font-size:12px">Не встановлено</span>`}
+          </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             ${eq.levels.map(l => {
-              const isCurrent = owned?.item_level === l.level;
-              return `<button class="btn btn-sm ${isCurrent ? 'btn-green' : 'btn-gray'}"
-                onclick="buyEquip('${eq.slot}',${l.level})" ${!hasPet ? 'disabled' : ''}>
-                +${l.bonus} · ${l.price}🏅${isCurrent ? ' ✓' : ''}
+              const isCurrent = l.level === curLvl;
+              const isLower   = l.level < curLvl;
+              const isNext    = l.level === curLvl + 1;
+              if (isLower) return ''; // не показуємо нижчі рівні
+              return `<button class="btn btn-sm ${isCurrent ? 'btn-green' : isNext ? 'btn-blue' : 'btn-gray'}"
+                onclick="buyEquip('${eq.slot}',${l.level})"
+                ${(!hasPet || isCurrent) ? 'disabled' : ''}
+                title="${l.bonus > 0 ? `+${l.bonus} до ${statLabel}` : ''}">
+                ${isCurrent ? `✓ Рів.${l.level}` : `Рів.${l.level}: +${l.bonus} · ${fmtNum(l.price)}🏅`}
               </button>`;
             }).join('')}
           </div>
@@ -4258,10 +4275,17 @@ async function buyPet(petType) {
 }
 
 async function buyEquip(slot, level) {
+  const { equipment } = await API.get('/api/pets/shop');
+  const slotData = equipment.find(e => e.slot === slot);
+  const lvlData  = slotData?.levels.find(l => l.level === level);
+  if (!lvlData) return;
+  const statLabel = slot === 'armor' ? 'HP' : STAT_LABELS[slotData.stat] || slotData.stat;
+  if (!confirm(`${SLOT_NAMES[slot]} рівень ${level}\n+${lvlData.bonus} до ${statLabel}\nВартість: ${fmtNum(lvlData.price)} 🏅\nПридбати?`)) return;
   try {
     const r = await API.post('/api/pets/equip', { slot, level });
-    toast(`✅ ${SLOT_NAMES[slot]} рівень ${level} (+${r.bonus}) встановлено!`);
+    toast(`✅ ${SLOT_NAMES[slot]} рів.${level} (+${r.bonus} ${statLabel}) встановлено!`);
     await loadPets();
+    renderPetsShop();
     refreshPlayer();
   } catch(e) { toast(e.message, true); }
 }
@@ -4328,13 +4352,15 @@ async function renderPetsTrain() {
   }).join('');
 
   // Таблиця витрат
-  const totalAll = Math.floor(training.total_green_spent);
-  const reviveCost = Math.floor(totalAll * 0.5);
+  const totalAll       = Math.floor(training.total_green_spent);
+  const revGreen       = Math.max(0, Math.floor(totalAll * 0.5));
+  const revGold        = totalAll === 0 ? 100 : Math.min(500, 50 * (Math.floor(totalAll / 5000) + 1));
+  const revCostStr     = [revGreen > 0 ? `${fmtNum(revGreen)} 🌿` : null, `${fmtNum(revGold)} 🏅`].filter(Boolean).join(' + ');
 
   el.innerHTML = `
     <div style="background:#f1f8e9;border-radius:8px;padding:10px;margin-bottom:14px;font-size:13px">
       💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> 🌿
-      · Вартість відновлення: <b>${fmtNum(reviveCost)}</b> 🌿
+      · Вартість відновлення: <b>${revCostStr}</b>
     </div>
     <div class="pet-combat-legend">
       <div class="pet-combat-legend-item"><b>⚡ Міць</b>Урон за удар</div>
