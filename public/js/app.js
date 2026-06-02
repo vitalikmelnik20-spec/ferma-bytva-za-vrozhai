@@ -4037,6 +4037,8 @@ function renderPetsMy() {
   const eff = pet.effective || {};
   const isDead = pet.is_dead;
   const hpPct = Math.min(100, Math.floor((pet.hp_current / (eff.hp_max || pet.hp_max)) * 100));
+  const reviveGreenCost = Math.max(0, Math.floor((training?.total_green_spent || 0) * 0.5));
+  const reviveCostLabel = reviveGreenCost > 0 ? `${fmtNum(reviveGreenCost)} 🌿` : 'безкоштовно';
 
   const eqSlots = ['collar','amulet','armor','boots'].map(slot => {
     const eq = equipment.find(e => e.slot === slot);
@@ -4098,7 +4100,11 @@ function renderPetsMy() {
 
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${isDead
-        ? `<button class="btn btn-red" onclick="revivePet()">💊 Відновити</button>`
+        ? `<div style="background:#ffebee;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
+             💀 Тваринка загинула. Для відновлення потрібно: <b>${reviveCostLabel}</b><br>
+             <span style="color:#777;font-size:11px">Після відновлення HP = 50% від максимуму</span>
+           </div>
+           <button class="btn btn-red" onclick="revivePet()">💊 Відновити (${reviveCostLabel})</button>`
         : `<button class="btn ${pet.is_active ? 'btn-gray' : 'btn-green'}" onclick="togglePet()">
              ${pet.is_active ? '🏠 Лишити вдома' : '⚔️ Взяти в бій'}
            </button>
@@ -4123,20 +4129,17 @@ async function togglePet() {
 }
 
 async function revivePet() {
-  // Показати вартість та підтвердження
   try {
-    const { pet, training } = await API.get('/api/pets/my');
-    if (!pet) return;
+    const { training } = petsData || await API.get('/api/pets/my');
     const spent = training?.total_green_spent || 0;
-    const green = Math.floor(spent * 0.5);
-    const gold  = spent === 0 ? 100 : Math.min(500, 50 + Math.floor(spent / 1000) * 50);
-    const msg = green > 0
-      ? `Відновлення коштує ${fmtNum(green)} 🌿 + ${fmtNum(gold)} 🏅. Продовжити?`
-      : `Відновлення коштує ${fmtNum(gold)} 🏅. Продовжити?`;
-    if (!confirm(msg)) return;
+    // §6.2: вартість = сума витрат на прокачку × 0.5
+    const green = Math.max(0, Math.floor(spent * 0.5));
+    const costStr = green > 0 ? `${fmtNum(green)} 🌿` : 'безкоштовно';
+    if (!confirm(`Відновлення тваринки коштує ${costStr}.\nПісля відновлення HP буде 50% від максимуму.\nПродовжити?`)) return;
     const r = await API.post('/api/pets/revive');
-    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)}`);
+    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)}${r.greenCost > 0 ? ` · Витрачено: ${fmtNum(r.greenCost)} 🌿` : ''}`);
     await loadPets();
+    refreshPlayer();
   } catch(e) { toast(e.message, true); }
 }
 

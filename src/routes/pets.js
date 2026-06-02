@@ -227,31 +227,27 @@ router.post('/revive', async (req, res) => {
     if (!pet.is_dead) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Тваринка жива' }); }
 
     const spent = pet.total_green_spent || 0;
-    const greenCost = Math.floor(spent * 0.5);
-    const goldCost  = spent === 0 ? 100 : Math.min(500, 50 + Math.floor(spent / 1000) * 50);
+    // §6.2: вартість = сума витрат на прокачку × 0.5
+    const greenCost = Math.max(0, Math.floor(spent * 0.5));
 
     const { rows: [player] } = await client.query(
-      'SELECT greens, gold FROM players WHERE id=$1', [req.session.playerId]
+      'SELECT greens FROM players WHERE id=$1', [req.session.playerId]
     );
 
     if (greenCost > 0 && player.greens < greenCost) {
       await client.query('ROLLBACK');
       return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${greenCost}` });
     }
-    if (player.gold < goldCost) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${goldCost}` });
-    }
 
     if (greenCost > 0) await client.query('UPDATE players SET greens=greens-$1 WHERE id=$2', [greenCost, req.session.playerId]);
-    await client.query('UPDATE players SET gold=gold-$1 WHERE id=$2', [goldCost, req.session.playerId]);
 
-    const halfHp = Math.floor(pet.hp_max / 2);
+    // §6.3: після відновлення HP = 50% від максимуму
+    const halfHp = Math.max(1, Math.floor(pet.hp_max / 2));
     await client.query('UPDATE pets SET is_dead=false, hp_current=$1 WHERE id=$2', [halfHp, pet.id]);
     await client.query("UPDATE pet_stats SET deaths=deaths+1 WHERE pet_id=$1", [pet.id]);
 
     await client.query('COMMIT');
-    res.json({ ok: true, greenCost, goldCost, hpCurrent: halfHp });
+    res.json({ ok: true, greenCost, hpCurrent: halfHp });
   } catch (err) {
     await client.query('ROLLBACK');
     console.error('[pets/revive]', err.message);
