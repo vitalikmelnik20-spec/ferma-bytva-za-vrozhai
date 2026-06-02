@@ -470,7 +470,7 @@ router.get('/player/:id', async (req, res) => {
     );
 
     const catalog = PET_CATALOG.find(p => p.type === pet.pet_type) || {};
-    res.json({ pet: { ...pet, icon: catalog.icon || '', abilityDesc: catalog.abilityDesc || null }, training, equipment,
+    res.json({ pet: { ...pet, icon: catalog.icon || '', abilityDesc: catalog.abilityDesc || null }, training, equipment, stats });
   } catch (err) {
     console.error('[pets/player/:id]', err.message);
     res.status(500).json({ error: 'Помилка сервера' });
