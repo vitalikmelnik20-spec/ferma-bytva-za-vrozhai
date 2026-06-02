@@ -529,6 +529,7 @@ async function loadOpponents() {
               &nbsp;|&nbsp; ${IC.gold(13)} ${op.glory} слави
             </div>
             <div style="font-size:11px;color:#999;font-style:italic">"${op.slogan}"</div>
+            ${op.pet_icon ? `<div style="font-size:11px;color:#6a1b9a;margin-top:2px">🐾 ${op.pet_icon} ${op.pet_name}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}')">${IC.battle(14)} Битись</button>
@@ -595,11 +596,36 @@ async function selectZoneForRound(zone) {
       ? 'Промах. Урон (0)'
       : `${rd.defender.type === 'crit' ? '<b style="color:#e53935">Критичний удар</b>' : 'Удар'}. Урон (<b>${rd.defender.damage}</b>)`;
 
+    // Pet log lines
+    const pd = r.roundData;
+    let petLines = '';
+    if (pd.aPetAction) {
+      const p = pd.aPetAction;
+      const tgt = p.target === 'enemyPet' ? 'ворожого питомця' : p.target === 'enemy' ? 'ворога напряму' : '—';
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 Твій питомець — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 Твій питомець — заблоковано ворожим питомцем</div>`;
+      else petLines += `<div style="color:#2e7d32">🐾 Твій питомець б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+    }
+    if (pd.dPetAction) {
+      const p = pd.dPetAction;
+      const tgt = p.target === 'myPet' ? 'твого питомця' : p.target === 'myPlayer' ? 'тебе напряму' : '—';
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 Ворожий питомець — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 Ворожий питомець — заблоковано твоїм питомцем</div>`;
+      else petLines += `<div style="color:#b71c1c">🐾 Ворожий питомець б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+    }
+    if (pd.aPetAction && pd.aPetHp !== undefined && pd.dPetHp !== undefined) {
+      const aAlive = pd.aPetHp > 0;
+      const dAlive = pd.dPetHp > 0;
+      if (pd.aPetAction || pd.dPetAction)
+        petLines += `<div style="font-size:11px;color:#aaa">HP питомців: твій ${aAlive?pd.aPetHp:'💀'} · ворожий ${dAlive?pd.dPetHp:'💀'}</div>`;
+    }
+
     const entry = document.createElement('div');
     entry.style.cssText = 'margin-bottom:8px;padding:8px 10px;background:#fffde7;border-left:3px solid #f57f17;border-radius:0 8px 8px 0;font-size:13px;line-height:1.7;animation:fadeInLine .25s';
     entry.innerHTML =
       `<div style="color:#1565c0">Ти ударив в ${aZ}. ${aHit}</div>` +
-      `<div style="color:#b71c1c">${r.defenderName} ударив в ${dZ}. ${dHit}</div>`;
+      `<div style="color:#b71c1c">${r.defenderName} ударив в ${dZ}. ${dHit}</div>` +
+      petLines;
     document.getElementById('fight-round-log').appendChild(entry);
 
     currentPickRound++;
@@ -672,6 +698,17 @@ function showBattleResult(r) {
         <span style="color:#aaa;font-size:11px">(-${r.defenderHpBefore-r.defenderHpAfter})</span>
       </div>
     </div>
+
+    ${(r.aPet || r.dPet) ? `
+    <div style="${bs}">
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">🐾 Тваринки у бою</div>
+      <div style="font-size:13px;line-height:1.8">
+        ${r.aPet ? `${r.aPet.icon} ${r.aPet.name}: урон <b>${fmtNum(r.aPet.totalDamage)}</b>${r.aPet.died?' <span style="color:#c62828">💀 загинула</span>':''}` : ''}
+        ${r.aPet && r.dPet ? ' &nbsp;|&nbsp; ' : ''}
+        ${r.dPet ? `${r.dPet.icon} ${r.dPet.name}: урон <b>${fmtNum(r.dPet.totalDamage)}</b>${r.dPet.died?' <span style="color:#c62828">💀 загинула</span>':''}` : ''}
+      </div>
+      ${r.aPet?.died ? `<div style="color:#e65100;font-size:12px;margin-top:4px">⚠️ Твоя тваринка загинула! Відновіть у Питомнику.</div>` : ''}
+    </div>` : ''}
 
     ${r.ringEffect && r.ringEffect.triggered ? `
     <div style="${bs}">

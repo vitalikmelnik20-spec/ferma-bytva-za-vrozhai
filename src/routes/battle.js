@@ -3,6 +3,36 @@ const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
+const { PET_CATALOG } = require('./pets');
+const petCombat = require('../utils/petCombat');
+
+// Завантажити тваринку гравця для бою (лише якщо активна і жива)
+async function fetchPetForBattle(playerId) {
+  const { rows: [pet] } = await pool.query(
+    'SELECT * FROM pets WHERE player_id=$1 AND is_active=true AND is_dead=false',
+    [playerId]
+  );
+  if (!pet) return null;
+
+  const { rows: equipment } = await pool.query(
+    'SELECT * FROM pet_equipment WHERE pet_id=$1', [pet.id]
+  );
+  const eqBonus = (slot) => equipment.find(e => e.slot === slot)?.bonus_value || 0;
+  const catalog = PET_CATALOG.find(p => p.type === pet.pet_type) || {};
+
+  return {
+    id:        pet.id,
+    name:      pet.name,
+    icon:      catalog.icon || '🐾',
+    ability:   catalog.ability || null,
+    power:     pet.power     + eqBonus('collar'),
+    endurance: pet.endurance + eqBonus('amulet'),
+    speed:     pet.speed,
+    accuracy:  pet.accuracy  + eqBonus('boots'),
+    hp_current: pet.hp_current,
+    hp_max:    pet.hp_max + eqBonus('armor'),
+  };
+}
 
 router.use(requireAuth);
 
@@ -244,9 +274,11 @@ router.get('/opponents', async (req, res) => {
 
     const baseQuery = `
       SELECT p.id, p.username, p.level, p.glory, p.faction,
-             t.power_level, t.endurance_level, t.speed_level, t.accuracy_level
+             t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,
+             pet.pet_type AS pet_type, pet.name AS pet_name, pet.is_active AS pet_active, pet.is_dead AS pet_dead
       FROM players p
       LEFT JOIN training t ON t.player_id = p.id
+      LEFT JOIN pets pet ON pet.player_id = p.id
       WHERE p.faction != $1 AND p.id != $2
         AND p.is_banned = false AND p.on_vacation = false
         AND p.level = $3
@@ -264,10 +296,18 @@ router.get('/opponents', async (req, res) => {
       { label: '⬆️ Сильніший',tier: 'higher', row: higher.rows[0] },
     ];
 
-    const opponents = slots.map(s => s.row
-      ? { ...s.row, tier: s.tier, tierLabel: s.label, slogan: slogans[Math.floor(Math.random() * slogans.length)] }
-      : { id: null, tier: s.tier, tierLabel: s.label }
-    );
+    const opponents = slots.map(s => {
+      if (!s.row) return { id: null, tier: s.tier, tierLabel: s.label };
+      const cat = s.row.pet_type ? (PET_CATALOG.find(p => p.type === s.row.pet_type) || {}) : {};
+      const hasPet = s.row.pet_type && s.row.pet_active && !s.row.pet_dead;
+      return {
+        ...s.row,
+        tier: s.tier, tierLabel: s.label,
+        slogan: slogans[Math.floor(Math.random() * slogans.length)],
+        pet_icon: hasPet ? cat.icon : null,
+        pet_name: hasPet ? s.row.pet_name : null,
+      };
+    });
 
     res.json({ opponents });
   } catch (err) {
@@ -308,6 +348,11 @@ router.post('/round', async (req, res) => {
       // Reserve the battle slot immediately
       await pool.query('UPDATE players SET battles_today = battles_today + 1 WHERE id=$1', [req.session.playerId]);
 
+      const [aPet, dPet] = await Promise.all([
+        fetchPetForBattle(req.session.playerId),
+        fetchPetForBattle(parseInt(defenderId)),
+      ]);
+
       fight = {
         defenderId:           parseInt(defenderId),
         defenderLevel:        defender.level,
@@ -319,6 +364,15 @@ router.post('/round', async (req, res) => {
         defenderHpBefore:     defender.hp,
         attackerName:         attacker.username,
         defenderName:         defender.username,
+        // Тваринки
+        aPet,
+        dPet,
+        aPetHp:             aPet ? aPet.hp_current : 0,
+        dPetHp:             dPet ? dPet.hp_current : 0,
+        aPetAbilityUsed:    false,
+        dPetAbilityUsed:    false,
+        aPetTotalDamage:    0,
+        dPetTotalDamage:    0,
       };
     }
 
@@ -380,10 +434,87 @@ router.post('/round', async (req, res) => {
       [aRoll.damage, fight.defenderId]
     );
 
+    // ── §5 Бій тваринок ──────────────────────────────────────────────────────
+    let aPetAction = null;
+    let dPetAction = null;
+
+    // Атака тваринки атакера
+    if (fight.aPet && fight.aPetHp > 0) {
+      const hit = petCombat.checkPetHit(fight.aPet.accuracy);
+      if (!hit) {
+        aPetAction = { type: 'miss', damage: 0 };
+      } else {
+        const { damage, abilityProc } = petCombat.calcPetDamage(
+          fight.aPet.power, fight.aPet.ability, fight.aPetAbilityUsed
+        );
+        if (abilityProc && fight.aPet.ability === 'fire_breath') fight.aPetAbilityUsed = true;
+
+        const hasDPet = fight.dPet && fight.dPetHp > 0;
+        if (hasDPet) {
+          // Ворожа тваринка — перевірка блоку Золотого Орла
+          const blocked = petCombat.checkEagleShield(fight.dPet.ability);
+          const finalDmg = blocked ? 0 : petCombat.calcPetDefense(fight.dPet.endurance, damage);
+          if (!blocked) fight.dPetHp = Math.max(0, fight.dPetHp - finalDmg);
+          aPetAction = { type: blocked ? 'blocked' : (abilityProc ? 'ability' : 'hit'),
+                         damage: finalDmg, target: 'enemyPet', abilityProc };
+          fight.aPetTotalDamage += finalDmg;
+          fight.attackerDamageDealt += finalDmg;
+        } else {
+          // Б'є ворожого гравця напряму
+          const finalDmg = damage;
+          await pool.query(
+            'UPDATE players SET hp = GREATEST(1, hp - $1) WHERE id=$2',
+            [finalDmg, fight.defenderId]
+          );
+          aPetAction = { type: abilityProc ? 'ability' : 'hit', damage: finalDmg, target: 'enemy', abilityProc };
+          fight.aPetTotalDamage += finalDmg;
+          fight.attackerDamageDealt += finalDmg;
+        }
+      }
+    }
+
+    // Атака тваринки захисника
+    if (fight.dPet && fight.dPetHp > 0) {
+      const hit = petCombat.checkPetHit(fight.dPet.accuracy);
+      if (!hit) {
+        dPetAction = { type: 'miss', damage: 0 };
+      } else {
+        const { damage, abilityProc } = petCombat.calcPetDamage(
+          fight.dPet.power, fight.dPet.ability, fight.dPetAbilityUsed
+        );
+        if (abilityProc && fight.dPet.ability === 'fire_breath') fight.dPetAbilityUsed = true;
+
+        const hasAPet = fight.aPet && fight.aPetHp > 0;
+        if (hasAPet) {
+          const blocked = petCombat.checkEagleShield(fight.aPet.ability);
+          const finalDmg = blocked ? 0 : petCombat.calcPetDefense(fight.aPet.endurance, damage);
+          if (!blocked) fight.aPetHp = Math.max(0, fight.aPetHp - finalDmg);
+          dPetAction = { type: blocked ? 'blocked' : (abilityProc ? 'ability' : 'hit'),
+                         damage: finalDmg, target: 'myPet', abilityProc };
+          fight.dPetTotalDamage += finalDmg;
+          fight.defenderDamageDealt += finalDmg;
+        } else {
+          const finalDmg = damage;
+          await pool.query(
+            'UPDATE players SET hp = GREATEST(1, hp - $1) WHERE id=$2',
+            [finalDmg, req.session.playerId]
+          );
+          dPetAction = { type: abilityProc ? 'ability' : 'hit', damage: finalDmg, target: 'myPlayer', abilityProc };
+          fight.dPetTotalDamage += finalDmg;
+          fight.defenderDamageDealt += finalDmg;
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const roundData = {
       round:    fight.roundNum,
       attacker: { zone: attackZone, ...aRoll },
       defender: { zone: defZone,    ...dRoll },
+      aPetAction,
+      dPetAction,
+      aPetHp: fight.aPetHp,
+      dPetHp: fight.dPetHp,
     };
 
     fight.rounds.push(roundData);
@@ -464,6 +595,44 @@ router.post('/round', async (req, res) => {
       }
 
       await decrementPotions(attacker.id, defender.id);
+
+      // ── §5 Зберегти результати тваринок ──────────────────────────────────
+      const aPetDied = fight.aPet && fight.aPetHp <= 0;
+      const dPetDied = fight.dPet && fight.dPetHp <= 0;
+      await Promise.all([
+        fight.aPet ? pool.query(
+          'UPDATE pets SET hp_current=$1, is_dead=$2 WHERE id=$3',
+          [Math.max(0, fight.aPetHp), aPetDied, fight.aPet.id]
+        ) : Promise.resolve(),
+        fight.dPet ? pool.query(
+          'UPDATE pets SET hp_current=$1, is_dead=$2 WHERE id=$3',
+          [Math.max(0, fight.dPetHp), dPetDied, fight.dPet.id]
+        ) : Promise.resolve(),
+        // pet_stats для атакера
+        fight.aPet ? pool.query(
+          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths)
+           VALUES ($1,1,$2,$3,$4)
+           ON CONFLICT (pet_id) DO UPDATE SET
+             battles_participated = pet_stats.battles_participated+1,
+             wins     = pet_stats.wins     + $2,
+             total_damage = pet_stats.total_damage + $3,
+             deaths   = pet_stats.deaths   + $4`,
+          [fight.aPet.id, attackerWon?1:0, fight.aPetTotalDamage, aPetDied?1:0]
+        ) : Promise.resolve(),
+        // pet_stats для захисника
+        fight.dPet ? pool.query(
+          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths)
+           VALUES ($1,1,$2,$3,$4)
+           ON CONFLICT (pet_id) DO UPDATE SET
+             battles_participated = pet_stats.battles_participated+1,
+             wins     = pet_stats.wins     + $2,
+             total_damage = pet_stats.total_damage + $3,
+             deaths   = pet_stats.deaths   + $4`,
+          [fight.dPet.id, attackerWon?0:1, fight.dPetTotalDamage, dPetDied?1:0]
+        ) : Promise.resolve(),
+      ]);
+      // ─────────────────────────────────────────────────────────────────────
+
       delete req.session.fight;
 
       return res.json({
@@ -477,6 +646,11 @@ router.post('/round', async (req, res) => {
         attackerHpBefore: fight.attackerHpBefore, attackerHpAfter: attackerAfter.hp,
         defenderHpBefore: fight.defenderHpBefore, defenderHpAfter: defenderAfter.hp,
         ringEffect,
+        // Тваринки
+        aPet: fight.aPet ? { name: fight.aPet.name, icon: fight.aPet.icon,
+          totalDamage: fight.aPetTotalDamage, died: aPetDied } : null,
+        dPet: fight.dPet ? { name: fight.dPet.name, icon: fight.dPet.icon,
+          totalDamage: fight.dPetTotalDamage, died: dPetDied } : null,
       });
     }
 
