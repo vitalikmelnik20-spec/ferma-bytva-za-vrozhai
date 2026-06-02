@@ -76,6 +76,7 @@ const IC = {
   dragon:     (s=22) => `<img src="/icons/pets/dragon.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
   wheat:      (s=14) => `<img src="/icons/plants/wheat.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
   syringe:    (s=14) => `<img src="/icons/ui/syringe.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  pill:       (s=14) => `<img src="/icons/ui/syringe.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   castle:     (s=14) => `<img src="/icons/ui/village.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   // Online status dots
   online:    ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#43a047;vertical-align:middle"></span>`,
@@ -2311,7 +2312,7 @@ async function _loadPubProfilePet(playerId) {
 
     el.innerHTML = `
       <div style="border:2px solid ${rarityBorder[pet.rarity]};background:${rarityBg[pet.rarity]};border-radius:10px;padding:12px;text-align:center;margin-bottom:12px">
-        <div id="pubpet-icon" style="font-size:52px;margin-bottom:4px">${pet.icon}</div>
+        <div id="pubpet-icon" style="font-size:52px;margin-bottom:4px">${IC.petIcon(pet.icon, 52)}</div>
         <div style="font-weight:700;font-size:17px">${pet.name}${pet.is_dead ? ` ${IC.skull(14)}` : ''}</div>
         <div style="color:${rarityColor[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity]}</div>
         ${pet.is_dead ? '<div style="color:#c62828;font-size:12px;margin-top:4px">Тваринка мертва</div>' : ''}
@@ -4336,7 +4337,7 @@ function renderPetsMy() {
 
   el.innerHTML = `
     <div style="border-radius:12px;border:2px solid ${rarityBorder[pet.rarity]};background:${rarityBg[pet.rarity]};padding:14px;margin-bottom:14px;text-align:center">
-      <div style="font-size:52px;margin-bottom:6px">${pet.icon}</div>
+      <div style="font-size:52px;margin-bottom:6px">${IC.petIcon(pet.icon, 52)}</div>
       <div style="font-weight:700;font-size:18px;margin-bottom:2px">${pet.name}</div>
       <div style="color:${rarityColors[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity] || ''}</div>
       ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:6px;font-size:15px">${IC.skull(14)} МЕРТВА</div>` : ``}
