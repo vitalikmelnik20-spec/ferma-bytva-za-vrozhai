@@ -4130,9 +4130,13 @@ function renderPetsMy() {
     </div>
 
     ${stats ? `
-      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;font-size:13px;color:#666">
-        Боїв: <b>${stats.battles_participated}</b> · Перемог: <b>${stats.wins}</b> ·
-        Загинула: <b>${stats.deaths}</b>р · Урон: <b>${fmtNum(stats.total_damage)}</b>
+      <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#666;display:flex;flex-wrap:wrap;gap:8px">
+        <span>⚔️ Боїв: <b>${stats.battles_participated}</b></span>
+        <span>🏆 Перемог: <b>${stats.wins}</b></span>
+        <span>💀 Загибель: <b>${stats.deaths}</b>р</span>
+        <span>💥 Урон: <b>${fmtNum(stats.total_damage)}</b></span>
+        ${stats.pets_killed > 0 ? `<span>🐾 Вбито ворожих: <b>${stats.pets_killed}</b></span>` : ''}
+        ${stats.ability_procs > 0 ? `<span>✨ Здібність: <b>${stats.ability_procs}</b>р</span>` : ''}
       </div>` : ''}
   `;
 }

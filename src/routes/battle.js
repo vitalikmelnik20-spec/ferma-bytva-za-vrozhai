@@ -371,6 +371,8 @@ router.post('/round', async (req, res) => {
         dPetHp:             dPet ? dPet.hp_current : 0,
         aPetAbilityUsed:    false,
         dPetAbilityUsed:    false,
+        aPetAbilityProcs:   0,
+        dPetAbilityProcs:   0,
         aPetTotalDamage:    0,
         dPetTotalDamage:    0,
       };
@@ -448,6 +450,7 @@ router.post('/round', async (req, res) => {
           fight.aPet.power, fight.aPet.ability, fight.aPetAbilityUsed
         );
         if (abilityProc && fight.aPet.ability === 'fire_breath') fight.aPetAbilityUsed = true;
+        if (abilityProc) fight.aPetAbilityProcs++;
 
         const hasDPet = fight.dPet && fight.dPetHp > 0;
         if (hasDPet) {
@@ -483,6 +486,7 @@ router.post('/round', async (req, res) => {
           fight.dPet.power, fight.dPet.ability, fight.dPetAbilityUsed
         );
         if (abilityProc && fight.dPet.ability === 'fire_breath') fight.dPetAbilityUsed = true;
+        if (abilityProc) fight.dPetAbilityProcs++;
 
         const hasAPet = fight.aPet && fight.aPetHp > 0;
         if (hasAPet) {
@@ -608,27 +612,33 @@ router.post('/round', async (req, res) => {
           'UPDATE pets SET hp_current=$1, is_dead=$2 WHERE id=$3',
           [Math.max(0, fight.dPetHp), dPetDied, fight.dPet.id]
         ) : Promise.resolve(),
-        // pet_stats для атакера
+        // pet_stats для атакера (§9: ability_procs, pets_killed)
         fight.aPet ? pool.query(
-          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths)
-           VALUES ($1,1,$2,$3,$4)
+          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths, pets_killed, ability_procs)
+           VALUES ($1,1,$2,$3,$4,$5,$6)
            ON CONFLICT (pet_id) DO UPDATE SET
              battles_participated = pet_stats.battles_participated+1,
-             wins     = pet_stats.wins     + $2,
+             wins         = pet_stats.wins         + $2,
              total_damage = pet_stats.total_damage + $3,
-             deaths   = pet_stats.deaths   + $4`,
-          [fight.aPet.id, attackerWon?1:0, fight.aPetTotalDamage, aPetDied?1:0]
+             deaths       = pet_stats.deaths       + $4,
+             pets_killed  = pet_stats.pets_killed  + $5,
+             ability_procs= pet_stats.ability_procs+ $6`,
+          [fight.aPet.id, attackerWon?1:0, fight.aPetTotalDamage,
+           aPetDied?1:0, dPetDied?1:0, fight.aPetAbilityProcs || 0]
         ) : Promise.resolve(),
         // pet_stats для захисника
         fight.dPet ? pool.query(
-          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths)
-           VALUES ($1,1,$2,$3,$4)
+          `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths, pets_killed, ability_procs)
+           VALUES ($1,1,$2,$3,$4,$5,$6)
            ON CONFLICT (pet_id) DO UPDATE SET
              battles_participated = pet_stats.battles_participated+1,
-             wins     = pet_stats.wins     + $2,
+             wins         = pet_stats.wins         + $2,
              total_damage = pet_stats.total_damage + $3,
-             deaths   = pet_stats.deaths   + $4`,
-          [fight.dPet.id, attackerWon?0:1, fight.dPetTotalDamage, dPetDied?1:0]
+             deaths       = pet_stats.deaths       + $4,
+             pets_killed  = pet_stats.pets_killed  + $5,
+             ability_procs= pet_stats.ability_procs+ $6`,
+          [fight.dPet.id, attackerWon?0:1, fight.dPetTotalDamage,
+           dPetDied?1:0, aPetDied?1:0, fight.dPetAbilityProcs || 0]
         ) : Promise.resolve(),
       ]);
       // ─────────────────────────────────────────────────────────────────────
