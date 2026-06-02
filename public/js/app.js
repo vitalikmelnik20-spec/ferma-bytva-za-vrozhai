@@ -75,6 +75,8 @@ const IC = {
   up:         (s=14) => `<img src="/icons/ui/up.svg"           width="${s}" height="${s}" style="vertical-align:middle">`,
   dragon:     (s=22) => `<img src="/icons/pets/dragon.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
   wheat:      (s=14) => `<img src="/icons/plants/wheat.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  syringe:    (s=14) => `<img src="/icons/ui/syringe.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  castle:     (s=14) => `<img src="/icons/ui/village.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
   // Online status dots
   online:    ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#43a047;vertical-align:middle"></span>`,
   offline:   ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#757575;vertical-align:middle"></span>`,
@@ -1214,7 +1216,14 @@ async function healPlayer() {
 // ─── PROFILE ─────────────────────────────────────────────────────────────────
 
 // Preset avatar list
-const PRESET_AVATARS = ['🧝','🧙','🏹','⚔️','🛡️','🗡️','🔮','🌿','👑','🐉','🦊','🐺','🦁','🧟','🧛','🔥'];
+const PRESET_AVATARS = [
+  '/icons/pets/unicorn.svg', '/icons/ui/sparkle.svg',  '/icons/stats/bow.svg',
+  '/icons/ui/crossed-swords.svg', '/icons/items/iron-shield.svg', '/icons/items/sword.svg',
+  '/icons/items/talisman.svg', '/icons/plants/herb.svg', '/icons/ui/crown.svg',
+  '/icons/pets/dragon.svg',  '/icons/pets/fox.svg',     '/icons/pets/wolf.svg',
+  '/icons/pets/lion.svg',    '/icons/stats/skull.svg',  '/icons/ui/trophy.svg',
+  '/icons/ui/fire.svg',
+];
 
 // SLOT_ICONS replaced by itemIcon() for consistency
 
@@ -1481,7 +1490,7 @@ async function loadStats() {
     const bonusTag = (eq, gift, rune, potion, tali = 0) => {
       const parts = [];
       if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} ${IC.swords(14)}</span>`);
-      if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
+      if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} ${IC.gift(14)}</span>`);
       if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} ${IC.talisman(14)}</span>`);
       if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} ${IC.pill(14)}</span>`);
       if (tali   > 0) parts.push(`<span style="color:#ff8f00">+${tali} ${IC.talisman(14)}</span>`);
@@ -1507,7 +1516,7 @@ async function loadStats() {
         ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
         ${r.harvestGiftPct > 0 ? row(`${IC.wheat(14)}`, 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
         ${(r.potionHarvestPct || 0) > 0 ? row(`${IC.pill(14)}`, 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
-        ${r.luckAmulets > 0 ? row('🍀', 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
+        ${r.luckAmulets > 0 ? row(IC.star(14), 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
       </div>
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
@@ -1524,7 +1533,7 @@ async function loadStats() {
       </div>
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Статистика</div>
-        ${row('🟢', 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
+        ${row(IC.online(), 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
         ${row('<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53935;vertical-align:middle"></span>', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
         ${row(IC.plot_ic(14), 'Посаджено рослин', fmtNum(p.plants_planted))}
         ${row(IC.water(14), 'Полито рослин',    fmtNum(p.plots_watered))}
@@ -1644,7 +1653,7 @@ async function loadMail() {
       <div class="item-card ${m.is_read ? '' : 'unread'}" style="flex-direction:column;align-items:flex-start">
         <div class="flex-between" style="width:100%">
           <b>${m.is_system ? `${IC.bell(14)} Система` : `${IC.mail(14)} ${m.sender_name}`}</b>
-          <button class="btn btn-red btn-sm" onclick="deleteMail(${m.id})">✕</button>
+          <button class="btn btn-red btn-sm" onclick="deleteMail(${m.id})">&times;</button>
         </div>
         <div style="font-weight:700">${m.subject || '(без теми)'}</div>
         <div class="text-muted">${m.body.slice(0,100)}${m.body.length>100?'...':''}</div>
@@ -1721,7 +1730,7 @@ async function loadFriends() {
             : ''}
           ${f.status === 'accepted' ? `<button class="btn btn-blue btn-sm" onclick="viewProfile(${f.friend_id})">Профіль</button>` : ''}
           ${f.status === 'accepted' ? `<button class="btn btn-orange btn-sm" onclick="sendGift(${f.friend_id})">${IC.gift(13)}</button>` : ''}
-          <button class="btn btn-red btn-sm" onclick="removeFriend(${f.id})">✕</button>
+          <button class="btn btn-red btn-sm" onclick="removeFriend(${f.id})">&times;</button>
         </div>
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
@@ -1916,7 +1925,7 @@ async function renderMyClan(el) {
         </div>
         <div style="font-size:11px;color:#888;margin-top:2px">${fmtNum(t.progress)}/${fmtNum(t.goal)} ${reward ? `— Нагорода: ${reward}` : ''}</div>
       </div>
-      ${t.completed ? `<span style="color:#2e7d32;font-size:18px">✓</span>` : ''}
+      ${t.completed ? `<span style="color:#2e7d32;font-size:18px">&check;</span>` : ''}
     </div>`;
   };
   const tasksHtml = `
@@ -1949,7 +1958,7 @@ async function renderMyClan(el) {
     <div class="panel-header" style="margin-top:12px">${IC.friends(14)} Учасники (${mem.length}/50)</div>
     <div>${mem.map(m => `
       <div class="opponent-card">
-        <div class="opponent-avatar">${m.is_online ? '🟢' : '⚫'}</div>
+        <div class="opponent-avatar">${m.is_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
           <div class="opponent-name ${m.faction}">${m.username} <span class="text-muted">Рів.${m.level}</span></div>
           <div class="text-muted" style="font-size:11px">${roleName(m.role)}</div>
@@ -2199,7 +2208,7 @@ async function viewProfile(id) {
       <div class="panel mb-12">
         <div class="panel-header flex-between">
           <span class="profile-nick-header ${p.faction}">${p.username}</span>
-          <span style="font-size:12px">${p.is_online ? '🟢 онлайн' : '⚫ офлайн'}</span>
+          <span style="font-size:12px">${p.is_online ? `${IC.online()} онлайн` : `${IC.offline()} офлайн`}</span>
         </div>
         ${buildDoll(r.equipment, r.itemRunes, p.avatar_url, p.faction, p.gender, false)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
@@ -2317,7 +2326,7 @@ async function _loadPubProfilePet(playerId) {
 
       ${pet.abilityDesc ? `
       <div style="background:#f3e5f5;border-radius:8px;padding:8px;margin-bottom:10px;font-size:12px">
-        <div style="font-weight:600;color:#7b1fa2;margin-bottom:2px">✨ Унікальна здібність</div>
+        <div style="font-weight:600;color:#7b1fa2;margin-bottom:2px">${IC.sparkle(14)} Унікальна здібність</div>
         <div>${pet.abilityDesc}</div>
       </div>` : ''}
 
@@ -2331,10 +2340,10 @@ async function _loadPubProfilePet(playerId) {
         <button id="stroke-btn" class="btn btn-sm ${alreadyStroked ? 'btn-gray' : 'btn-orange'}"
           onclick="strokeFriendPet(${pet.id},'${todayKey}')"
           ${alreadyStroked ? 'disabled' : ''}>
-          🤗 ${alreadyStroked ? 'Погладили сьогодні' : 'Погладити'}
+          ${IC.heart(14)} ${alreadyStroked ? 'Погладили сьогодні' : 'Погладити'}
         </button>
         <button class="btn btn-green btn-sm" onclick="playWithFriendPet(${pet.id})">
-          🎮 Пограти (+5 HP)
+          ${IC.sparkle(14)} Пограти (+5 HP)
         </button>
       </div>` : ''}
     `;
@@ -2352,26 +2361,26 @@ function strokeFriendPet(petId, todayKey) {
     const frames = [1.5, 1, 1.3, 1, 1.4, 1];
     frames.forEach((s, i) => setTimeout(() => { icon.style.transform = `scale(${s})`; icon.style.transition = 'transform .1s'; }, i * 120));
   }
-  toast('🤗 Ви погладили тваринку!');
+  toast('Ви погладили тваринку!');
   const btn = document.getElementById('stroke-btn');
-  if (btn) { btn.textContent = '🤗 Погладили сьогодні'; btn.disabled = true; btn.className = 'btn btn-sm btn-gray'; }
+  if (btn) { btn.innerHTML = `${IC.heart(14)} Погладили сьогодні`; btn.disabled = true; btn.className = 'btn btn-sm btn-gray'; }
 }
 
 async function playWithFriendPet(petId) {
   try {
     const r = await API.post(`/api/pets/play/${petId}`);
-    toast(`🎮 Пограли з тваринкою! +${r.hpAdded} HP`);
+    toast(`Пограли з тваринкою! +${r.hpAdded} HP`);
     if (window._viewingPlayerId) _loadPubProfilePet(window._viewingPlayerId);
   } catch(e) { toast(e.message, true); }
 }
 
 const GIFT_LIST = [
-  { type: 'power_statue',    name: 'Статуетка мощі',     icon: '⚡', stat: '+10% твоєї мощі на 24 год',        cost: 50,  minLevel: 1  },
-  { type: 'endurance_seal',  name: 'Печать стійкості',   icon: '🛡️', stat: '+10% твоєї стійкості на 24 год',   cost: 50,  minLevel: 1  },
-  { type: 'accuracy_scroll', name: 'Манускрипт точності',icon: '🎯', stat: '+10% твоєї точності на 24 год',    cost: 50,  minLevel: 3  },
-  { type: 'speed_flask',     name: 'Флакон швидкості',   icon: '💨', stat: '+10% твоєї швидкості на 24 год',   cost: 50,  minLevel: 3  },
-  { type: 'harvest_idol',    name: 'Ідол врожаю',        icon: '🌾', stat: '+15% до зелені з огороду на 24 год', cost: 80,  minLevel: 5  },
-  { type: 'luck_amulet',     name: 'Амулет удачі',       icon: '🍀', stat: 'Підсилює всі подарунки другу на 50%', cost: 150, minLevel: 10 },
+  { type: 'power_statue',    name: 'Статуетка мощі',     icon: IC.lightning(20), stat: '+10% твоєї мощі на 24 год',        cost: 50,  minLevel: 1  },
+  { type: 'endurance_seal',  name: 'Печать стійкості',   icon: IC.endurance(20), stat: '+10% твоєї стійкості на 24 год',   cost: 50,  minLevel: 1  },
+  { type: 'accuracy_scroll', name: 'Манускрипт точності',icon: IC.accuracy(20),  stat: '+10% твоєї точності на 24 год',    cost: 50,  minLevel: 3  },
+  { type: 'speed_flask',     name: 'Флакон швидкості',   icon: IC.speed(20),     stat: '+10% твоєї швидкості на 24 год',   cost: 50,  minLevel: 3  },
+  { type: 'harvest_idol',    name: 'Ідол врожаю',        icon: IC.wheat(20),     stat: '+15% до зелені з огороду на 24 год', cost: 80,  minLevel: 5  },
+  { type: 'luck_amulet',     name: 'Амулет удачі',       icon: IC.star(20),      stat: 'Підсилює всі подарунки другу на 50%', cost: 150, minLevel: 10 },
 ];
 
 function sendGift(targetId) {
@@ -2625,7 +2634,7 @@ function initSocket() {
 
   socket.on('insects:defeated', ({ rewardGreen, rewardExp }) => {
     closeInsectModal();
-    toast(`${IC.insect(14)} Рій знищено! +${IC.greens(14)} ${fmtNum(rewardGreen)} зелені +✨ ${rewardExp} exp`);
+    toast(`${IC.insect(14)} Рій знищено! +${IC.greens(14)} ${fmtNum(rewardGreen)} зелені +${IC.sparkle(14)} ${rewardExp} exp`);
     refreshPlayer();
   });
 
@@ -2791,7 +2800,7 @@ async function mineShaft() {
         <div style="font-size:22px;font-weight:700;color:#2e7d32;margin-bottom:4px">${IC.gold(16)} +${r.gold} золота</div>
         <div style="font-size:18px;font-weight:600;color:#1565c0;margin-bottom:12px">${IC.exp(16)} +${r.exp} досвіду</div>
         ${r.talismanBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">${IC.talisman(14)} +${r.talismanBonus} від талісмана</div>` : ''}
-        ${r.mineBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">⛏️ +${r.mineBonus} від шахти клану</div>` : ''}
+        ${r.mineBonus > 0 ? `<div style="font-size:14px;color:#5d4037;margin-bottom:8px">${IC.pickaxe(14)} +${r.mineBonus} від шахти клану</div>` : ''}
         ${r.rareDrop ? `<div style="font-size:15px;color:#7c4dff;font-weight:600;margin-bottom:8px">${r.rareDrop.emoji} Знайдено: ${r.rareDrop.name}!</div>` : ''}
         ${r.levelUp ? `<div style="font-size:15px;color:#e65100;margin-bottom:10px">${IC.celebrate(14)} Новий рівень ${r.newLevel}!</div>` : ''}
         <button class="btn btn-green" style="padding:10px 28px;font-size:16px" onclick="caveContinue()">Далі →</button>
@@ -2893,14 +2902,14 @@ const JEWELER_INFO = {
   'Талісман Тіні':         '+15% шанс ухилення від удару',
   'Талісман Полководця':   '+20% рейтингових очок за перемогу',
   // Runes
-  'Руна вогню':        '🔥 +8 мощі, +5 точності',
-  'Руна льоду':        '❄️ +8 стійкості, +5 точності',
-  'Руна Блискавки':    '⚡ +10 мощі, +10 швидкості',
-  'Руна Землі':        '🌍 +15 стійкості, +8 здоров\'я',
-  'Руна Вітру':        '🌪️ +12 швидкості, +10 точності',
-  'Руна Тьми':         '🌑 +20 мощі, -5 стійкості',
-  'Руна Світла':       '☀️ +15 стійкості, +15 точності',
-  'Руна Дракона':      '🐉 +25 мощі, +20 стійкості',
+  'Руна вогню':        '+8 мощі, +5 точності',
+  'Руна льоду':        '+8 стійкості, +5 точності',
+  'Руна Блискавки':    '+10 мощі, +10 швидкості',
+  'Руна Землі':        '+15 стійкості, +8 здоров\'я',
+  'Руна Вітру':        '+12 швидкості, +10 точності',
+  'Руна Тьми':         '+20 мощі, -5 стійкості',
+  'Руна Світла':       '+15 стійкості, +15 точності',
+  'Руна Дракона':      '+25 мощі, +20 стійкості',
 };
 
 async function loadJeweler() {
@@ -2961,7 +2970,7 @@ function renderRuneSocketUI(r) {
         ${itemIcon(item.name, 28)}
         <div>
           <div class="item-name">${item.name}${item.upgrade_level ? ` +${item.upgrade_level}` : ''}</div>
-          <div style="font-size:11px;color:#888">${item.is_equipped ? `${IC.ok(14)} Одягнено` : '🎒 В інвентарі'} · ${runesInItem.length}/${maxSlots} рун</div>
+          <div style="font-size:11px;color:#888">${item.is_equipped ? `${IC.ok(14)} Одягнено` : `${IC.inventory(14)} В інвентарі`} · ${runesInItem.length}/${maxSlots} рун</div>
         </div>
       </div>
       <div style="display:flex;gap:6px">${slots}</div>
@@ -3124,7 +3133,7 @@ async function loadAlchemist() {
           const ingList = rc.ingredients.map(ing => {
             const have = ingHave(ing);
             const ok   = have >= ing.qty;
-            const icon = ing.src === 'plants' ? `${IC.greens(14)}` : '🎒';
+            const icon = ing.src === 'plants' ? `${IC.greens(14)}` : IC.inventory(14);
             return `<span style="color:${ok ? '#2d7a2d' : '#c0392b'}">${icon}${ing.name}×${ing.qty}(є:${have})</span>`;
           }).join(' ');
           const pItem = r.potions.find(p => p.name === rc.potion_name);
@@ -3222,7 +3231,7 @@ async function _doUsePotion(invId) {
 }
 
 async function discardItem(invId, name, hasRunes) {
-  const warn = hasRunes ? '<br><span style="color:#e53935">⚠️ Руни у цьому предметі будуть знищені!</span>' : '';
+  const warn = hasRunes ? '<br><span style="color:#e53935">${IC.warn(14)} Руни у цьому предметі будуть знищені!</span>' : '';
   showConfirmModal(
     'Викинути предмет?',
     `Викинути <b>${name}</b>? Отримаєш 2–5% від базової ціни зеленню.${warn}`,
@@ -3290,7 +3299,7 @@ async function enchantItem(invId) {
 
     let warnParts = [];
     if (info.nextChance < 100) {
-      warnParts.push(`⚠️ Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.`);
+      warnParts.push(`${IC.warn(14)} Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.`);
     }
     if (info.nextChance < 100 && info.hasRunes) {
       warnParts.push(`${IC.skull(14)} При провалі всі руни в предметі будуть ЗНИЩЕНІ!`);
@@ -3303,7 +3312,7 @@ async function enchantItem(invId) {
       const el = document.getElementById('enchant-items');
       if (el) el.style.animation = 'enchant-success 0.6s ease';
       setTimeout(() => { if (el) el.style.animation = ''; }, 600);
-      toast(`✨ Зачарування успішне! +${r.newLevel}`);
+      toast(`${IC.sparkle(14)} Зачарування успішне! +${r.newLevel}`);
     } else {
       const el = document.getElementById('enchant-items');
       if (el) el.style.animation = 'enchant-fail 0.6s ease';
@@ -3437,7 +3446,7 @@ function renderInvItem(item, allRunes) {
       <span>${itemIcon(item.name, 32)}</span>
       <div style="flex:1;min-width:0">
         <div style="font-weight:600;font-size:14px">${item.name}${item.is_equipped ? ' <span class="inv-eq-badge">Одягнуто</span>' : ''}</div>
-        <div style="font-size:11px;color:#888">Рів.${item.min_level || 1}+${enchant > 0 ? ` · ✨ +${enchant}` : ''}</div>
+        <div style="font-size:11px;color:#888">Рів.${item.min_level || 1}+${enchant > 0 ? ` · ${IC.sparkle(14)} +${enchant}` : ''}</div>
         ${stats.length ? `<div style="font-size:12px;color:#555;margin-top:2px">${stats.join(' ')}</div>` : ''}
         ${potionDesc ? `<div style="font-size:12px;color:#0097a7;margin-top:2px">${potionDesc}</div>` : ''}
         ${runeDots}
@@ -3507,7 +3516,7 @@ async function loadMyLots() {
             <div style="display:flex;gap:8px;align-items:center">
               <span>${itemIcon(lot.item_name, 28)}</span>
               <div style="flex:1">
-                <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
+                <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ${IC.sparkle(14)}+${lot.enchant_level}` : ''}</div>
                 <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
                 <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${lot.currency === 'gold' ? IC.gold(13) : lot.currency === 'diamonds' ? IC.diamonds(13) : IC.greens(13)}</div>
                 <div style="font-size:11px;color:#999">До: ${kyivDate(lot.expires_at)}</div>
@@ -3536,7 +3545,7 @@ function renderAucLot(lot) {
     <div style="display:flex;gap:8px;align-items:center">
       <span>${itemIcon(lot.item_name, 28)}</span>
       <div style="flex:1">
-        <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ✨+${lot.enchant_level}` : ''}</div>
+        <div style="font-weight:600">${lot.item_name}${lot.enchant_level > 0 ? ` ${IC.sparkle(14)}+${lot.enchant_level}` : ''}</div>
         <div style="font-size:12px;color:#888">Рів.${lot.min_level}+ · ${aucStats(lot)}</div>
         <div style="font-size:13px;color:#2e7d32;font-weight:600">${fmtNum(lot.price)} ${curr}</div>
         <div style="font-size:11px;color:#999">Продавець: ${lot.seller_name}</div>
@@ -3582,7 +3591,7 @@ function openAuctionListModal(invId) {
   _aucListEnchant  = item.upgrade_level || 0;
 
   document.getElementById('auction-list-item-info').innerHTML =
-    `<b>${item.name}</b>${_aucListEnchant > 0 ? ` ✨+${_aucListEnchant}` : ''}<br>
+    `<b>${item.name}</b>${_aucListEnchant > 0 ? ` ${IC.sparkle(14)}+${_aucListEnchant}` : ''}<br>
      <span style="font-size:12px;color:#888">${aucStats(item)}</span>`;
   document.getElementById('auction-list-currency').value = 'greens';
   updateAucMinPrice();
@@ -3709,7 +3718,7 @@ function renderDragonInactive(lastEvent) {
   const killed = lastEvent.is_killed;
   el.innerHTML = `<div style="padding:8px">
     <div class="dragon-ended-card">
-      <div style="font-size:32px;text-align:center">${killed ? `${IC.skull(14)}` : '🏃'}</div>
+      <div style="font-size:32px;text-align:center">${killed ? `${IC.skull(14)}` : ''}</div>
       <div style="text-align:center;font-weight:700;margin-bottom:8px">${killed ? 'Дракона переможено!' : 'Дракон втік!'}</div>
       <div class="dragon-ended-stats">
         <span>Учасників: <strong>${lastEvent.participant_count || 0}</strong></span>
@@ -3718,8 +3727,8 @@ function renderDragonInactive(lastEvent) {
       ${lastEvent.my_damage ? `<div class="dragon-ended-reward">
         <span>Ваш урон: <b>${fmtNum(lastEvent.my_damage)}</b></span>
         ${lastEvent.reward_green ? `<span>${IC.greens(14)} ${fmtNum(lastEvent.reward_green)}</span>` : ''}
-        ${lastEvent.reward_exp   ? `<span>✨ ${fmtNum(lastEvent.reward_exp)} exp</span>` : ''}
-        ${lastEvent.rare_drop    ? `<span>🎁 ${lastEvent.rare_drop}</span>` : ''}
+        ${lastEvent.reward_exp   ? `<span>${IC.sparkle(14)} ${fmtNum(lastEvent.reward_exp)} exp</span>` : ''}
+        ${lastEvent.rare_drop    ? `<span>${IC.gift(14)} ${lastEvent.rare_drop}</span>` : ''}
       </div>` : ''}
     </div>
     <p class="text-muted text-center" style="margin-top:12px">Наступна атака о <strong>10:00</strong> або <strong>22:00</strong></p>
@@ -3776,7 +3785,7 @@ async function attackDragon() {
   if (btn) { btn.disabled = true; btn.textContent = `${IC.swords(14)} Атакую...`; btn.style.background = '#e53935'; }
   try {
     const r = await API.post('/api/dragon/attack');
-    const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
+    const critTxt = r.isCrit ? ' ${IC.hit(14)} КРИТ!' : '';
     toast(`${IC.swords(14)} Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
     // Update HP bar immediately from REST response (no need to wait for 5-sec broadcast)
     const bar = document.getElementById('dragon-hp-bar');
@@ -3821,13 +3830,13 @@ async function loadDragonHistory() {
     el.innerHTML = history.map(h => `
       <div class="dragon-history-item">
         <div class="flex-between">
-          <span>${h.is_killed ? `${IC.skull(14)} Переможено` : '🏃 Втік'} · ${h.participants} уч.</span>
+          <span>${h.is_killed ? `${IC.skull(14)} Переможено` : 'Втік'} · ${h.participants} уч.</span>
           <span class="text-muted" style="font-size:11px">${kyivDate(h.started_at)}</span>
         </div>
         ${h.my_damage ? `<div style="font-size:13px;margin-top:4px">
           Ваш урон: <b>${fmtNum(h.my_damage)}</b>
           ${h.reward_green ? `· ${IC.greens(14)} ${fmtNum(h.reward_green)}` : ''}
-          ${h.rare_drop    ? `· 🎁 ${h.rare_drop}` : ''}
+          ${h.rare_drop    ? `· ${IC.gift(14)} ${h.rare_drop}` : ''}
         </div>` : '<div style="font-size:12px;color:#aaa">Ви не брали участі</div>'}
       </div>`).join('');
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
@@ -3874,7 +3883,7 @@ async function loadInsectFight() {
       </div>
       <div style="text-align:center;color:#ff8f00;font-size:13px;margin-bottom:4px">${IC.timer(14)} ${m}хв ${s}с</div>
       <div style="text-align:center;font-size:12px;color:#c62828;margin-bottom:12px">
-        ⚠️ Якщо не відженеш — штраф -${attack.damage_penalty_pct}% до врожаю!
+        ${IC.warn(14)} Якщо не відженеш — штраф -${attack.damage_penalty_pct}% до врожаю!
       </div>
       <button class="btn btn-full" style="background:#e65100;color:#fff;font-size:15px;padding:12px" onclick="fightInsect()" id="insect-fight-btn">${IC.insect(14)} Прогнати!</button>
     `;
@@ -3949,13 +3958,13 @@ function renderDailyQuest(el, ev, progress) {
       <div class="daily-progress-label">${cur} / ${q.target} (${pct}%)</div>
       <div class="daily-rewards">
         ${q.rewardGreen  ? `<span>${IC.greens(14)} ${q.rewardGreen}</span>`  : ''}
-        ${q.rewardExp    ? `<span>✨ ${q.rewardExp} exp</span>` : ''}
+        ${q.rewardExp    ? `<span>${IC.sparkle(14)} ${q.rewardExp} exp</span>` : ''}
         ${q.rewardGold   ? `<span>${IC.gold(14)} ${q.rewardGold}</span>`   : ''}
-        ${q.rewardGlory  ? `<span>⭐ +${q.rewardGlory} слави</span>` : ''}
-        <span>🎁 Випадковий предмет</span>
+        ${q.rewardGlory  ? `<span>${IC.star(14)} +${q.rewardGlory} слави</span>` : ''}
+        <span>${IC.gift(14)} Випадковий предмет</span>
       </div>
       ${completed && !claimed
-        ? `<button class="btn btn-green btn-full" onclick="claimDailyQuest()">🎁 Забрати нагороду!</button>`
+        ? `<button class="btn btn-green btn-full" onclick="claimDailyQuest()">${IC.gift(14)} Забрати нагороду!</button>`
         : claimed
           ? `<div class="daily-done">${IC.ok(14)} Нагороду отримано!</div>`
           : `<div class="daily-hint">Виконуй квест протягом дня</div>`
@@ -4033,7 +4042,10 @@ async function claimTournament() {
   } catch(e) { toast(e.message, true); }
 }
 
-const WHEEL_SECTOR_EMOJIS = { greens: '🌿', gold: '🏅', potion: '🧪', item: '📦', diamond: '💎', rare: '🎁' };
+const WHEEL_SECTOR_ICONS = {
+  greens: IC.greens(24), gold: IC.gold(24), potion: IC.pill(24),
+  item: IC.package(24), diamond: IC.diamonds(24), rare: IC.gift(24)
+};
 
 function renderDailyWheel(el, ev, spunToday) {
   const sectors = [
@@ -4042,7 +4054,7 @@ function renderDailyWheel(el, ev, spunToday) {
     { type: 'potion',  label: `${IC.pill(14)} Зілля`,      chance: '20%', color: '#7c4dff' },
     { type: 'item',    label: `${IC.package(14)} Предмет`,    chance: '10%', color: '#0097a7' },
     { type: 'diamond', label: `${IC.diamonds(14)} Алмази`,     chance: '7%',  color: '#1565c0' },
-    { type: 'rare',    label: '🎁 Рідкісний',  chance: '3%',  color: '#c62828' },
+    { type: 'rare',    label: `${IC.gift(14)} Рідкісний`,  chance: '3%',  color: '#c62828' },
   ];
 
   el.innerHTML = `
@@ -4089,7 +4101,7 @@ async function spinWheel() {
     await new Promise(res => setTimeout(res, 1500));
     if (wheel) wheel.classList.remove('spinning');
     if (resultEl) resultEl.innerHTML = `
-      <span style="font-size:24px">${WHEEL_SECTOR_EMOJIS[r.sectorType] || '🎁'}</span><br>
+      <span style="font-size:24px">${WHEEL_SECTOR_ICONS[r.sectorType] || IC.gift(24)}</span><br>
       <span style="color:#2e7d32">${r.prizeLabel}</span>`;
     toast(`${IC.slot(14)} Колесо Фортуни: ${r.prizeLabel}!`);
     await refreshPlayer();
@@ -4151,7 +4163,7 @@ function renderCdefActive(el, r) {
 
   el.innerHTML = `
     <div class="cdef-base-card">
-      <div class="cdef-base-title">🏰 База клану</div>
+      <div class="cdef-base-title">${IC.castle(32)} База клану</div>
       <div class="cdef-hp-row">
         <div class="cdef-hp-bar-bg">
           <div class="cdef-hp-bar base" style="width:${basePct}%"></div>
@@ -4201,7 +4213,7 @@ function renderCdefInactive(el, lastEvent, reason) {
   }
   if (!lastEvent) {
     el.innerHTML = `<div class="text-center" style="padding:20px">
-      <div style="font-size:48px">🏰</div>
+      <div style="font-size:48px">${IC.castle(32)}</div>
       <p style="color:#888">Подія ще не починалась.<br>Наступна оборона — <strong>субота о 20:00</strong>.</p>
     </div>`;
     return;
@@ -4262,7 +4274,7 @@ async function loadCdefHistory() {
 // ─── ПИТОМНИК ─────────────────────────────────────────────────────────────────
 let petsData = null; // кеш даних тваринки
 
-const RARITY_LABEL = { 1: '⭐ Звичайна', 2: '⭐⭐ Рідкісна', 3: '⭐⭐⭐ Легендарна' };
+const RARITY_LABEL = { 1: `${IC.star(14)} Звичайна`, 2: `${IC.star(13)}${IC.star(13)} Рідкісна`, 3: `${IC.star(13)}${IC.star(13)}${IC.star(13)} Легендарна` };
 const STAT_LABELS   = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
 const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor: 'Панцир', boots: 'Чоботи' };
 
@@ -4295,7 +4307,7 @@ function renderPetsMy() {
       <div style="text-align:center;padding:24px">
         <div style="margin-bottom:12px">${IC.paw(48)}</div>
         <p style="color:#666;margin-bottom:16px">У вас ще немає тваринки</p>
-        <button class="btn btn-green" onclick="showPetsTab('shop', document.querySelector('#pets-tabs .cat-tab:nth-child(2)'))">🛒 До магазину</button>
+        <button class="btn btn-green" onclick="showPetsTab('shop', document.querySelector('#pets-tabs .cat-tab:nth-child(2)'))">${IC.shop(14)} До магазину</button>
       </div>`;
     return;
   }
@@ -4361,7 +4373,7 @@ function renderPetsMy() {
 
     ${pet.abilityDesc ? `
       <div style="background:#f3e5f5;border-radius:8px;padding:10px;margin-bottom:12px">
-        <div style="font-weight:600;color:#7b1fa2;margin-bottom:4px">✨ Унікальна здібність</div>
+        <div style="font-weight:600;color:#7b1fa2;margin-bottom:4px">${IC.sparkle(14)} Унікальна здібність</div>
         <div style="font-size:13px">${pet.abilityDesc}</div>
       </div>` : ''}
 
@@ -4387,11 +4399,11 @@ function renderPetsMy() {
              Вартість відновлення: <b>${reviveCostLabel}</b><br>
              <span style="color:#777;font-size:11px">Після відновлення HP = 50% від максимуму · HP надалі відновлюється на 10%/год</span>
            </div>
-           <button class="btn btn-red" onclick="revivePet()">💊 Відновити (${reviveCostLabel})</button>`
+           <button class="btn btn-red" onclick="revivePet()">${IC.pill(14)} Відновити (${reviveCostLabel})</button>`
         : `<button class="btn ${pet.is_active ? 'btn-gray' : 'btn-green'}" onclick="togglePet()">
-             ${pet.is_active ? '🏠 Лишити вдома' : `${IC.swords(14)} Взяти в бій`}
+             ${pet.is_active ? `${IC.home(14)} Лишити вдома` : `${IC.swords(14)} Взяти в бій`}
            </button>
-           <button class="btn btn-blue btn-sm" onclick="healPet()">💉 Вилікувати</button>`
+           <button class="btn btn-blue btn-sm" onclick="healPet()">${IC.syringe(14)} Вилікувати</button>`
       }
     </div>
 
@@ -4400,9 +4412,9 @@ function renderPetsMy() {
         <span>${IC.swords(14)} Боїв: <b>${stats.battles_participated}</b></span>
         <span>${IC.trophy(14)} Перемог: <b>${stats.wins}</b></span>
         <span>${IC.skull(14)} Загибель: <b>${stats.deaths}</b>р</span>
-        <span>💥 Урон: <b>${fmtNum(stats.total_damage)}</b></span>
+        <span>${IC.hit(14)} Урон: <b>${fmtNum(stats.total_damage)}</b></span>
         ${stats.pets_killed > 0 ? `<span>${IC.paw(14)} Вбито ворожих: <b>${stats.pets_killed}</b></span>` : ''}
-        ${stats.ability_procs > 0 ? `<span>✨ Здібність: <b>${stats.ability_procs}</b>р</span>` : ''}
+        ${stats.ability_procs > 0 ? `<span>${IC.sparkle(14)} Здібність: <b>${stats.ability_procs}</b>р</span>` : ''}
       </div>` : ''}
   `;
 }
@@ -4410,7 +4422,7 @@ function renderPetsMy() {
 async function togglePet() {
   try {
     const r = await API.post('/api/pets/toggle');
-    toast(r.is_active ? `${IC.swords(14)} Тваринка йде в бій!` : '🏠 Тваринка залишається вдома');
+    toast(r.is_active ? `${IC.swords(14)} Тваринка йде в бій!` : `${IC.home(14)} Тваринка залишається вдома`);
     await loadPets();
   } catch(e) { toast(e.message, true); }
 }
@@ -4427,7 +4439,7 @@ async function revivePet() {
     if (!confirm(`Відновлення тваринки коштує: ${costParts.join(' + ')}.\nПісля відновлення HP = 50% від максимуму.\nПродовжити?`)) return;
     const r = await API.post('/api/pets/revive');
     const spent2 = [r.greenCost > 0 ? `${fmtNum(r.greenCost)} ${IC.greens(14)}` : null, `${fmtNum(r.goldCost)} ${IC.gold(14)}`].filter(Boolean).join(' + ');
-    toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)} · Витрачено: ${spent2}`);
+    toast(`${IC.pill(14)} Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)} · Витрачено: ${spent2}`);
     await loadPets();
     refreshPlayer();
   } catch(e) { toast(e.message, true); }
@@ -4436,7 +4448,7 @@ async function revivePet() {
 async function healPet() {
   try {
     const r = await API.post('/api/pets/heal');
-    toast(`💉 HP відновлено! Витрачено ${fmtNum(r.cost)} ${IC.greens(14)}`);
+    toast(`${IC.syringe(14)} HP відновлено! Витрачено ${fmtNum(r.cost)} ${IC.greens(14)}`);
     await loadPets();
     refreshPlayer();
   } catch(e) { toast(e.message, true); }
@@ -4459,7 +4471,7 @@ function _petCard(p, hasPet) {
       Урон: ${dmgMin}–${dmgMax} · Влучення: ${hitPct}% · Захист: ${defPct}%
     </div>`;
   const abilityBox = p.abilityDesc
-    ? `<div class="pet-ability-box">✨ ${p.abilityDesc}</div>`
+    ? `<div class="pet-ability-box">${IC.sparkle(14)} ${p.abilityDesc}</div>`
     : '';
   const btnLabel = `${p.price} ${p.currency === 'diamonds' ? IC.diamonds(14) : IC.gold(14)}`;
   return `
@@ -4482,7 +4494,7 @@ async function renderPetsShop() {
 
     const hasPetNote = hasPet
       ? `<div style="background:#fff3e0;border-radius:8px;padding:10px;font-size:13px;color:#e65100;margin-bottom:12px">
-           ⚠️ У вас вже є тваринка. Нову купити неможливо — тваринка одна на все життя.
+           ${IC.warn(14)} У вас вже є тваринка. Нову купити неможливо — тваринка одна на все життя.
          </div>`
       : '';
 
@@ -4501,7 +4513,7 @@ async function renderPetsShop() {
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
             <span style="font-weight:700">${SLOT_NAMES[eq.slot]}</span>
             ${owned
-              ? `<span style="color:#388e3c;font-size:13px;font-weight:600">✓ Рів.${owned.item_level} (+${owned.bonus_value} ${statLabel})</span>`
+              ? `<span style="color:#388e3c;font-size:13px;font-weight:600">&check; Рів.${owned.item_level} (+${owned.bonus_value} ${statLabel})</span>`
               : `<span style="color:#aaa;font-size:12px">Не встановлено</span>`}
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
@@ -4514,7 +4526,7 @@ async function renderPetsShop() {
                 onclick="buyEquip('${eq.slot}',${l.level})"
                 ${(!hasPet || isCurrent) ? 'disabled' : ''}
                 title="${l.bonus > 0 ? `+${l.bonus} до ${statLabel}` : ''}">
-                ${isCurrent ? `✓ Рів.${l.level}` : `Рів.${l.level}: +${l.bonus} · ${fmtNum(l.price)}${IC.gold(14)}`}
+                ${isCurrent ? `&check; Рів.${l.level}` : `Рів.${l.level}: +${l.bonus} · ${fmtNum(l.price)}${IC.gold(14)}`}
               </button>`;
             }).join('')}
           </div>
@@ -4524,18 +4536,18 @@ async function renderPetsShop() {
     el.innerHTML = `
       ${hasPetNote}
 
-      <div class="pet-section-title">⭐ Звичайні — за золото</div>
+      <div class="pet-section-title">${IC.star(14)} Звичайні — за золото</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${common.map(p => _petCard(p, hasPet)).join('')}
       </div>
 
-      <div class="pet-section-title rare">⭐⭐ Рідкісні — +25% до всіх статів</div>
+      <div class="pet-section-title rare">${IC.star(13)}${IC.star(13)} Рідкісні — +25% до всіх статів</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${rare.map(p => _petCard(p, hasPet)).join('')}
         <div></div>
       </div>
 
-      <div class="pet-section-title legendary">⭐⭐⭐ Легендарні — +50% статів + унікальна здібність</div>
+      <div class="pet-section-title legendary">${IC.star(13)}${IC.star(13)}${IC.star(13)} Легендарні — +50% статів + унікальна здібність</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
         ${legendary.map(p => _petCard(p, hasPet)).join('')}
         <div></div>
@@ -4552,7 +4564,7 @@ async function renderPetsShop() {
             const myPet = petsData?.pet;
             const hpFull = myPet && myPet.hp_current >= (myPet.effective?.hp_max || myPet.hp_max);
             return `
-              <div style="font-size:12px;color:#888;margin-bottom:10px">📌 Разові предмети — купівля = миттєве використання</div>
+              <div style="font-size:12px;color:#888;margin-bottom:10px">${IC.clipboard(14)} Разові предмети — купівля = миттєве використання</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div style="background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;padding:12px;text-align:center">
                   <div style="font-size:28px">${IC.heart(14)}</div>
@@ -4685,7 +4697,7 @@ async function renderPetsTrain() {
 
   el.innerHTML = `
     <div style="background:#f1f8e9;border-radius:8px;padding:10px;margin-bottom:14px;font-size:13px">
-      💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> ${IC.greens(14)}
+      ${IC.moneybag(14)} Витрачено зелені: <b>${fmtNum(totalAll)}</b> ${IC.greens(14)}
       · Вартість відновлення: <b>${revCostStr}</b>
     </div>
     <div class="pet-combat-legend">
