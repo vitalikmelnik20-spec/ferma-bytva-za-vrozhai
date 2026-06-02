@@ -1507,7 +1507,7 @@ async function loadProfilePetTrain() {
   const el = document.getElementById('profile-pet-train-mini');
   if (!el) return;
   try {
-    const { pet, training } = await API.get('/api/pets/my');
+    const { pet, training, stats } = await API.get('/api/pets/my');
     if (!pet) {
       el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">🐾 Питомець</div>
         <div style="font-size:13px;color:#888">Тваринки немає · <a href="#" onclick="navigate('pets');return false">Купити у Питомнику</a></div>`;
@@ -1537,6 +1537,15 @@ async function loadProfilePetTrain() {
       <div style="font-weight:700;margin-bottom:6px">🐾 Питомець${deadBadge}${activeBadge} — ${icon} ${pet.name}</div>
       ${pet.is_dead ? `<div style="color:#c62828;font-size:12px;margin-bottom:6px">💀 Мертва — <a href="#" onclick="navigate('pets');return false">відновити у Питомнику</a></div>` : ''}
       ${statMini}
+      ${stats ? `
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-size:12px;color:#666;display:flex;flex-wrap:wrap;gap:6px">
+        <span>⚔️ <b>${stats.battles_participated}</b> боїв</span>
+        <span>🏆 <b>${stats.wins}</b> перемог</span>
+        <span>💀 <b>${stats.deaths}</b> загибелей</span>
+        <span>💥 <b>${fmtNum(stats.total_damage)}</b> урону</span>
+        ${stats.pets_killed > 0 ? `<span>🐾 <b>${stats.pets_killed}</b> вбито</span>` : ''}
+        ${stats.ability_procs > 0 ? `<span>✨ <b>${stats.ability_procs}</b> здібностей</span>` : ''}
+      </div>` : ''}
       <div style="margin-top:6px">
         <button class="btn btn-gray btn-sm" onclick="navigate('pets')">🐾 Відкрити Питомник</button>
       </div>`;
@@ -2128,6 +2137,7 @@ async function dissolveClan() {
 // ─── PUBLIC PROFILE ───────────────────────────────────────────────────────────
 async function viewProfile(id) {
   navigate('pubprofile');
+  window._viewingPlayerId = id;
   try {
     const r = await API.get(`/api/profile/${id}`);
     const p = r.player;
@@ -2186,8 +2196,127 @@ async function viewProfile(id) {
         <div class="panel-body">${renderActiveGifts(r.gifts)}</div>
       </div>` : ''}
 
+      <div class="panel mb-12">
+        <div class="panel-header">🐾 Тваринка</div>
+        <div class="panel-body" id="pubprofile-pet-body">
+          <p class="text-muted" style="font-size:13px">Завантаження...</p>
+        </div>
+      </div>
+
       <button class="btn btn-gray btn-sm mb-12" onclick="history.back()">← Назад</button>`;
+
+    _loadPubProfilePet(id);
   } catch (e) { toast(e.message, true); }
+}
+
+async function _loadPubProfilePet(playerId) {
+  const el = document.getElementById('pubprofile-pet-body');
+  if (!el) return;
+  try {
+    const { pet, training, equipment } = await API.get(`/api/pets/player/${playerId}`);
+    if (!pet) { el.innerHTML = '<p class="text-muted" style="font-size:13px">Тваринки немає</p>'; return; }
+
+    const rarityColor  = { 1:'#9e9e9e', 2:'#388e3c', 3:'#8e24aa' };
+    const rarityBg     = { 1:'#fafafa', 2:'linear-gradient(135deg,#e8f5e9,#f1f8e9)', 3:'linear-gradient(135deg,#fce4ec,#f3e5f5)' };
+    const rarityBorder = { 1:'#e0e0e0', 2:'#66bb6a', 3:'#ce93d8' };
+    const eq = (slot) => (equipment || []).find(e => e.slot === slot)?.bonus_value || 0;
+    const eff = {
+      power:     pet.power     + eq('collar'),
+      endurance: pet.endurance + eq('amulet'),
+      speed:     pet.speed,
+      accuracy:  pet.accuracy  + eq('boots'),
+      hp_max:    pet.hp_max    + eq('armor'),
+    };
+
+    const todayKey = `pet_stroked_${pet.id}_${new Date().toISOString().slice(0,10)}`;
+    const alreadyStroked = !!localStorage.getItem(todayKey);
+
+    const hpPct = Math.min(100, Math.floor(pet.hp_current / (eff.hp_max || pet.hp_max) * 100));
+    const eqSlots = ['collar','amulet','armor','boots'].map(slot => {
+      const e = (equipment || []).find(e => e.slot === slot);
+      return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12px;border-bottom:1px solid #f5f5f5">
+        <span>${SLOT_NAMES[slot]}</span>
+        ${e ? `<span style="color:#388e3c;font-weight:600">+${e.bonus_value} (рів.${e.item_level})</span>` : '<span style="color:#bbb">—</span>'}
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="border:2px solid ${rarityBorder[pet.rarity]};background:${rarityBg[pet.rarity]};border-radius:10px;padding:12px;text-align:center;margin-bottom:12px">
+        <div id="pubpet-icon" style="font-size:52px;margin-bottom:4px">${pet.icon}</div>
+        <div style="font-weight:700;font-size:17px">${pet.name}${pet.is_dead ? ' 💀' : ''}</div>
+        <div style="color:${rarityColor[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity]}</div>
+        ${pet.is_dead ? '<div style="color:#c62828;font-size:12px;margin-top:4px">Тваринка мертва</div>' : ''}
+      </div>
+
+      ${!pet.is_dead ? `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:2px">
+          <span>❤️ HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
+        </div>
+        <div style="background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden">
+          <div style="background:${hpPct>50?'#43a047':hpPct>25?'#fb8c00':'#e53935'};height:100%;width:${hpPct}%"></div>
+        </div>
+      </div>` : ''}
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">
+        ${['power','endurance','speed','accuracy'].map(k => {
+          const lvl = training?.[`${k}_level`] || 1;
+          return `<div style="background:#fff;border:1px solid #eee;border-radius:6px;padding:6px;text-align:center">
+            <div style="font-size:10px;color:#888">${STAT_LABELS[k]}</div>
+            <div style="font-weight:700;font-size:17px">${eff[k] || pet[k]}</div>
+            <div style="font-size:10px;color:#bbb">тр.${lvl}/50</div>
+          </div>`;
+        }).join('')}
+      </div>
+
+      ${pet.abilityDesc ? `
+      <div style="background:#f3e5f5;border-radius:8px;padding:8px;margin-bottom:10px;font-size:12px">
+        <div style="font-weight:600;color:#7b1fa2;margin-bottom:2px">✨ Унікальна здібність</div>
+        <div>${pet.abilityDesc}</div>
+      </div>` : ''}
+
+      <div style="margin-bottom:12px">
+        <div style="font-size:12px;font-weight:600;margin-bottom:4px;color:#555">Екіпіровка</div>
+        ${eqSlots}
+      </div>
+
+      ${!pet.is_dead ? `
+      <div style="display:flex;gap:8px;justify-content:center">
+        <button id="stroke-btn" class="btn btn-sm ${alreadyStroked ? 'btn-gray' : 'btn-orange'}"
+          onclick="strokeFriendPet(${pet.id},'${todayKey}')"
+          ${alreadyStroked ? 'disabled' : ''}>
+          🤗 ${alreadyStroked ? 'Погладили сьогодні' : 'Погладити'}
+        </button>
+        <button class="btn btn-green btn-sm" onclick="playWithFriendPet(${pet.id})">
+          🎮 Пограти (+5 HP)
+        </button>
+      </div>` : ''}
+    `;
+  } catch(e) {
+    el.innerHTML = '<p class="text-muted" style="font-size:13px">Не вдалось завантажити</p>';
+  }
+}
+
+function strokeFriendPet(petId, todayKey) {
+  if (localStorage.getItem(todayKey)) return;
+  localStorage.setItem(todayKey, '1');
+  // Анімація погладжування
+  const icon = document.getElementById('pubpet-icon');
+  if (icon) {
+    const frames = [1.5, 1, 1.3, 1, 1.4, 1];
+    frames.forEach((s, i) => setTimeout(() => { icon.style.transform = `scale(${s})`; icon.style.transition = 'transform .1s'; }, i * 120));
+  }
+  toast('🤗 Ви погладили тваринку!');
+  const btn = document.getElementById('stroke-btn');
+  if (btn) { btn.textContent = '🤗 Погладили сьогодні'; btn.disabled = true; btn.className = 'btn btn-sm btn-gray'; }
+}
+
+async function playWithFriendPet(petId) {
+  try {
+    const r = await API.post(`/api/pets/play/${petId}`);
+    toast(`🎮 Пограли з тваринкою! +${r.hpAdded} HP`);
+    if (window._viewingPlayerId) _loadPubProfilePet(window._viewingPlayerId);
+  } catch(e) { toast(e.message, true); }
 }
 
 const GIFT_LIST = [
