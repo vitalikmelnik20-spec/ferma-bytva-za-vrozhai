@@ -27,9 +27,8 @@ async function finalizeEvent(eventId, isKilled, killerPlayerId, io) {
 
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
-    const pct    = p.damage_dealt / totalDmg;
-    const greens = Math.floor(pct * 50000);
-    const exp    = Math.floor(pct * 10000);
+    const greens = Math.floor(p.damage_dealt / 10);
+    const exp    = Math.floor(p.damage_dealt / 100);
 
     let rareDrop = null;
     if (isKilled && killerPlayerId && p.player_id === parseInt(killerPlayerId)) rareDrop = 'Кіготь дракона';

@@ -218,17 +218,20 @@ router.get('/stats', async (req, res) => {
       if (t.name === 'Талісман Захисника') taliEndurance += t.bonus_pct;
     }
 
+    const PET_ICONS = { mink:'/icons/pets/beaver.svg', beaver:'/icons/pets/beaver.svg', wolf:'/icons/pets/wolf.svg', bear:'/icons/pets/bear.svg', lizard:'/icons/pets/lizard.svg', silver_wolf:'/icons/pets/wolf.svg', ice_lizard:'/icons/pets/lizard.svg', mighty_bear:'/icons/pets/bear.svg', fire_wolf:'/icons/pets/wolf.svg', dragonling:'/icons/pets/dragon.svg', golden_eagle:'/icons/pets/eagle.svg' };
     const { rows: [petStatsRow] } = await pool.query(
       `SELECT ps.battles_participated, ps.wins, ps.deaths,
               ps.total_damage, ps.pets_killed, ps.ability_procs,
-              p.name AS pet_name, p.pet_type, p.rarity, p.icon
+              p.name AS pet_name, p.pet_type, p.rarity
        FROM pets p
        JOIN pet_stats ps ON ps.pet_id = p.id
        WHERE p.player_id=$1
        ORDER BY p.is_active DESC LIMIT 1`,
       [req.session.playerId]
     );
-    const petStats = petStatsRow || null;
+    const petStats = petStatsRow
+      ? { ...petStatsRow, icon: PET_ICONS[petStatsRow.pet_type] || '/icons/ui/paw.svg' }
+      : null;
 
     res.json({
       player,

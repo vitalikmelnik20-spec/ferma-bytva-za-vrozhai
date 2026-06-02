@@ -90,6 +90,7 @@ let marketData = null;
 let currentPickRound = 1;
 let fightTargetId = null;
 let fightTargetName = null;
+let _lastFightTier = null;
 let socket = null;
 
 // Dragon state (declared here to avoid TDZ errors)
@@ -580,7 +581,7 @@ async function loadOpponents() {
             ${op.pet_icon ? `<div style="font-size:11px;color:#6a1b9a;margin-top:2px">${IC.paw(13)} ${IC.petIcon(op.pet_icon,16)} ${op.pet_name}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
-            <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}')">${IC.battle(14)} Битись</button>
+            <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}','${op.tier}')">${IC.battle(14)} Битись</button>
             <button class="btn btn-blue btn-sm" onclick="viewProfile(${op.id})">${IC.profile(14)} Профіль</button>
           </div>
         </div>`;
@@ -594,15 +595,67 @@ function showOpponents() {
   document.getElementById('battle-result-view').style.display = 'none';
 }
 
+async function fightNext() {
+  showOpponents();
+  if (!_lastFightTier) { loadOpponents(); return; }
+  try {
+    const r = await API.get('/api/battle/opponents');
+    const list = document.getElementById('opponents-list');
+    document.getElementById('battle-limit-bar').textContent =
+      `Боїв сьогодні: ${player.battles_today} / ${player.battles_max}`;
+    const TIER_STYLE = {
+      lower:  { bg: '#f0f7ff', border: '#90caf9', badge: '#1565c0', icon: IC.down(14) },
+      equal:  { bg: '#fff8e1', border: '#ffe082', badge: '#f57f17', icon: '' },
+      higher: { bg: '#fce4ec', border: '#f48fb1', badge: '#b71c1c', icon: IC.levelup(14) },
+    };
+    list.innerHTML = r.opponents.map(op => {
+      const s = TIER_STYLE[op.tier] || TIER_STYLE.equal;
+      if (!op.id) return `
+        <div style="background:${s.bg};border:1.5px dashed ${s.border};border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:10px;opacity:.6">
+          <span style="font-size:22px">${s.icon}</span>
+          <div>
+            <div style="font-weight:600;font-size:13px;color:${s.badge}">${op.tierLabel}</div>
+            <div style="font-size:12px;color:#999">Немає суперника цього рівня</div>
+          </div>
+        </div>`;
+      return `
+        <div style="background:${s.bg};border:1.5px solid ${s.border};border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px">
+          <div style="font-size:32px;line-height:1">${playerAvatar(op.faction, 'male')}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+              <span style="background:${s.badge};color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px">${op.tierLabel}</span>
+              <span class="${op.faction}" style="font-weight:700;font-size:15px">${op.username}</span>
+              <span style="color:#888;font-size:12px">Рів.${op.level}</span>
+            </div>
+            <div style="font-size:12px;color:#666;margin-bottom:4px">
+              ${IC.power(13)}${op.power_level} &nbsp;${IC.endurance(13)}${op.endurance_level} &nbsp;${IC.speed(13)}${op.speed_level} &nbsp;${IC.accuracy(13)}${op.accuracy_level}
+              &nbsp;|&nbsp; ${IC.gold(13)} ${op.glory} слави
+            </div>
+            <div style="font-size:11px;color:#999;font-style:italic">"${op.slogan}"</div>
+            ${op.pet_icon ? `<div style="font-size:11px;color:#6a1b9a;margin-top:2px">${IC.paw(13)} ${IC.petIcon(op.pet_icon,16)} ${op.pet_name}</div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}','${op.tier}')">${IC.battle(14)} Битись</button>
+            <button class="btn btn-blue btn-sm" onclick="viewProfile(${op.id})">${IC.profile(14)} Профіль</button>
+          </div>
+        </div>`;
+    }).join('<div style="height:8px"></div>');
+    // Auto-start fight with matching tier opponent
+    const match = r.opponents.find(op => op.tier === _lastFightTier && op.id);
+    if (match) startFight(match.id, match.username, match.tier);
+  } catch(e) { toast(e.message, true); }
+}
+
 const ZONE_LABELS = { head: `${IC.helmet_ic(14)} Голова`, body: `${IC.shield(14)} Корпус`, legs: `${IC.legs(14)} Ноги` };
 const ZONE_UA     = { head: 'голову',   body: 'корпус',    legs: 'ноги'   };
 
-function startFight(opponentId, opponentName) {
+function startFight(opponentId, opponentName, tier) {
   if (player.battles_today >= player.battles_max) {
     toast('Ліміт боїв вичерпано!', true); return;
   }
   fightTargetId   = opponentId;
   fightTargetName = opponentName;
+  _lastFightTier  = tier || null;
   currentPickRound = 1;
 
   document.getElementById('battle-opponents-view').style.display = 'none';
@@ -782,7 +835,7 @@ function showBattleResult(r) {
     </div>` : ''}
 
     <div class="flex-row" style="gap:8px">
-      <button class="btn btn-green" style="flex:1" onclick="loadOpponents();showOpponents()">Наступний бій</button>
+      <button class="btn btn-green" style="flex:1" onclick="fightNext()">Наступний бій</button>
       <button class="btn btn-blue" style="flex:1" onclick="showOpponents()">До списку</button>
     </div>`;
 }
