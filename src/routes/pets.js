@@ -477,6 +477,61 @@ router.get('/player/:id', async (req, res) => {
   }
 });
 
+// ─── POST /api/pets/potion ────────────────────────────────────────────────────
+// §8.3: зілля HP (30% HP за 200 🏅) та зілля мощі (+1 до Мощі за 400 🏅)
+router.post('/potion', async (req, res) => {
+  const { type } = req.body;
+  if (!['hp', 'power'].includes(type)) return res.status(400).json({ error: 'Невідомий тип зілля' });
+
+  const COSTS = { hp: 200, power: 400 };
+  const cost = COSTS[type];
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [pet] } = await client.query(
+      'SELECT * FROM pets WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!pet) { await client.query('ROLLBACK'); return res.status(404).json({ error: 'Тваринки немає' }); }
+    if (pet.is_dead) { await client.query('ROLLBACK'); return res.status(400).json({ error: 'Тваринка мертва' }); }
+    if (type === 'hp' && pet.hp_current >= pet.hp_max) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'HP тваринки вже повне' });
+    }
+
+    const { rows: [player] } = await client.query(
+      'SELECT gold FROM players WHERE id=$1', [req.session.playerId]
+    );
+    if (player.gold < cost) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${cost}` });
+    }
+
+    await client.query('UPDATE players SET gold=gold-$1 WHERE id=$2', [cost, req.session.playerId]);
+
+    let result = {};
+    if (type === 'hp') {
+      const restore = Math.max(1, Math.floor(pet.hp_max * 0.3));
+      const newHp = Math.min(pet.hp_max, pet.hp_current + restore);
+      await client.query('UPDATE pets SET hp_current=$1 WHERE id=$2', [newHp, pet.id]);
+      result = { restored: newHp - pet.hp_current, hpCurrent: newHp };
+    } else {
+      await client.query('UPDATE pets SET power=power+1 WHERE id=$1', [pet.id]);
+      result = { newPower: pet.power + 1 };
+    }
+
+    await client.query('COMMIT');
+    res.json({ ok: true, cost, ...result });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('[pets/potion]', err.message);
+    res.status(500).json({ error: 'Помилка сервера' });
+  } finally {
+    client.release();
+  }
+});
+
 // ─── POST /api/pets/play/:petId ───────────────────────────────────────────────
 router.post('/play/:petId', async (req, res) => {
   // Додати +5 HP тваринці друга (раз на день)

@@ -4071,12 +4071,26 @@ function renderPetsMy() {
       <div style="font-size:11px;color:#aaa;margin-top:2px">Регенерація: +10% HP/год</div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-      ${Object.entries(STAT_LABELS).map(([k,lbl]) => `
-        <div style="background:#fff;border:1px solid #eee;border-radius:8px;padding:8px;text-align:center">
-          <div style="font-size:11px;color:#888">${lbl}</div>
-          <div style="font-weight:700;font-size:20px">${eff[k] || pet[k]}</div>
-        </div>`).join('')}
+    <div style="margin-bottom:16px">
+      ${['power','endurance','speed','accuracy'].map(k => {
+        const val  = eff[k] || pet[k];
+        const lvl  = training?.[`${k}_level`] || 1;
+        const pct  = Math.floor((lvl - 1) / 49 * 100);
+        const eqB  = (k==='power' ? equipment.find(e=>e.slot==='collar')?.bonus_value
+                    : k==='endurance' ? equipment.find(e=>e.slot==='amulet')?.bonus_value
+                    : k==='accuracy'  ? equipment.find(e=>e.slot==='boots')?.bonus_value : 0) || 0;
+        return `
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5">
+            <div style="width:76px;font-size:12px;color:#555">${STAT_LABELS[k]}</div>
+            <div style="flex:1">
+              <div style="background:#f0f0f0;border-radius:4px;height:6px;overflow:hidden">
+                <div style="background:#66bb6a;height:100%;width:${pct}%;transition:width .3s"></div>
+              </div>
+              <div style="font-size:10px;color:#bbb;margin-top:1px">тр. ${lvl}/50${eqB > 0 ? ` · екіп. +${eqB}` : ''}</div>
+            </div>
+            <div style="font-weight:700;font-size:18px;min-width:36px;text-align:right">${val}</div>
+          </div>`;
+      }).join('')}
     </div>
 
     ${pet.abilityDesc ? `
@@ -4260,6 +4274,34 @@ async function renderPetsShop() {
       <div class="pet-section-title" style="margin-top:20px">🛡️ Екіпіровка тваринки</div>
       ${!hasPet ? '<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>' : ''}
       ${eqRows}
+
+      <div class="pet-section-title" style="margin-top:20px">🧪 Зілля для тваринки</div>
+      ${!hasPet
+        ? '<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>'
+        : (() => {
+            const myPet = petsData?.pet;
+            const hpFull = myPet && myPet.hp_current >= (myPet.effective?.hp_max || myPet.hp_max);
+            return `
+              <div style="font-size:12px;color:#888;margin-bottom:10px">📌 Разові предмети — купівля = миттєве використання</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+                <div style="background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;padding:12px;text-align:center">
+                  <div style="font-size:28px">❤️</div>
+                  <div style="font-weight:600;margin:4px 0;font-size:14px">Зілля HP</div>
+                  <div style="font-size:12px;color:#666;margin-bottom:8px">Відновлює 30% HP тваринки миттєво</div>
+                  <div style="font-size:12px;font-weight:600;color:#e65100;margin-bottom:6px">200 🏅</div>
+                  ${hpFull
+                    ? `<div style="font-size:11px;color:#388e3c">✅ HP вже повне</div>`
+                    : `<button class="btn btn-sm btn-orange" onclick="buyPetPotion('hp')">Використати</button>`}
+                </div>
+                <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px;text-align:center">
+                  <div style="font-size:28px">⚡</div>
+                  <div style="font-weight:600;margin:4px 0;font-size:14px">Зілля мощі</div>
+                  <div style="font-size:12px;color:#666;margin-bottom:8px">+1 до Мощі назавжди</div>
+                  <div style="font-size:12px;font-weight:600;color:#1565c0;margin-bottom:6px">400 🏅</div>
+                  <button class="btn btn-sm btn-blue" onclick="buyPetPotion('power')">Використати</button>
+                </div>
+              </div>`;
+          })()}
     `;
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
 }
@@ -4284,6 +4326,20 @@ async function buyEquip(slot, level) {
   try {
     const r = await API.post('/api/pets/equip', { slot, level });
     toast(`✅ ${SLOT_NAMES[slot]} рів.${level} (+${r.bonus} ${statLabel}) встановлено!`);
+    await loadPets();
+    renderPetsShop();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function buyPetPotion(type) {
+  const names = { hp: 'Зілля HP (відновить 30% HP)', power: 'Зілля мощі (+1 до Мощі назавжди)' };
+  const costs = { hp: 200, power: 400 };
+  if (!confirm(`${names[type]}\nВартість: ${fmtNum(costs[type])} 🏅\nВикористати?`)) return;
+  try {
+    const r = await API.post('/api/pets/potion', { type });
+    if (type === 'hp') toast(`❤️ Зілля HP! +${r.restored} HP · Залишок: ${fmtNum(r.hpCurrent)}`);
+    else toast(`⚡ Зілля мощі! Міць тепер ${r.newPower}`);
     await loadPets();
     renderPetsShop();
     refreshPlayer();
