@@ -77,14 +77,14 @@ function calcHpMax(pet, equipment) {
   return pet.hp_max + armorBonus;
 }
 
-// Ефективні стати (базові + тренування + екіпіровка)
+// Ефективні стати (pet.power вже включає тренування, додаємо лише екіпіровку)
 function effectiveStats(pet, training, equipment) {
   const eq = (slot) => equipment.find(e => e.slot === slot)?.bonus_value || 0;
   return {
-    power:     pet.power     + (training?.power_level     || 0) + eq('collar'),
-    endurance: pet.endurance + (training?.endurance_level || 0) + eq('amulet'),
-    speed:     pet.speed     + (training?.speed_level     || 0),
-    accuracy:  pet.accuracy  + (training?.accuracy_level  || 0) + eq('boots'),
+    power:     pet.power     + eq('collar'),
+    endurance: pet.endurance + eq('amulet'),
+    speed:     pet.speed,
+    accuracy:  pet.accuracy  + eq('boots'),
     hp_max:    pet.hp_max    + eq('armor'),
   };
 }
