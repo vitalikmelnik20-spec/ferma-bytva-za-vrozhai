@@ -113,7 +113,7 @@ router.get('/my', async (req, res) => {
     res.json({
       pet: {
         ...pet,
-        icon: catalog.icon || '🐾',
+        icon: catalog.icon || '',
         ability: catalog.ability || null,
         abilityDesc: catalog.abilityDesc || null,
         effective: eff,
@@ -470,7 +470,7 @@ router.get('/player/:id', async (req, res) => {
     );
 
     const catalog = PET_CATALOG.find(p => p.type === pet.pet_type) || {};
-    res.json({ pet: { ...pet, icon: catalog.icon || '🐾', abilityDesc: catalog.abilityDesc || null }, training, equipment, stats });
+    res.json({ pet: { ...pet, icon: catalog.icon || '', abilityDesc: catalog.abilityDesc || null }, training, equipment,
   } catch (err) {
     console.error('[pets/player/:id]', err.message);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -478,7 +478,7 @@ router.get('/player/:id', async (req, res) => {
 });
 
 // ─── POST /api/pets/potion ────────────────────────────────────────────────────
-// §8.3: зілля HP (30% HP за 200 🏅) та зілля мощі (+1 до Мощі за 400 🏅)
+// §8.3: зілля HP (30% HP за 200 золота) та зілля мощі (+1 до Мощі за 400 золота)
 router.post('/potion', async (req, res) => {
   const { type } = req.body;
   if (!['hp', 'power'].includes(type)) return res.status(400).json({ error: 'Невідомий тип зілля' });

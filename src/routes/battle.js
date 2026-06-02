@@ -23,7 +23,7 @@ async function fetchPetForBattle(playerId) {
   return {
     id:        pet.id,
     name:      pet.name,
-    icon:      catalog.icon || '🐾',
+    icon:      catalog.icon || '',
     ability:   catalog.ability || null,
     power:     pet.power     + eqBonus('collar'),
     endurance: pet.endurance + eqBonus('amulet'),
@@ -291,9 +291,9 @@ router.get('/opponents', async (req, res) => {
     ]);
 
     const slots = [
-      { label: '⬇️ Слабший',  tier: 'lower', row: lower.rows[0]  },
-      { label: '⚖️ Рівний',   tier: 'equal', row: equal.rows[0]  },
-      { label: '⬆️ Сильніший',tier: 'higher', row: higher.rows[0] },
+      { label: 'Слабший',   tier: 'lower', row: lower.rows[0]  },
+      { label: 'Рівний',    tier: 'equal', row: equal.rows[0]  },
+      { label: 'Сильніший', tier: 'higher', row: higher.rows[0] },
     ];
 
     const opponents = slots.map(s => {

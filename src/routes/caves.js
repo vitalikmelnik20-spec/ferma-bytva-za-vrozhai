@@ -18,10 +18,10 @@ function randomGold() {
 
 // Rare ingredient drops per mine
 const RARE_DROPS = [
-  { name: 'Кристал печери',   emoji: '💎', chance: 3.0 },
-  { name: 'Чорний кремінь',   emoji: '⚫', chance: 2.0 },
-  { name: 'Рудний самородок', emoji: '🪨', chance: 1.5 },
-  { name: 'Іскра підземелля', emoji: '✨', chance: 0.5 },
+  { name: 'Кристал печери',   emoji: '',    chance: 3.0 },
+  { name: 'Чорний кремінь',   emoji: '',    chance: 2.0 },
+  { name: 'Рудний самородок', emoji: '',    chance: 1.5 },
+  { name: 'Іскра підземелля', emoji: '',    chance: 0.5 },
 ];
 
 function rollRareDrop() {

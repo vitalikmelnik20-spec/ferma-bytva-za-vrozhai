@@ -12,12 +12,12 @@ const QUEST_TYPES = [
 ];
 
 const WHEEL_SECTORS = [
-  { type: 'greens',  label: '300–1000 🌿 зелені',          chance: 35 },
-  { type: 'gold',    label: '50–200 🏅 золота',            chance: 25 },
-  { type: 'potion',  label: 'Випадкове зілля 🧪',          chance: 20 },
-  { type: 'item',    label: 'Предмет рів.1–20 📦',         chance: 10 },
-  { type: 'diamond', label: '5–15 💎 алмазів',             chance:  7 },
-  { type: 'rare',    label: 'Рідкісний предмет 🎁',        chance:  3 },
+  { type: 'greens',  label: '300–1000 зелені',          chance: 35 },
+  { type: 'gold',    label: '50–200 золота',            chance: 25 },
+  { type: 'potion',  label: 'Випадкове зілля',          chance: 20 },
+  { type: 'item',    label: 'Предмет рів.1–20',         chance: 10 },
+  { type: 'diamond', label: '5–15 алмазів',             chance:  7 },
+  { type: 'rare',    label: 'Рідкісний предмет',        chance:  3 },
 ];
 
 function getTodayEventType() {
@@ -130,15 +130,15 @@ router.post('/spin', async (req, res) => {
     if (sector.type === 'greens') {
       prizeAmount = 300 + Math.floor(Math.random() * 701);
       await pool.query(`UPDATE players SET greens=greens+$1 WHERE id=$2`, [prizeAmount, req.session.playerId]);
-      prizeLabel = `${prizeAmount} 🌿 зелені`;
+      prizeLabel = `${prizeAmount} зелені`;
     } else if (sector.type === 'gold') {
       prizeAmount = 50 + Math.floor(Math.random() * 151);
       await pool.query(`UPDATE players SET gold=gold+$1 WHERE id=$2`, [prizeAmount, req.session.playerId]);
-      prizeLabel = `${prizeAmount} 🏅 золота`;
+      prizeLabel = `${prizeAmount} золота`;
     } else if (sector.type === 'diamond') {
       prizeAmount = 5 + Math.floor(Math.random() * 11);
       await pool.query(`UPDATE players SET diamonds=COALESCE(diamonds,0)+$1 WHERE id=$2`, [prizeAmount, req.session.playerId]);
-      prizeLabel = `${prizeAmount} 💎 алмазів`;
+      prizeLabel = `${prizeAmount} алмазів`;
     } else if (sector.type === 'potion') {
       const { rows: [item] } = await pool.query(
         `SELECT id, name FROM items WHERE category='potion' AND is_active=true ORDER BY RANDOM() LIMIT 1`
@@ -169,7 +169,7 @@ router.post('/spin', async (req, res) => {
         // Fallback if no high-level items
         prizeAmount = 500;
         await pool.query(`UPDATE players SET greens=greens+$1 WHERE id=$2`, [prizeAmount, req.session.playerId]);
-        prizeLabel = `${prizeAmount} 🌿 зелені`;
+        prizeLabel = `${prizeAmount} зелені`;
         sector = { type: 'greens' };
       }
     }
@@ -294,8 +294,8 @@ router.post('/tournament/claim', async (req, res) => {
 
     const wins = prog.progress % 10;
     let rewardGreen = 50, rewardGlory = 0, rank = 'Решта';
-    if (wins >= 5)      { rewardGreen = 500; rewardGlory = 5; rank = '🥇 1 місце'; }
-    else if (wins >= 3) { rewardGreen = 200; rank = '🥈 2–3 місце'; }
+    if (wins >= 5)      { rewardGreen = 500; rewardGlory = 5; rank = '1 місце'; }
+    else if (wins >= 3) { rewardGreen = 200; rank = '2–3 місце'; }
 
     await pool.query(
       `UPDATE players SET greens=greens+$1, glory=glory+$2 WHERE id=$3`,

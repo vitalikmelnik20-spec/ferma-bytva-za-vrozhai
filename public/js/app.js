@@ -62,11 +62,24 @@ const IC = {
   moneybag:  (s=14) => `<img src="/icons/ui/moneybag.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
   house:     (s=14) => `<img src="/icons/ui/house.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
   swords:    (s=14) => `<img src="/icons/ui/crossed-swords.svg" width="${s}" height="${s}" style="vertical-align:middle">`,
+  timer:      (s=14) => `<img src="/icons/ui/timer.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
+  insect:     (s=14) => `<img src="/icons/ui/insect.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  slot:       (s=14) => `<img src="/icons/ui/slot.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  clipboard:  (s=14) => `<img src="/icons/ui/clipboard.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  medal1:     (s=14) => `<img src="/icons/ui/medal-gold.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  medal2:     (s=14) => `<img src="/icons/ui/medal-silver.svg" width="${s}" height="${s}" style="vertical-align:middle">`,
+  shop:       (s=14) => `<img src="/icons/ui/shop.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  key:        (s=14) => `<img src="/icons/ui/key.svg"          width="${s}" height="${s}" style="vertical-align:middle">`,
+  lightning:  (s=14) => `<img src="/icons/ui/lightning.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
+  balance:    (s=14) => `<img src="/icons/ui/balance.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  up:         (s=14) => `<img src="/icons/ui/up.svg"           width="${s}" height="${s}" style="vertical-align:middle">`,
+  dragon:     (s=22) => `<img src="/icons/pets/dragon.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  wheat:      (s=14) => `<img src="/icons/plants/wheat.svg"    width="${s}" height="${s}" style="vertical-align:middle">`,
   // Online status dots
   online:    ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#43a047;vertical-align:middle"></span>`,
   offline:   ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#757575;vertical-align:middle"></span>`,
   // Pet icon helper — supports both SVG path and legacy emoji string
-  petIcon:   (icon, s=22) => icon?.startsWith('/') ? `<img src="${icon}" width="${s}" height="${s}" style="vertical-align:middle">` : `<span style="font-size:${s}px;line-height:1;vertical-align:middle">${icon||'🐾'}</span>`,
+  petIcon:   (icon, s=22) => icon?.startsWith('/') ? `<img src="${icon}" width="${s}" height="${s}" style="vertical-align:middle">` : `<span style="font-size:${s}px;line-height:1;vertical-align:middle">${icon||IC.paw(s)}</span>`,
 };
 
 let gardenData = null;
@@ -253,12 +266,12 @@ function navigate(page) {
 // ─── HOME ─────────────────────────────────────────────────────────────────────
 const NPC_DATA = {
   elves: [
-    { avatar: '🧝', name: 'Лео Глаз', speech: 'О, ти знов тут! Поки тебе не було, орки зовсім розбушувались!' },
-    { avatar: '👑', name: 'Повелитель Дарт', speech: 'Міць, стійкість, швидкість — це запорука успіху в бою.' },
+    { avatar: 'Ельф', name: 'Лео Глаз', speech: 'О, ти знов тут! Поки тебе не було, орки зовсім розбушувались!' },
+    { avatar: 'Вождь', name: 'Повелитель Дарт', speech: 'Міць, стійкість, швидкість — це запорука успіху в бою.' },
   ],
   orcs: [
-    { avatar: '🗡️', name: 'Гоша Куций', speech: 'Хватай зброю і приєднуйся до нашої Орди — пішли проти длинновухих!' },
-    { avatar: '🪨', name: 'Скала Мурамець', speech: 'Ти зловив звірятко! Тепер ти готовий до битви. Вибирай суперника!' },
+    { avatar: 'Орк', name: 'Гоша Куций', speech: 'Хватай зброю і приєднуйся до нашої Орди — пішли проти длинновухих!' },
+    { avatar: 'Скала', name: 'Скала Мурамець', speech: 'Ти зловив звірятко! Тепер ти готовий до битви. Вибирай суперника!' },
   ]
 };
 
@@ -518,9 +531,9 @@ async function loadOpponents() {
       `Боїв сьогодні: ${player.battles_today} / ${player.battles_max}`;
 
     const TIER_STYLE = {
-      lower:  { bg: '#f0f7ff', border: '#90caf9', badge: '#1565c0', icon: '⬇️' },
+      lower:  { bg: '#f0f7ff', border: '#90caf9', badge: '#1565c0', icon: IC.down(14) },
       equal:  { bg: '#fff8e1', border: '#ffe082', badge: '#f57f17', icon: '' },
-      higher: { bg: '#fce4ec', border: '#f48fb1', badge: '#b71c1c', icon: '${IC.levelup(14)}' },
+      higher: { bg: '#fce4ec', border: '#f48fb1', badge: '#b71c1c', icon: IC.levelup(14) },
     };
 
     list.innerHTML = r.opponents.map(op => {
@@ -637,11 +650,11 @@ async function selectZoneForRound(zone) {
       const aAlive = pd.aPetHp > 0;
       const dAlive = pd.dPetHp > 0;
       const aHpStr = pd.aPetName
-        ? `${pd.aPetName}: ${aAlive ? `${pd.aPetHp}/${pd.aPetHpMax}` : '${IC.skull(12)}'}`
-        : (aAlive ? pd.aPetHp : '💀');
+        ? `${pd.aPetName}: ${aAlive ? `${pd.aPetHp}/${pd.aPetHpMax}` : `${IC.skull(12)}`}`
+        : (aAlive ? pd.aPetHp : `${IC.skull(14)}`);
       const dHpStr = pd.dPetName
-        ? `${pd.dPetName}: ${dAlive ? `${pd.dPetHp}/${pd.dPetHpMax}` : '${IC.skull(12)}'}`
-        : (dAlive ? pd.dPetHp : '💀');
+        ? `${pd.dPetName}: ${dAlive ? `${pd.dPetHp}/${pd.dPetHpMax}` : `${IC.skull(12)}`}`
+        : (dAlive ? pd.dPetHp : `${IC.skull(14)}`);
       petLines += `<div style="font-size:11px;color:#aaa">HP: ${aHpStr} · ${dHpStr}</div>`;
     }
 
@@ -702,7 +715,7 @@ function showBattleResult(r) {
       <div style="font-size:15px;font-weight:600;color:${won?'#2e7d32':'#c62828'}">
         ${r.greensReward > 0 ? `${IC.greens(14)} ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
         ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ${IC.gold(14)} ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
-        ${won ? (r.attackerGlory > 0 ? `&nbsp; ${IC.glory(14)} +1 слава` : '') : `&nbsp; ${IC.down(14)} -5 рейтингу`}
+        ${won ? (r.attackerGlory > 0 ? `&nbsp; ${IC.glory(14)} +1 слава` : ``) : `&nbsp; ${IC.down(14)} -5 рейтингу`}
       </div>
     </div>
 
@@ -736,9 +749,9 @@ function showBattleResult(r) {
     <div style="${bs}">
       <div style="font-size:13px;font-weight:600;margin-bottom:4px">${IC.paw(16)} Тваринки у бою</div>
       <div style="font-size:13px;line-height:1.8">
-        ${r.aPet ? `${IC.petIcon(r.aPet.icon,18)} ${r.aPet.name}: урон <b>${fmtNum(r.aPet.totalDamage)}</b>${r.aPet.died?' <span style="color:#c62828">${IC.skull(14)} загинула</span>':''}` : ''}
+        ${r.aPet ? `${IC.petIcon(r.aPet.icon,18)} ${r.aPet.name}: урон <b>${fmtNum(r.aPet.totalDamage)}</b>${r.aPet.died?` <span style="color:#c62828">${IC.skull(14)} загинула</span>`:''}` : ''}
         ${r.aPet && r.dPet ? ' &nbsp;|&nbsp; ' : ''}
-        ${r.dPet ? `${IC.petIcon(r.dPet.icon,18)} ${r.dPet.name}: урон <b>${fmtNum(r.dPet.totalDamage)}</b>${r.dPet.died?' <span style="color:#c62828">${IC.skull(14)} загинула</span>':''}` : ''}
+        ${r.dPet ? `${IC.petIcon(r.dPet.icon,18)} ${r.dPet.name}: урон <b>${fmtNum(r.dPet.totalDamage)}</b>${r.dPet.died?` <span style="color:#c62828">${IC.skull(14)} загинула</span>`:''}` : ''}
       </div>
       ${r.aPet?.died ? `<div style="color:#e65100;font-size:12px;margin-top:4px">${IC.warn(14)} Твоя тваринка загинула! Відновіть у Питомнику.</div>` : ''}
     </div>` : ''}
@@ -922,7 +935,7 @@ function renderMarketCategory() {
       : `<div class="item-price">${IC.greens(14)} ${fmtNum(price)}</div>`;
     const ownedInInv = marketData.inventory.some(i => i.item_id === item.id || i.name === item.name);
     const buyBtn = ownedInInv
-      ? `<span style="color:#4caf50;font-size:12px;font-weight:600">✅ Є у тебе</span>`
+      ? `<span style="color:#4caf50;font-size:12px;font-weight:600">${IC.ok(14)} Є у тебе</span>`
       : `<button class="btn ${canAfford ? (usesGold ? 'btn-orange' : 'btn-green') : 'btn-gray'} btn-sm"
            onclick="buyMarketItem(${item.id},${isRing},${isTalisman})"
            ${canAfford ? '' : 'disabled'}>Купити</button>`;
@@ -1053,7 +1066,7 @@ async function buyMarketItem(itemId, isRing, isTalisman) {
       await API.post('/api/jeweler/buy/' + itemId);
       toast(`${IC.ring(14)} Куплено!`);
     } else if (isTalisman) {
-      await API.post('/api/jeweler/buy/' + itemId);
+      await API.post(`/api/jeweler/buy/` + itemId);
       toast(`${IC.talisman(14)} Куплено!`);
     } else {
       await API.post('/api/market/buy/' + itemId);
@@ -1119,7 +1132,7 @@ async function upgradeRing(invId) {
 
 async function buyTalisman() {
   try {
-    await API.post('/api/talismans/buy');
+    await API.post(`/api/talismans/buy`);
     toast(`${IC.talisman(14)} Талісман золотошукача куплено!`);
     await refreshPlayer();
     await loadMarket();
@@ -1181,7 +1194,7 @@ async function loadVillage() {
             <div class="text-muted">${npc.desc}</div>
           </div>
         </div>
-        ${npc.id === 'healer'   ? `<button class="btn btn-green btn-sm"  onclick="healPlayer()">Лікувати</button>` : ''}
+        ${npc.id === 'healer'   ? '<button class="btn btn-green btn-sm"  onclick="healPlayer()">Лікувати</button>' : ''}
         ${npc.id === 'jeweler'  ? `<button class="btn btn-orange btn-sm" onclick="navigate('jeweler')">${IC.ring(14)} Зайти</button>` : ''}
         ${npc.id === 'alchemist'? `<button class="btn btn-blue btn-sm"   onclick="navigate('alchemist')">${IC.inventory(14)} Зайти</button>` : ''}
         ${npc.id === 'smith'    ? `<button class="btn btn-orange btn-sm" onclick="openEnchantPage()">${IC.levelup(14)} Зачарувати</button>` : ''}
@@ -1240,7 +1253,7 @@ function buildDoll(equippedList, itemRunes, avatarUrl, faction, gender, isOwn) {
     const e = eq[cat];
     if (e) {
       return `<div class="equip-slot" title="${e.name}"
-          ${isOwn ? `onclick="goToInventoryItem(${e.id})" style="cursor:pointer"` : ''}>
+          ${isOwn ? `onclick="goToInventoryItem(${e.id})" style="cursor:pointer"` : ''}>  
         <div>${itemIcon(e.name, 28)}</div>
         <div class="equip-slot-name">${e.name}</div>
         ${runeDots(e.id, maxR)}
@@ -1346,7 +1359,7 @@ function renderActiveGifts(gifts) {
     if (g.endurance_bonus > 0) parts.push(`${IC.endurance(12)} +${g.endurance_bonus}`);
     if (g.speed_bonus     > 0) parts.push(`${IC.speed(12)} +${g.speed_bonus}`);
     if (g.accuracy_bonus  > 0) parts.push(`${IC.accuracy(12)} +${g.accuracy_bonus}`);
-    if (g.harvest_bonus   > 0) parts.push(`🌾 +${g.harvest_bonus}%`);
+    if (g.harvest_bonus   > 0) parts.push(`${IC.wheat(14)} +${g.harvest_bonus}%`);
     return parts.join(' ') || '—';
   };
 
@@ -1408,7 +1421,7 @@ async function loadProfile() {
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
-        ${infoRow(IC.village(14), 'Місто', p.city_name || '—', `<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>`)}
+        ${infoRow(IC.village(14), 'Місто', p.city_name || '—', '<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>')}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
       </div>
@@ -1467,11 +1480,11 @@ async function loadStats() {
 
     const bonusTag = (eq, gift, rune, potion, tali = 0) => {
       const parts = [];
-      if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} 🗡️</span>`);
+      if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} ${IC.swords(14)}</span>`);
       if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} 🎁</span>`);
-      if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} 🔮</span>`);
-      if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} 🧪</span>`);
-      if (tali   > 0) parts.push(`<span style="color:#ff8f00">+${tali} 🔱</span>`);
+      if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} ${IC.talisman(14)}</span>`);
+      if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} ${IC.pill(14)}</span>`);
+      if (tali   > 0) parts.push(`<span style="color:#ff8f00">+${tali} ${IC.talisman(14)}</span>`);
       return parts.length ? ` ${parts.join(' ')}` : '';
     };
 
@@ -1492,8 +1505,8 @@ async function loadStats() {
         ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${row(IC.hp(14), "Макс. здоров'я",  fmtNum(p.max_hp))}
         ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
-        ${r.harvestGiftPct > 0 ? row('🌾', 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
-        ${(r.potionHarvestPct || 0) > 0 ? row('🧪', 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
+        ${r.harvestGiftPct > 0 ? row(`${IC.wheat(14)}`, 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
+        ${(r.potionHarvestPct || 0) > 0 ? row(`${IC.pill(14)}`, 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
         ${r.luckAmulets > 0 ? row('🍀', 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
       </div>
       <div class="stats-section">
@@ -1512,7 +1525,7 @@ async function loadStats() {
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Статистика</div>
         ${row('🟢', 'Здобич у боях',   `${IC.greens(13)} ${fmtNum(r.greensEarned)} ${IC.gold(13)} ${fmtNum(p.gold_earned_battle)}`)}
-        ${row('🔴', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
+        ${row('<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53935;vertical-align:middle"></span>', 'Втрати у боях',   `${IC.greens(13)} ${fmtNum(r.greensLost)} ${IC.gold(13)} ${fmtNum(p.gold_lost_battle)}`)}
         ${row(IC.plot_ic(14), 'Посаджено рослин', fmtNum(p.plants_planted))}
         ${row(IC.water(14), 'Полито рослин',    fmtNum(p.plots_watered))}
         ${row(IC.greens(14), 'Зібрано врожаю',  `${IC.greens(13)} ${fmtNum(p.total_harvest)}`)}
@@ -1520,16 +1533,16 @@ async function loadStats() {
         ${row(IC.pickaxe(14), 'Добуто в печерах', `${IC.gold(14)} ${fmtNum(r.cavesGold)}`)}
       </div>
       ${(r.insectsDefeated > 0) ? `<div class="stats-section">
-        <div class="stats-section-title">🪲 Комахи</div>
-        ${row('🪲', 'Роїв знищено',         fmtNum(r.insectsDefeated))}
-        ${row('🌿', 'Врожаю врятовано',     fmtNum(r.insectsGreensSaved))}
+        <div class="stats-section-title">${IC.insect(14)} Комахи</div>
+        ${row(`${IC.insect(14)}`, 'Роїв знищено',         fmtNum(r.insectsDefeated))}
+        ${row(`${IC.greens(14)}`, 'Врожаю врятовано',     fmtNum(r.insectsGreensSaved))}
       </div>` : ''}
       ${(r.dragonBattles > 0) ? `<div class="stats-section">
-        <div class="stats-section-title">🐉 Дракон</div>
-        ${row('🐉', 'Участей у нападах', fmtNum(r.dragonBattles))}
-        ${row('⚔️', 'Загальний урон',    fmtNum(r.dragonTotalDamage))}
-        ${row('🌿', 'Зароблено зелені',  fmtNum(r.dragonGreensEarned))}
-      </div>` : ''}`;
+        <div class="stats-section-title">${IC.dragon(28)} Дракон</div>
+        ${row(`${IC.dragon(28)}`, 'Участей у нападах', fmtNum(r.dragonBattles))}
+        ${row(`${IC.swords(14)}`, 'Загальний урон',    fmtNum(r.dragonTotalDamage))}
+        ${row(`${IC.greens(14)}`, 'Зароблено зелені',  fmtNum(r.dragonGreensEarned))}
+      </div>` : ''}` ;
   } catch (e) { toast(e.message, true); }
 
   // Підвантажити міні-блок тренування тваринки у профілі
@@ -1548,8 +1561,8 @@ async function loadProfilePetTrain() {
     }
     const catalog = { mink:'/icons/pets/beaver.svg',beaver:'/icons/pets/beaver.svg',wolf:'/icons/pets/wolf.svg',bear:'/icons/pets/bear.svg',lizard:'/icons/pets/lizard.svg',silver_wolf:'/icons/pets/wolf.svg',ice_lizard:'/icons/pets/lizard.svg',mighty_bear:'/icons/pets/bear.svg',fire_wolf:'/icons/pets/wolf.svg',dragonling:'/icons/pets/dragon.svg',golden_eagle:'/icons/pets/eagle.svg' };
     const icon = catalog[pet.pet_type] || '/icons/ui/paw.svg';
-    const deadBadge = pet.is_dead ? ' <span style="color:#c62828;font-size:11px">💀</span>' : '';
-    const activeBadge = pet.is_active ? ' <span style="color:#388e3c;font-size:11px">⚔️</span>' : '';
+    const deadBadge = pet.is_dead ? ` <span style="color:#c62828;font-size:11px">${IC.skull(14)}</span>` : '';
+    const activeBadge = pet.is_active ? ` <span style="color:#388e3c;font-size:11px">${IC.swords(14)}</span>` : '';
 
     const statMini = ['power','endurance','speed','accuracy'].map(s => {
       const lvl = training[`${s}_level`] || 1;
@@ -1568,22 +1581,22 @@ async function loadProfilePetTrain() {
 
     el.innerHTML = `
       <div style="font-weight:700;margin-bottom:6px">${IC.paw(16)} Питомець${deadBadge}${activeBadge} — ${IC.petIcon(icon,18)} ${pet.name}</div>
-      ${pet.is_dead ? `<div style="color:#c62828;font-size:12px;margin-bottom:6px">💀 Мертва — <a href="#" onclick="navigate('pets');return false">відновити у Питомнику</a></div>` : ''}
+      ${pet.is_dead ? `<div style="color:#c62828;font-size:12px;margin-bottom:6px">${IC.skull(14)} Мертва — <a href="#" onclick="navigate('pets');return false">відновити у Питомнику</a></div>` : ''}
       ${statMini}
       ${stats ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-size:12px;color:#666;display:flex;flex-wrap:wrap;gap:6px">
         <span>${IC.swords(13)} <b>${stats.battles_participated}</b> боїв</span>
         <span>${IC.trophy(13)} <b>${stats.wins}</b> перемог</span>
-        <span>💀 <b>${stats.deaths}</b> загибелей</span>
+        <span>${IC.skull(14)} <b>${stats.deaths}</b> загибелей</span>
         <span>${IC.hit(13)} <b>${fmtNum(stats.total_damage)}</b> урону</span>
-        ${stats.pets_killed > 0 ? `<span>${IC.paw(13)} <b>${stats.pets_killed}</b> вбито</span>` : ''}
+        ${stats.pets_killed > 0 ? `<span>${IC.paw(13)} <b>${stats.pets_killed}</b> вбито</span>` : ``}
         ${stats.ability_procs > 0 ? `<span>${IC.sparkle(13)} <b>${stats.ability_procs}</b> здібностей</span>` : ''}
       </div>` : ''}
       <div style="margin-top:6px">
-        <button class="btn btn-gray btn-sm" onclick="navigate('pets')">🐾 Відкрити Питомник</button>
+        <button class="btn btn-gray btn-sm" onclick="navigate('pets')">${IC.paw(14)} Відкрити Питомник</button>
       </div>`;
   } catch(e) {
-    el.innerHTML = `<div style="font-size:13px;color:#888">🐾 Помилка завантаження тваринки</div>`;
+    el.innerHTML = `<div style="font-size:13px;color:#888">${IC.paw(14)} Помилка завантаження тваринки</div>`;
   }
 }
 
@@ -1700,7 +1713,7 @@ async function loadFriends() {
         <div class="opponent-avatar">${f.friend_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
           <div class="opponent-name ${f.friend_faction}">${f.friend_name} <span class="text-muted">Рів.${f.friend_level}</span></div>
-          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : `${IC.bell(14)} Новий запит`) : `${IC.check(14)} Друг`}</div>
+          <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? `${IC.timer(14)} Очікує підтвердження` : `${IC.bell(14)} Новий запит`) : `${IC.check(14)} Друг`}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px">
           ${f.status === 'pending' && f.requester_id !== player.id
@@ -1880,7 +1893,7 @@ async function renderMyClan(el) {
     warHtml = `
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0">
         <span class="text-muted" style="font-size:13px">Активних воєн немає</span>
-        ${isSenior ? `<button class="btn btn-red btn-sm" onclick="showDeclareWarModal()">⚔️ Оголосити війну</button>` : ''}
+        ${isSenior ? `<button class="btn btn-red btn-sm" onclick="showDeclareWarModal()">${IC.swords(14)} Оголосити війну</button>` : ''}
         <button class="btn btn-gray btn-sm" onclick="loadWarHistory()">Історія воєн</button>
       </div>`;
   }
@@ -1892,7 +1905,7 @@ async function renderMyClan(el) {
   const taskRow = t => {
     const pct = Math.min(100, Math.round(t.progress / t.goal * 100));
     const reward = [
-      t.reward_greens > 0 ? `${IC.greens(12)}${fmtNum(t.reward_greens)}` : '',
+      t.reward_greens > 0 ? `${IC.greens(12)}${fmtNum(t.reward_greens)}` : ``,
       t.reward_gold   > 0 ? `${IC.gold(12)}${fmtNum(t.reward_gold)}`   : '',
     ].filter(Boolean).join(' ');
     return `<div class="clan-task-row ${t.completed ? 'completed' : ''}">
@@ -1910,7 +1923,7 @@ async function renderMyClan(el) {
     <div style="font-weight:600;font-size:13px;margin-bottom:6px">Щоденні</div>
     ${daily.map(taskRow).join('') || '<p class="text-muted">—</p>'}
     <div style="font-weight:600;font-size:13px;margin:10px 0 6px">Тижневі</div>
-    ${weekly.map(taskRow).join('') || '<p class="text-muted">—</p>'}`;
+    ${weekly.map(taskRow).join('') || '<p class="text-muted">—</p>'}` ;
 
   el.innerHTML = `
     <div class="clan-header">
@@ -2084,7 +2097,7 @@ async function loadTreasuryLog() {
           <span style="color:${color}">${sign}${fmtNum(row.amount)} ${cur}</span>
           <span class="text-muted">${time}</span>
         </div>`;
-      }).join('') + `</div>`;
+      }).join('') + '</div>';
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2179,7 +2192,7 @@ async function viewProfile(id) {
     const friendBtn = r.friendshipStatus === 'accepted'
       ? `<button class="btn btn-gray btn-sm" disabled>${IC.check(14)} Вже друг</button>`
       : r.friendshipStatus === 'pending'
-      ? `<button class="btn btn-gray btn-sm" disabled>⏳ Очікує</button>`
+      ? `<button class="btn btn-gray btn-sm" disabled>${IC.timer(14)} Очікує</button>`
       : `<button class="btn btn-green btn-sm" onclick="addFriend(${p.id})">+ До друзів</button>`;
 
     el.innerHTML = `
@@ -2227,10 +2240,10 @@ async function viewProfile(id) {
       <div class="panel mb-12">
         <div class="panel-header">${IC.gift(14)} Активні подарунки</div>
         <div class="panel-body">${renderActiveGifts(r.gifts)}</div>
-      </div>` : ''}
+      </div>` : ``}
 
       <div class="panel mb-12">
-        <div class="panel-header">🐾 Тваринка</div>
+        <div class="panel-header">${IC.paw(14)} Тваринка</div>
         <div class="panel-body" id="pubprofile-pet-body">
           <p class="text-muted" style="font-size:13px">Завантаження...</p>
         </div>
@@ -2276,7 +2289,7 @@ async function _loadPubProfilePet(playerId) {
     el.innerHTML = `
       <div style="border:2px solid ${rarityBorder[pet.rarity]};background:${rarityBg[pet.rarity]};border-radius:10px;padding:12px;text-align:center;margin-bottom:12px">
         <div id="pubpet-icon" style="font-size:52px;margin-bottom:4px">${pet.icon}</div>
-        <div style="font-weight:700;font-size:17px">${pet.name}${pet.is_dead ? ' 💀' : ''}</div>
+        <div style="font-weight:700;font-size:17px">${pet.name}${pet.is_dead ? ` ${IC.skull(14)}` : ''}</div>
         <div style="color:${rarityColor[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity]}</div>
         ${pet.is_dead ? '<div style="color:#c62828;font-size:12px;margin-top:4px">Тваринка мертва</div>' : ''}
       </div>
@@ -2284,7 +2297,7 @@ async function _loadPubProfilePet(playerId) {
       ${!pet.is_dead ? `
       <div style="margin-bottom:10px">
         <div style="display:flex;justify-content:space-between;font-size:11px;color:#666;margin-bottom:2px">
-          <span>❤️ HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
+          <span>${IC.heart(14)} HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
         </div>
         <div style="background:#f0f0f0;border-radius:4px;height:8px;overflow:hidden">
           <div style="background:${hpPct>50?'#43a047':hpPct>25?'#fb8c00':'#e53935'};height:100%;width:${hpPct}%"></div>
@@ -2566,7 +2579,7 @@ function initSocket() {
     refreshPlayer();
   });
 
-  socket.on('gift:received', ({ giftName, fromUsername }) => {
+  socket.on(`gift:received`, ({ giftName, fromUsername }) => {
     toast(`${IC.gift(14)} ${fromUsername} надіслав тобі подарунок: ${giftName}!`);
     if (document.getElementById('page-profile')?.classList.contains('active'))
       loadProfile();
@@ -2574,10 +2587,10 @@ function initSocket() {
 
   socket.on('clan_defense:wave', ({ wave, waveName, waveHp, baseHp, baseHpMax, prevWaveDefeated }) => {
     const msg = prevWaveDefeated === null
-      ? `⚔️ Оборона бази розпочалась! Хвиля 1: ${waveName}`
+      ? `${IC.swords(14)} Оборона бази розпочалась! Хвиля 1: ${waveName}`
       : prevWaveDefeated
-        ? `✅ Хвиля ${wave - 1} відбита! → Хвиля ${wave}: ${waveName} (${fmtNum(waveHp)} HP)`
-        : `❌ Хвиля ${wave - 1} прорвалась! База: ${fmtNum(baseHp)}/${fmtNum(baseHpMax)} → Хвиля ${wave}`;
+        ? `${IC.ok(14)} Хвиля ${wave - 1} відбита! → Хвиля ${wave}: ${waveName} (${fmtNum(waveHp)} HP)`
+        : `${IC.no(14)} Хвиля ${wave - 1} прорвалась! База: ${fmtNum(baseHp)}/${fmtNum(baseHpMax)} → Хвиля ${wave}`;
     toast(msg, !prevWaveDefeated && prevWaveDefeated !== null);
     if (document.getElementById('page-clan-defense')?.classList.contains('active')) loadClanDefense();
   });
@@ -2590,16 +2603,16 @@ function initSocket() {
   });
 
   socket.on('clan_defense:ended', ({ waves_survived, is_victory, base_destroyed, playerGreens, playerGlory }) => {
-    if (is_victory)       toast(`🏆 База вистояла! Всі 12 хвиль відбито! +${playerGreens}🌿 +${playerGlory} слави`);
-    else if (base_destroyed) toast(`💀 База зруйнована! Отримай досвід за участь`, true);
-    else                  toast(`⚔️ Оборона завершена! ${waves_survived} хвиль відбито. +${playerGreens}🌿`);
+    if (is_victory)       toast(`${IC.trophy(14)} База вистояла! Всі 12 хвиль відбито! +${playerGreens}${IC.greens(14)} +${playerGlory} слави`);
+    else if (base_destroyed) toast(`${IC.skull(14)} База зруйнована! Отримай досвід за участь`, true);
+    else                  toast(`${IC.swords(14)} Оборона завершена! ${waves_survived} хвиль відбито. +${playerGreens}${IC.greens(14)}`);
     refreshPlayer();
     if (document.getElementById('page-clan-defense')?.classList.contains('active')) loadClanDefense();
   });
 
   socket.on('daily:available', ({ eventType }) => {
-    const names = { quest: '📋 Квест', tournament: '⚔️ Турнір', wheel: '🎰 Колесо Фортуни' };
-    toast(`🎉 Новий щоденний івент: ${names[eventType] || eventType}!`);
+    const names = { quest: `${IC.clipboard(14)} Квест`, tournament: `${IC.swords(14)} Турнір`, wheel: `${IC.slot(14)} Колесо Фортуни` };
+    toast(`${IC.celebrate(14)} Новий щоденний івент: ${names[eventType] || eventType}!`);
     const lbl = document.getElementById('daily-menu-label');
     if (lbl) lbl.textContent = names[eventType] || 'Щоденний івент';
     if (document.getElementById('page-daily')?.classList.contains('active')) loadDaily();
@@ -2612,12 +2625,12 @@ function initSocket() {
 
   socket.on('insects:defeated', ({ rewardGreen, rewardExp }) => {
     closeInsectModal();
-    toast(`🪲 Рій знищено! +🌿 ${fmtNum(rewardGreen)} зелені +✨ ${rewardExp} exp`);
+    toast(`${IC.insect(14)} Рій знищено! +${IC.greens(14)} ${fmtNum(rewardGreen)} зелені +✨ ${rewardExp} exp`);
     refreshPlayer();
   });
 
-  socket.on('dragon:started', ({ eventId, hpMax }) => {
-    toast(`🐉 Дракон нападає! HP: ${fmtNum(hpMax)} — Поспішай до битви!`);
+  socket.on(`dragon:started`, ({ eventId, hpMax }) => {
+    toast(`${IC.dragon(28)} Дракон нападає! HP: ${fmtNum(hpMax)} — Поспішай до битви!`);
     document.getElementById('dragon-notif-sub').textContent = `HP: ${fmtNum(hpMax)} / ${fmtNum(hpMax)}`;
     document.getElementById('dragon-notif').style.display = 'flex';
     if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
@@ -2631,7 +2644,7 @@ function initSocket() {
   });
 
   socket.on('dragon:ended', ({ isKilled, top10 }) => {
-    toast(isKilled ? '🐉 Дракона переможено! Нагороди розподілено!' : '🐉 Дракон втік! Час вийшов.');
+    toast(isKilled ? `${IC.dragon(28)} Дракона переможено! Нагороди розподілено!` : `${IC.dragon(28)} Дракон втік! Час вийшов.`);
     document.getElementById('dragon-notif').style.display = 'none';
     if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
   });
@@ -2713,7 +2726,7 @@ function renderCavesLobby(session) {
   document.getElementById('caves-content').innerHTML = `
     <div class="cave-lobby">
       <div style="font-size:64px;margin-bottom:8px">${IC.pickaxe(14)}</div>
-      <div class="cave-npc-speech">🧙 ${hint}</div>
+      <div class="cave-npc-speech">${hint}</div>
       <button class="btn btn-green btn-full" style="font-size:17px;padding:14px" onclick="startCaveSession()">
         ${IC.pickaxe(16)} Увійти в печеру
       </button>
@@ -2745,7 +2758,7 @@ function renderCavesSession(s) {
         <button class="btn btn-green cave-mine-btn" onclick="mineShaft()">${IC.pickaxe(14)} Добути!</button>
         <div class="cave-progress">Добуто: ${s.mines_done} з ${s.total_mines} шахт &nbsp;|&nbsp; ${IC.gold(14)} ${s.gold_earned} золота сьогодні</div>
       </div>`;
-    startCavesCountdown(s.mine_expires_at, 'cave-timer-active');
+    startCavesCountdown(s.mine_expires_at, `cave-timer-active`);
 
   } else {
     // Waiting — countdown to next mine
@@ -2838,7 +2851,7 @@ async function submitTgSetup() {
 
   const btn = document.querySelector('#tg-setup-modal .btn-green');
   btn.disabled = true;
-  btn.textContent = '⏳ Завантаження...';
+  btn.textContent = `${IC.timer(14)} Завантаження...`;
 
   const r = await fetch('/api/auth/telegram-webapp', {
     method: 'POST',
@@ -2933,8 +2946,8 @@ function renderRuneSocketUI(r) {
         if (rune.accuracy_bonus)  bonParts.push(`${IC.accuracy(11)}+${rune.accuracy_bonus}`);
         return `<div class="rune-slot filled">
           <div style="font-size:11px;font-weight:600">${rune.rune_name}</div>
-          <div style="font-size:10px;color:#aaa">${bonParts.join(' ')}</div>
-          <button class="btn btn-red btn-sm" style="margin-top:4px;font-size:10px" onclick="removeRune(${rune.rune_inv_id})">Вийняти 100🌿</button>
+          <div style="font-size:10px;color:#aaa">${bonParts.join(` `)}</div>
+          <button class="btn btn-red btn-sm" style="margin-top:4px;font-size:10px" onclick="removeRune(${rune.rune_inv_id})">Вийняти 100${IC.greens(14)}</button>
         </div>`;
       }
       return `<div class="rune-slot empty" onclick="openRuneInsert(${item.id}, ${i})">
@@ -2948,7 +2961,7 @@ function renderRuneSocketUI(r) {
         ${itemIcon(item.name, 28)}
         <div>
           <div class="item-name">${item.name}${item.upgrade_level ? ` +${item.upgrade_level}` : ''}</div>
-          <div style="font-size:11px;color:#888">${item.is_equipped ? '✅ Одягнено' : '🎒 В інвентарі'} · ${runesInItem.length}/${maxSlots} рун</div>
+          <div style="font-size:11px;color:#888">${item.is_equipped ? `${IC.ok(14)} Одягнено` : '🎒 В інвентарі'} · ${runesInItem.length}/${maxSlots} рун</div>
         </div>
       </div>
       <div style="display:flex;gap:6px">${slots}</div>
@@ -3042,7 +3055,7 @@ async function confirmInsertRune(targetInvId, runeInvId, slot) {
 }
 
 async function removeRune(runeInvId) {
-  if (!confirm('Вийняти руну? Коштуватиме 100 🌿')) return;
+  if (!confirm(`Вийняти руну? Коштуватиме 100 ${IC.greens(14)}`)) return;
   try {
     await API.post('/api/jeweler/rune/remove', { runeInvId });
     toast(`${IC.ring(14)} Руну вийнято!`);
@@ -3111,7 +3124,7 @@ async function loadAlchemist() {
           const ingList = rc.ingredients.map(ing => {
             const have = ingHave(ing);
             const ok   = have >= ing.qty;
-            const icon = ing.src === 'plants' ? '🌿' : '🎒';
+            const icon = ing.src === 'plants' ? `${IC.greens(14)}` : '🎒';
             return `<span style="color:${ok ? '#2d7a2d' : '#c0392b'}">${icon}${ing.name}×${ing.qty}(є:${have})</span>`;
           }).join(' ');
           const pItem = r.potions.find(p => p.name === rc.potion_name);
@@ -3131,10 +3144,10 @@ async function loadAlchemist() {
         <div style="color:#888;font-size:12px;margin-bottom:8px">Рослини збираються з огороду автоматично</div>
         ${myIng.filter(i => i.quantity > 0).map(i => `
           <div class="flex-between" style="padding:6px 0;border-bottom:1px solid #eee">
-            <span>🌿 ${i.ingredient_name}</span><b>×${i.quantity}</b>
+            <span>${IC.greens(14)} ${i.ingredient_name}</span><b>×${i.quantity}</b>
           </div>`).join('') || '<p class="text-muted">Рослинних інгредієнтів немає — збирай урожай!</p>'}
         ${(r.invPotions || []).length > 0 ? `
-          <div style="margin-top:14px;margin-bottom:6px;font-weight:600">🧪 Зілля в інвентарі:</div>
+          <div style="margin-top:14px;margin-bottom:6px;font-weight:600">${IC.pill(14)} Зілля в інвентарі:</div>
           ${(r.invPotions || []).map(p => `
             <div class="item-card">
               ${itemIcon(p.name, 24)}
@@ -3153,7 +3166,7 @@ async function loadAlchemist() {
             const remains = p.battles_left != null
               ? `Залишилось боїв: <b>${p.battles_left}</b>`
               : `До: <b>${kyivDateTime(p.expires_at)}</b>`;
-            const typeIcon = { power:'⚔️', endurance:'🛡️', speed:'⚡', accuracy:'🎯', harvest:'🌾', damage_reduce:'🔰' }[p.effect_type] || '🧪';
+            const typeIcon = { power:`${IC.swords(14)}`, endurance:`${IC.shield(14)}`, speed:`${IC.lightning(14)}`, accuracy:`${IC.accuracy(14)}`, harvest:`${IC.wheat(14)}`, damage_reduce:`${IC.shield(14)}` }[p.effect_type] || `${IC.pill(14)}`;
             return `<div class="item-card">
               <span style="font-size:22px">${typeIcon}</span>
               <div class="item-info" style="flex:1">
@@ -3216,7 +3229,7 @@ async function discardItem(invId, name, hasRunes) {
     async () => {
       try {
         const r = await API.post(`/api/profile/discard/${invId}`);
-        toast(`Викинуто! +${r.greens} 🌿`);
+        toast(`Викинуто! +${r.greens} ${IC.greens(14)}`);
         await refreshPlayer();
         loadInventory();
       } catch(e) { toast(e.message, true); }
@@ -3263,7 +3276,7 @@ async function loadEnchantItems() {
     <div class="item-card">
       ${itemIcon(i.name, 28)}
       <div class="item-info">
-        <div class="item-name">${i.name}${i.upgrade_level?` <span style="color:#e65100">+${i.upgrade_level}</span>`:''}</div>
+        <div class="item-name">${i.name}${i.upgrade_level ? ` <span style="color:#e65100">+${i.upgrade_level}</span>` : ''}</div>
         <div class="text-muted">${bonusStr(i)}</div>
       </div>
       <button class="btn btn-orange btn-sm" onclick="enchantItem(${i.id})">${IC.levelup(13)} Зачар.</button>
@@ -3280,7 +3293,7 @@ async function enchantItem(invId) {
       warnParts.push(`⚠️ Шанс провалу: ${100 - info.nextChance}%! При провалі зачарування скидається до 0.`);
     }
     if (info.nextChance < 100 && info.hasRunes) {
-      warnParts.push(`💀 При провалі всі руни в предметі будуть ЗНИЩЕНІ!`);
+      warnParts.push(`${IC.skull(14)} При провалі всі руни в предметі будуть ЗНИЩЕНІ!`);
     }
     const warnText = warnParts.length ? '\n\n' + warnParts.join('\n') : '';
     if (!confirm(`Зачарувати до +${info.currentLevel+1}?\nВартість: ${info.nextCost} золота${warnText}`)) return;
@@ -3296,7 +3309,7 @@ async function enchantItem(invId) {
       if (el) el.style.animation = 'enchant-fail 0.6s ease';
       setTimeout(() => { if (el) el.style.animation = ''; }, 600);
       const runeMsg = r.runesDestroyed > 0 ? ` Знищено рун: ${r.runesDestroyed}.` : '';
-      toast(`💀 Провал! Зачарування скинулось до 0.${runeMsg}`, true);
+      toast(`${IC.skull(14)} Провал! Зачарування скинулось до 0.${runeMsg}`, true);
     }
     await refreshPlayer();
     loadEnchantItems();
@@ -3306,12 +3319,12 @@ async function enchantItem(invId) {
 
 // ─── INVENTORY ────────────────────────────────────────────────────────────────
 const INV_TABS = [
-  { key: 'weapon',      label: '⚔️ Зброя',       cats: ['weapon'] },
-  { key: 'armor',       label: '🛡️ Броня',        cats: ['armor','helmet','shield'] },
-  { key: 'potion',      label: '🧪 Зілля',         cats: ['potion'] },
-  { key: 'ingredients', label: '🌿 Інгредієнти',   cats: null },
-  { key: 'accessory',   label: '💍 Аксесуари',     cats: ['ring','talisman','rune'] },
-  { key: 'other',       label: '📦 Інше',          cats: [] },
+  { key: 'weapon',      label: `${IC.swords(14)} Зброя`,       cats: ['weapon'] },
+  { key: 'armor',       label: `${IC.shield(14)} Броня`,        cats: ['armor','helmet','shield'] },
+  { key: 'potion',      label: `${IC.pill(14)} Зілля`,         cats: ['potion'] },
+  { key: 'ingredients', label: `${IC.greens(14)} Інгредієнти`,   cats: null },
+  { key: 'accessory',   label: `${IC.ring(14)} Аксесуари`,     cats: ['ring','talisman','rune'] },
+  { key: 'other',       label: `${IC.package(14)} Інше`,          cats: [] },
 ];
 const KNOWN_CATS = ['weapon','armor','helmet','shield','potion','ring','talisman','rune'];
 
@@ -3344,7 +3357,7 @@ function showInvTab(key, btn) {
     const ing = _invData.ingredients || [];
     el.innerHTML = ing.length
       ? ing.map(i => `<div class="flex-between" style="padding:7px 0;border-bottom:1px solid #eee">
-          <span>🌿 ${i.ingredient_name}</span><b>×${i.quantity}</b>
+          <span>${IC.greens(14)} ${i.ingredient_name}</span><b>×${i.quantity}</b>
         </div>`).join('')
       : '<p class="text-muted">Інгредієнтів немає — видобувай у шахтах та збирай врожай</p>';
     el.innerHTML += renderInvExpand();
@@ -3374,7 +3387,7 @@ function renderInvExpand() {
     <div style="background:#eee;border-radius:4px;height:6px;margin-bottom:8px">
       <div style="background:#ff8f00;height:6px;border-radius:4px;width:${Math.min(100,pct)}%"></div>
     </div>
-    <button class="btn btn-orange btn-sm" onclick="expandInventory()">+10 слотів — 100 🏅 золота</button>
+    <button class="btn btn-orange btn-sm" onclick="expandInventory()">+10 слотів — 100 ${IC.gold(14)} золота</button>
   </div>`;
 }
 
@@ -3385,10 +3398,10 @@ function renderInvItem(item, allRunes) {
   const enchant = item.upgrade_level || 0;
 
   const stats = [];
-  if (item.power_bonus > 0)     stats.push(`⚡+${item.power_bonus + enchant * 2}`);
-  if (item.endurance_bonus > 0) stats.push(`🛡️+${item.endurance_bonus + enchant * 2}`);
-  if (item.speed_bonus > 0)     stats.push(`💨+${item.speed_bonus}`);
-  if (item.accuracy_bonus > 0)  stats.push(`🎯+${item.accuracy_bonus}`);
+  if (item.power_bonus > 0)     stats.push(`${IC.lightning(14)}+${item.power_bonus + enchant * 2}`);
+  if (item.endurance_bonus > 0) stats.push(`${IC.shield(14)}+${item.endurance_bonus + enchant * 2}`);
+  if (item.speed_bonus > 0)     stats.push(`${IC.speed(14)}+${item.speed_bonus}`);
+  if (item.accuracy_bonus > 0)  stats.push(`${IC.accuracy(14)}+${item.accuracy_bonus}`);
 
   const runeDots = maxRunes > 0 ? `<div class="rune-dots" style="margin-top:4px">${
     Array.from({length: maxRunes}, (_,i) =>
@@ -3406,17 +3419,17 @@ function renderInvItem(item, allRunes) {
 
   const potionDesc = item.category === 'potion' ? potionEffectDesc(item) : '';
   const useBtn = item.category === 'potion'
-    ? `<button class="btn btn-blue btn-sm" onclick="usePotion(${item.id},'${item.name.replace(/'/g,"\\'")}','${potionDesc.replace(/'/g,"\\'")}')">Використати</button>`
+    ? `<button class="btn btn-blue btn-sm" onclick="usePotion(${item.id},'${item.name.replace(/'/g,"\\'")}',' ${potionDesc.replace(/'/g,"\\'")}')">Використати</button>`
     : '';
 
   const enchantBtn = ['weapon','armor','helmet','shield'].includes(item.category)
-    ? `<button class="btn btn-gray btn-sm" onclick="navigate('village')">⚒️ Коваль</button>`
+    ? `<button class="btn btn-gray btn-sm" onclick="navigate('village')">${IC.pickaxe(14)} Коваль</button>`
     : '';
 
   const hasRunes = myRunes.length > 0;
   const onAuction = item.is_on_auction;
   const sellBtn = !item.is_equipped && !onAuction && item.category !== 'potion'
-    ? `<button class="btn btn-blue btn-sm" onclick="openAuctionListModal(${item.id})">🏪 Продати</button>`
+    ? `<button class="btn btn-blue btn-sm" onclick="openAuctionListModal(${item.id})">${IC.shop(14)} Продати</button>`
     : onAuction ? `<span style="font-size:12px;color:#ff8f00">На аукціоні</span>` : '';
 
   return `<div class="inv-item-card${item.is_equipped ? ' is-equipped' : ''}${onAuction ? ' on-auction' : ''}">
@@ -3510,10 +3523,10 @@ async function loadMyLots() {
 
 function aucStats(lot) {
   const parts = [];
-  if (lot.power_bonus > 0)     parts.push(`⚡+${lot.power_bonus}`);
-  if (lot.endurance_bonus > 0) parts.push(`🛡️+${lot.endurance_bonus}`);
-  if (lot.speed_bonus > 0)     parts.push(`💨+${lot.speed_bonus}`);
-  if (lot.accuracy_bonus > 0)  parts.push(`🎯+${lot.accuracy_bonus}`);
+  if (lot.power_bonus > 0)     parts.push(`${IC.lightning(14)}+${lot.power_bonus}`);
+  if (lot.endurance_bonus > 0) parts.push(`${IC.shield(14)}+${lot.endurance_bonus}`);
+  if (lot.speed_bonus > 0)     parts.push(`${IC.speed(14)}+${lot.speed_bonus}`);
+  if (lot.accuracy_bonus > 0)  parts.push(`${IC.accuracy(14)}+${lot.accuracy_bonus}`);
   return parts.join(' ') || '—';
 }
 
@@ -3536,7 +3549,7 @@ function renderAucLot(lot) {
 }
 
 async function buyLot(lotId, name, price, currency) {
-  const curr = currency === 'gold' ? '🏅 золота' : currency === 'diamonds' ? '💎 алмазів' : '🌿 зелені';
+  const curr = currency === 'gold' ? `${IC.gold(14)} золота` : currency === 'diamonds' ? `${IC.diamonds(14)} алмазів` : `${IC.greens(14)} зелені`;
   showConfirmModal(
     'Купити лот?',
     `Купити <b>${name}</b> за <b>${fmtNum(price)} ${curr}</b>?`,
@@ -3646,7 +3659,7 @@ function renderDragonActive(r) {
   const el = document.getElementById('dragon-battle');
   el.innerHTML = `
     <div class="dragon-event-card">
-      <div class="dragon-avatar">🐉</div>
+      <div class="dragon-avatar">${IC.dragon(28)}</div>
       <div class="dragon-name">Стародавній Дракон</div>
       <div class="dragon-hp-wrap">
         <div class="dragon-hp-bar-bg">
@@ -3660,7 +3673,7 @@ function renderDragonActive(r) {
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
       <div class="dragon-timer" id="dragon-timer" style="font-size:14px;margin:6px 0"></div>
-      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>⏳ Зачекай...</button>
+      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>${IC.timer(14)} Зачекай...</button>
       <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${new Date(ev.ends_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</strong></div>
       <div class="dragon-top5" id="dragon-top5">
         ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
@@ -3688,7 +3701,7 @@ function renderDragonInactive(lastEvent) {
   const el = document.getElementById('dragon-battle');
   if (!lastEvent) {
     el.innerHTML = `<div class="text-center" style="padding:24px">
-      <div style="font-size:48px">🐉</div>
+      <div style="font-size:48px">${IC.dragon(28)}</div>
       <p style="color:#888">Дракон ще не нападав.<br>Наступні атаки о <strong>10:00</strong> та <strong>22:00</strong>.</p>
     </div>`;
     return;
@@ -3696,7 +3709,7 @@ function renderDragonInactive(lastEvent) {
   const killed = lastEvent.is_killed;
   el.innerHTML = `<div style="padding:8px">
     <div class="dragon-ended-card">
-      <div style="font-size:32px;text-align:center">${killed ? '💀' : '🏃'}</div>
+      <div style="font-size:32px;text-align:center">${killed ? `${IC.skull(14)}` : '🏃'}</div>
       <div style="text-align:center;font-weight:700;margin-bottom:8px">${killed ? 'Дракона переможено!' : 'Дракон втік!'}</div>
       <div class="dragon-ended-stats">
         <span>Учасників: <strong>${lastEvent.participant_count || 0}</strong></span>
@@ -3704,7 +3717,7 @@ function renderDragonInactive(lastEvent) {
       </div>
       ${lastEvent.my_damage ? `<div class="dragon-ended-reward">
         <span>Ваш урон: <b>${fmtNum(lastEvent.my_damage)}</b></span>
-        ${lastEvent.reward_green ? `<span>🌿 ${fmtNum(lastEvent.reward_green)}</span>` : ''}
+        ${lastEvent.reward_green ? `<span>${IC.greens(14)} ${fmtNum(lastEvent.reward_green)}</span>` : ''}
         ${lastEvent.reward_exp   ? `<span>✨ ${fmtNum(lastEvent.reward_exp)} exp</span>` : ''}
         ${lastEvent.rare_drop    ? `<span>🎁 ${lastEvent.rare_drop}</span>` : ''}
       </div>` : ''}
@@ -3722,7 +3735,7 @@ function _enableDragonAttack() {
   const btn = document.getElementById('dragon-attack-btn');
   if (!btn) return;
   btn.disabled = false;
-  btn.textContent = '⚔️ АТАКУВАТИ!';
+  btn.textContent = `${IC.swords(14)} АТАКУВАТИ!`;
   btn.style.background = '#c62828';
   btn.style.color = '#fff';
   btn.style.animation = '';
@@ -3742,7 +3755,7 @@ function startDragonAttackTimer() {
     btn.textContent = 'Перезаряджання...';
   }
   const timer = document.getElementById('dragon-timer');
-  if (timer) timer.textContent = `⏳ Наступний удар через: ${_dragonAttackCd}с`;
+  if (timer) timer.textContent = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
   _dragonAttackCdInterval = setInterval(() => {
     _dragonAttackCd--;
     if (_dragonAttackCd <= 0) {
@@ -3750,8 +3763,8 @@ function startDragonAttackTimer() {
       _enableDragonAttack();
       return;
     }
-    const t = document.getElementById('dragon-timer');
-    if (t) t.textContent = `⏳ Наступний удар через: ${_dragonAttackCd}с`;
+    const t = document.getElementById(`dragon-timer`);
+    if (t) t.textContent = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
   }, 1000);
 }
 
@@ -3760,11 +3773,11 @@ async function attackDragon() {
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'attacking';
   const btn = document.getElementById('dragon-attack-btn');
-  if (btn) { btn.disabled = true; btn.textContent = '⚔️ Атакую...'; btn.style.background = '#e53935'; }
+  if (btn) { btn.disabled = true; btn.textContent = `${IC.swords(14)} Атакую...`; btn.style.background = '#e53935'; }
   try {
     const r = await API.post('/api/dragon/attack');
     const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
-    toast(`⚔️ Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
+    toast(`${IC.swords(14)} Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
     // Update HP bar immediately from REST response (no need to wait for 5-sec broadcast)
     const bar = document.getElementById('dragon-hp-bar');
     const lbl = document.getElementById('dragon-hp-label');
@@ -3772,7 +3785,7 @@ async function attackDragon() {
     if (lbl) lbl.textContent = `${fmtNum(r.newDragonHp)} / ${fmtNum(r.hpMax)}`;
     const myDmgEl = document.getElementById('dragon-my-dmg');
     if (myDmgEl) myDmgEl.textContent = fmtNum(parseInt(myDmgEl.textContent.replace(/\s/g,'')) + r.damage);
-    if (r.isKilled) { toast('🐉 Ти вбив дракона! Фінальний удар твій!'); }
+    if (r.isKilled) { toast(`${IC.dragon(28)} Ти вбив дракона! Фінальний удар твій!`); }
     await refreshPlayer();
     if (r.isKilled) { loadDragon(); return; }
   } catch(e) {
@@ -3788,7 +3801,7 @@ async function loadDragonLeaderboard() {
     const { leaderboard } = await API.get('/api/dragon/leaderboard');
     if (!leaderboard.length) { el.innerHTML = '<p class="text-muted text-center">Поки нікого немає</p>'; return; }
     el.innerHTML = `<table class="dragon-lb-table">
-      <thead><tr><th>#</th><th>Гравець</th><th>Боїв</th><th>Урон</th><th>🌿</th></tr></thead>
+      <thead><tr><th>#</th><th>Гравець</th><th>Боїв</th><th>Урон</th><th>${IC.greens(14)}</th></tr></thead>
       <tbody>${leaderboard.map((p,i) => `<tr>
         <td><strong>#${i+1}</strong></td>
         <td>${p.username}</td>
@@ -3808,12 +3821,12 @@ async function loadDragonHistory() {
     el.innerHTML = history.map(h => `
       <div class="dragon-history-item">
         <div class="flex-between">
-          <span>${h.is_killed ? '💀 Переможено' : '🏃 Втік'} · ${h.participants} уч.</span>
+          <span>${h.is_killed ? `${IC.skull(14)} Переможено` : '🏃 Втік'} · ${h.participants} уч.</span>
           <span class="text-muted" style="font-size:11px">${kyivDate(h.started_at)}</span>
         </div>
         ${h.my_damage ? `<div style="font-size:13px;margin-top:4px">
           Ваш урон: <b>${fmtNum(h.my_damage)}</b>
-          ${h.reward_green ? `· 🌿 ${fmtNum(h.reward_green)}` : ''}
+          ${h.reward_green ? `· ${IC.greens(14)} ${fmtNum(h.reward_green)}` : ''}
           ${h.rare_drop    ? `· 🎁 ${h.rare_drop}` : ''}
         </div>` : '<div style="font-size:12px;color:#aaa">Ви не брали участі</div>'}
       </div>`).join('');
@@ -3842,7 +3855,7 @@ async function loadInsectFight() {
   try {
     const { attack, growingPlots } = await API.get('/api/insects/current');
     if (!attack) {
-      body.innerHTML = `<p class="text-center" style="color:#666">Комах немає.<br>Твій огород у безпеці! 🌿</p>
+      body.innerHTML = `<p class="text-center" style="color:#666">Комах немає.<br>Твій огород у безпеці! ${IC.greens(14)}</p>
         <button class="btn btn-gray btn-full" onclick="closeInsectModal()">Закрити</button>`;
       return;
     }
@@ -3851,7 +3864,7 @@ async function loadInsectFight() {
     const left   = Math.max(0, endsAt - Date.now());
     const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
     body.innerHTML = `
-      <div style="text-align:center;font-size:36px;margin-bottom:4px">🪲</div>
+      <div style="text-align:center;font-size:36px;margin-bottom:4px">${IC.insect(14)}</div>
       <div style="font-weight:700;text-align:center;margin-bottom:8px">Рій комах (${growingPlots} грядок)</div>
       <div class="dragon-hp-bar-bg" style="margin-bottom:4px">
         <div class="dragon-hp-bar" style="width:${hpPct}%;background:#e65100"></div>
@@ -3859,11 +3872,11 @@ async function loadInsectFight() {
       <div style="text-align:center;font-size:13px;color:#888;margin-bottom:6px">
         HP: ${fmtNum(attack.swarm_hp)} / ${fmtNum(attack.swarm_max_hp)}
       </div>
-      <div style="text-align:center;color:#ff8f00;font-size:13px;margin-bottom:4px">⏳ ${m}хв ${s}с</div>
+      <div style="text-align:center;color:#ff8f00;font-size:13px;margin-bottom:4px">${IC.timer(14)} ${m}хв ${s}с</div>
       <div style="text-align:center;font-size:12px;color:#c62828;margin-bottom:12px">
         ⚠️ Якщо не відженеш — штраф -${attack.damage_penalty_pct}% до врожаю!
       </div>
-      <button class="btn btn-full" style="background:#e65100;color:#fff;font-size:15px;padding:12px" onclick="fightInsect()" id="insect-fight-btn">🪲 Прогнати!</button>
+      <button class="btn btn-full" style="background:#e65100;color:#fff;font-size:15px;padding:12px" onclick="fightInsect()" id="insect-fight-btn">${IC.insect(14)} Прогнати!</button>
     `;
   } catch(e) {
     body.innerHTML = `<p class="text-muted">${e.message}</p>`;
@@ -3887,7 +3900,7 @@ async function fightInsect() {
       if (lbls) lbls.forEach(d => {
         if (d.textContent.startsWith('HP:')) d.textContent = `HP: ${fmtNum(r.newHp)} / ${fmtNum(r.hpMax)}`;
       });
-      toast(`🪲 Урон по рою: ${r.damage}`);
+      toast(`${IC.insect(14)} Урон по рою: ${r.damage}`);
     }
   } catch(e) {
     toast(e.message, true);
@@ -3907,13 +3920,13 @@ async function loadDaily() {
     const titleEl = document.getElementById('daily-panel-title');
 
     if (ev.event_type === 'quest') {
-      if (titleEl) titleEl.textContent = '📋 Щоденний квест';
+      if (titleEl) titleEl.textContent = `${IC.clipboard(14)} Щоденний квест`;
       renderDailyQuest(el, ev, progress);
     } else if (ev.event_type === 'tournament') {
-      if (titleEl) titleEl.textContent = '⚔️ Щоденний турнір';
+      if (titleEl) titleEl.textContent = `${IC.swords(14)} Щоденний турнір`;
       renderDailyTournament(el, ev, progress);
     } else {
-      if (titleEl) titleEl.textContent = '🎰 Колесо Фортуни';
+      if (titleEl) titleEl.textContent = `${IC.slot(14)} Колесо Фортуни`;
       renderDailyWheel(el, ev, wheelSpunToday);
     }
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
@@ -3928,23 +3941,23 @@ function renderDailyQuest(el, ev, progress) {
 
   el.innerHTML = `
     <div class="daily-card">
-      <div class="daily-type-badge">📋 Квест від НПС</div>
+      <div class="daily-type-badge">${IC.clipboard(14)} Квест від НПС</div>
       <div class="daily-task">${q.task}</div>
       <div class="progress-bar-wrap">
         <div class="progress-bar-fill" style="width:${pct}%"></div>
       </div>
       <div class="daily-progress-label">${cur} / ${q.target} (${pct}%)</div>
       <div class="daily-rewards">
-        ${q.rewardGreen  ? `<span>🌿 ${q.rewardGreen}</span>`  : ''}
+        ${q.rewardGreen  ? `<span>${IC.greens(14)} ${q.rewardGreen}</span>`  : ''}
         ${q.rewardExp    ? `<span>✨ ${q.rewardExp} exp</span>` : ''}
-        ${q.rewardGold   ? `<span>🏅 ${q.rewardGold}</span>`   : ''}
+        ${q.rewardGold   ? `<span>${IC.gold(14)} ${q.rewardGold}</span>`   : ''}
         ${q.rewardGlory  ? `<span>⭐ +${q.rewardGlory} слави</span>` : ''}
         <span>🎁 Випадковий предмет</span>
       </div>
       ${completed && !claimed
         ? `<button class="btn btn-green btn-full" onclick="claimDailyQuest()">🎁 Забрати нагороду!</button>`
         : claimed
-          ? `<div class="daily-done">✅ Нагороду отримано!</div>`
+          ? `<div class="daily-done">${IC.ok(14)} Нагороду отримано!</div>`
           : `<div class="daily-hint">Виконуй квест протягом дня</div>`
       }
     </div>`;
@@ -3952,8 +3965,8 @@ function renderDailyQuest(el, ev, progress) {
 
 async function claimDailyQuest() {
   try {
-    const r = await API.post('/api/daily/claim');
-    toast(`🎉 Нагорода: 🌿${r.rewardGreen} ${r.rewardGold ? '🏅'+r.rewardGold : ''} + предмет!`);
+    const r = await API.post(`/api/daily/claim`);
+    toast(`${IC.celebrate(14)} Нагорода: ${IC.greens(14)}${r.rewardGreen} ${r.rewardGold ? `${IC.gold(14)}${r.rewardGold}` : ''} + предмет!`);
     await refreshPlayer();
     loadDaily();
   } catch(e) { toast(e.message, true); }
@@ -3967,14 +3980,14 @@ function renderDailyTournament(el, ev, progress) {
   const claimed    = progress?.reward_claimed;
 
   const tiers = [
-    { min: 5, label: '🥇 1 місце', reward: '500 🌿 + слава' },
-    { min: 3, label: '🥈 2–3 місце', reward: '200 🌿' },
-    { min: 1, label: 'Учасник', reward: '50 🌿' },
+    { min: 5, label: `${IC.medal1(14)} 1 місце`, reward: `500 ${IC.greens(14)} + слава` },
+    { min: 3, label: `${IC.medal2(14)} 2–3 місце`, reward: `200 ${IC.greens(14)}` },
+    { min: 1, label: 'Учасник', reward: `50 ${IC.greens(14)}` },
   ];
 
   el.innerHTML = `
     <div class="daily-card">
-      <div class="daily-type-badge">⚔️ Щоденний турнір</div>
+      <div class="daily-type-badge">${IC.swords(14)} Щоденний турнір</div>
       <div class="daily-task">5 боїв проти гравців близького рівня</div>
       <div class="daily-tournament-score">
         <span>Боїв: <strong>${fightsDone}/${maxFights}</strong></span>
@@ -3986,10 +3999,10 @@ function renderDailyTournament(el, ev, progress) {
         </div>`).join('')}
       </div>
       ${!completed
-        ? `<button class="btn btn-red btn-full" onclick="tournamentFight()" id="tournament-fight-btn">⚔️ Бій!</button>`
+        ? `<button class="btn btn-red btn-full" onclick="tournamentFight()" id="tournament-fight-btn">${IC.swords(14)} Бій!</button>`
         : claimed
-          ? `<div class="daily-done">✅ Нагороду отримано!</div>`
-          : `<button class="btn btn-green btn-full" onclick="claimTournament()">🏆 Забрати нагороду!</button>`
+          ? `<div class="daily-done">${IC.ok(14)} Нагороду отримано!</div>`
+          : `<button class="btn btn-green btn-full" onclick="claimTournament()">${IC.trophy(14)} Забрати нагороду!</button>`
       }
     </div>`;
 }
@@ -4002,9 +4015,9 @@ async function tournamentFight() {
   if (btn) btn.disabled = true;
   try {
     const r = await API.post('/api/daily/tournament/fight');
-    const resultTxt = r.won ? `✅ Перемога над ${r.opponentName}!` : `❌ Поразка від ${r.opponentName}`;
-    toast(`⚔️ ${resultTxt} (${r.wins}/${r.fightsDone} перемог)`);
-    if (r.isCompleted) { toast('🏆 Усі турнірні бої завершено!'); }
+    const resultTxt = r.won ? `${IC.ok(14)} Перемога над ${r.opponentName}!` : `${IC.no(14)} Поразка від ${r.opponentName}`;
+    toast(`${IC.swords(14)} ${resultTxt} (${r.wins}/${r.fightsDone} перемог)`);
+    if (r.isCompleted) { toast(`${IC.trophy(14)} Усі турнірні бої завершено!`); }
     loadDaily();
   } catch(e) { toast(e.message, true); } finally {
     _tournamentFighting = false;
@@ -4014,7 +4027,7 @@ async function tournamentFight() {
 async function claimTournament() {
   try {
     const r = await API.post('/api/daily/tournament/claim');
-    toast(`🏆 ${r.rank}: +${r.rewardGreen} 🌿 ${r.rewardGlory ? '+'+r.rewardGlory+' слави' : ''}`);
+    toast(`${IC.trophy(14)} ${r.rank}: +${r.rewardGreen} ${IC.greens(14)} ${r.rewardGlory ? '+'+r.rewardGlory+' слави' : ''}`);
     await refreshPlayer();
     loadDaily();
   } catch(e) { toast(e.message, true); }
@@ -4024,17 +4037,17 @@ const WHEEL_SECTOR_EMOJIS = { greens: '🌿', gold: '🏅', potion: '🧪', item
 
 function renderDailyWheel(el, ev, spunToday) {
   const sectors = [
-    { type: 'greens',  label: '🌿 Зелень',    chance: '35%', color: '#4caf50' },
-    { type: 'gold',    label: '🏅 Золото',     chance: '25%', color: '#ff8f00' },
-    { type: 'potion',  label: '🧪 Зілля',      chance: '20%', color: '#7c4dff' },
-    { type: 'item',    label: '📦 Предмет',    chance: '10%', color: '#0097a7' },
-    { type: 'diamond', label: '💎 Алмази',     chance: '7%',  color: '#1565c0' },
+    { type: 'greens',  label: `${IC.greens(14)} Зелень`,    chance: '35%', color: '#4caf50' },
+    { type: 'gold',    label: `${IC.gold(14)} Золото`,     chance: '25%', color: '#ff8f00' },
+    { type: 'potion',  label: `${IC.pill(14)} Зілля`,      chance: '20%', color: '#7c4dff' },
+    { type: 'item',    label: `${IC.package(14)} Предмет`,    chance: '10%', color: '#0097a7' },
+    { type: 'diamond', label: `${IC.diamonds(14)} Алмази`,     chance: '7%',  color: '#1565c0' },
     { type: 'rare',    label: '🎁 Рідкісний',  chance: '3%',  color: '#c62828' },
   ];
 
   el.innerHTML = `
     <div class="daily-card">
-      <div class="daily-type-badge">🎰 Колесо Фортуни</div>
+      <div class="daily-type-badge">${IC.slot(14)} Колесо Фортуни</div>
       <div class="wheel-container">
         <div class="wheel" id="fortune-wheel">
           ${sectors.map((s, i) => `
@@ -4049,8 +4062,8 @@ function renderDailyWheel(el, ev, spunToday) {
       </div>
       <div id="wheel-result" style="text-align:center;font-size:15px;font-weight:700;margin:10px 0;min-height:24px"></div>
       ${spunToday
-        ? `<div class="daily-done">✅ Сьогодні вже крутив! Повертайся завтра.</div>`
-        : `<button class="btn btn-full daily-spin-btn" id="spin-btn" onclick="spinWheel()">🎰 Крутити колесо!</button>`
+        ? `<div class="daily-done">${IC.ok(14)} Сьогодні вже крутив! Повертайся завтра.</div>`
+        : `<button class="btn btn-full daily-spin-btn" id="spin-btn" onclick="spinWheel()">${IC.slot(14)} Крутити колесо!</button>`
       }
     </div>`;
 }
@@ -4078,7 +4091,7 @@ async function spinWheel() {
     if (resultEl) resultEl.innerHTML = `
       <span style="font-size:24px">${WHEEL_SECTOR_EMOJIS[r.sectorType] || '🎁'}</span><br>
       <span style="color:#2e7d32">${r.prizeLabel}</span>`;
-    toast(`🎰 Колесо Фортуни: ${r.prizeLabel}!`);
+    toast(`${IC.slot(14)} Колесо Фортуни: ${r.prizeLabel}!`);
     await refreshPlayer();
     // Reload to show "already spun" state
     setTimeout(() => loadDaily(), 2000);
@@ -4117,7 +4130,18 @@ async function loadClanDefense() {
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
 }
 
-const WAVE_DANGER = ['','✅','✅','✅','🟡','🟡','🟡','🟠','🟠','🟠','🔴','🔴','☠️'];
+const WAVE_DANGER = ['',
+  IC.ok(14),IC.ok(14),IC.ok(14),
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ffc107;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff9800;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff9800;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ff9800;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53935;vertical-align:middle"></span>',
+  '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#e53935;vertical-align:middle"></span>',
+  IC.skull(14)
+];
 
 function renderCdefActive(el, r) {
   const ev      = r.event;
@@ -4137,8 +4161,8 @@ function renderCdefActive(el, r) {
     </div>
     <div class="cdef-wave-card">
       <div class="cdef-wave-header">
-        <span>${WAVE_DANGER[ev.current_wave] || '⚔️'} Хвиля ${ev.current_wave}/12: ${r.waveName}</span>
-        <span class="cdef-wave-timer" id="cdef-wave-timer">⏳ ...</span>
+        <span>${WAVE_DANGER[ev.current_wave] || `${IC.swords(14)}`} Хвиля ${ev.current_wave}/12: ${r.waveName}</span>
+        <span class="cdef-wave-timer" id="cdef-wave-timer">${IC.timer(14)} ...</span>
       </div>
       <div class="cdef-hp-row">
         <div class="cdef-hp-bar-bg">
@@ -4152,16 +4176,16 @@ function renderCdefActive(el, r) {
       <span>Мій урон: <b>${fmtNum(r.myDamage)}</b></span>
       <span>Хвиль відбито: <b>${ev.waves_survived}</b></span>
     </div>
-    <button class="btn btn-red btn-full cdef-defend-btn" id="cdef-defend-btn" onclick="cdefDefend()">⚔️ Захищати!</button>
+    <button class="btn btn-red btn-full cdef-defend-btn" id="cdef-defend-btn" onclick="cdefDefend()">${IC.swords(14)} Захищати!</button>
   `;
 
   const waveEndsAt = new Date(ev.wave_starts_at).getTime() + 5 * 60 * 1000;
   _cdefTimerInterval = setInterval(() => {
     const left = Math.max(0, waveEndsAt - Date.now());
-    const timerEl = document.getElementById('cdef-wave-timer');
+    const timerEl = document.getElementById(`cdef-wave-timer`);
     if (timerEl) {
       const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
-      timerEl.textContent = left > 0 ? `⏳ ${m}:${s.toString().padStart(2,'0')}` : '⏳ Перехід...';
+      timerEl.textContent = left > 0 ? `${IC.timer(14)} ${m}:${s.toString().padStart(2,'0')}` : `${IC.timer(14)} Перехід...`;
     }
     if (left === 0) { clearInterval(_cdefTimerInterval); setTimeout(() => loadClanDefense(), 5000); }
   }, 1000);
@@ -4182,7 +4206,7 @@ function renderCdefInactive(el, lastEvent, reason) {
     </div>`;
     return;
   }
-  const statusIcon = lastEvent.is_victory ? '🏆' : lastEvent.status === 'defeated' ? '💀' : '⚔️';
+  const statusIcon = lastEvent.is_victory ? `${IC.trophy(14)}` : lastEvent.status === 'defeated' ? `${IC.skull(14)}` : `${IC.swords(14)}`;
   el.innerHTML = `
     <div class="cdef-result-card">
       <div style="text-align:center;font-size:32px">${statusIcon}</div>
@@ -4207,7 +4231,7 @@ async function cdefDefend() {
   if (btn) btn.disabled = true;
   try {
     const r = await API.post('/api/clan-defense/defend');
-    toast(`⚔️ Удар по хвилі: ${fmtNum(r.damage)} урону!`);
+    toast(`${IC.swords(14)} Удар по хвилі: ${fmtNum(r.damage)} урону!`);
   } catch(e) {
     toast(e.message, true);
     if (e.message.includes('Немає')) loadClanDefense();
@@ -4224,7 +4248,7 @@ async function loadCdefHistory() {
     el.innerHTML = history.map(h => `
       <div class="dragon-history-item">
         <div class="flex-between">
-          <span>${h.is_victory ? '🏆 Перемога' : h.status === 'defeated' ? '💀 Поразка' : '⚔️ Завершено'} · ${h.participant_count} уч.</span>
+          <span>${h.is_victory ? `${IC.trophy(14)} Перемога` : h.status === 'defeated' ? `${IC.skull(14)} Поразка` : `${IC.swords(14)} Завершено`} · ${h.participant_count} уч.</span>
           <span class="text-muted" style="font-size:11px">${kyivDate(h.started_at)}</span>
         </div>
         <div style="font-size:13px;margin-top:4px">
@@ -4282,7 +4306,7 @@ function renderPetsMy() {
   const _revSpent = training?.total_green_spent || 0;
   const reviveGreenCost = Math.max(0, Math.floor(_revSpent * 0.5));
   const reviveGoldCost  = _revSpent === 0 ? 100 : Math.min(500, 50 * (Math.floor(_revSpent / 5000) + 1));
-  const reviveCostLabel = [reviveGreenCost > 0 ? `${fmtNum(reviveGreenCost)} 🌿` : null, `${fmtNum(reviveGoldCost)} 🏅`].filter(Boolean).join(' + ');
+  const reviveCostLabel = [reviveGreenCost > 0 ? `${fmtNum(reviveGreenCost)} ${IC.greens(14)}` : null, `${fmtNum(reviveGoldCost)} ${IC.gold(14)}`].filter(Boolean).join(' + ');
 
   const eqSlots = ['collar','amulet','armor','boots'].map(slot => {
     const eq = equipment.find(e => e.slot === slot);
@@ -4300,12 +4324,12 @@ function renderPetsMy() {
       <div style="font-size:52px;margin-bottom:6px">${pet.icon}</div>
       <div style="font-weight:700;font-size:18px;margin-bottom:2px">${pet.name}</div>
       <div style="color:${rarityColors[pet.rarity]};font-size:13px;font-weight:600">${RARITY_LABEL[pet.rarity] || ''}</div>
-      ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:6px;font-size:15px">💀 МЕРТВА</div>` : ''}
+      ${isDead ? `<div style="color:#c62828;font-weight:700;margin-top:6px;font-size:15px">${IC.skull(14)} МЕРТВА</div>` : ``}
     </div>
 
     <div style="margin-bottom:12px">
       <div style="display:flex;justify-content:space-between;font-size:12px;color:#666;margin-bottom:2px">
-        <span>❤️ HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
+        <span>${IC.heart(14)} HP</span><span>${fmtNum(pet.hp_current)} / ${fmtNum(eff.hp_max || pet.hp_max)}</span>
       </div>
       <div style="background:#f0f0f0;border-radius:6px;height:10px;overflow:hidden">
         <div style="background:${hpPct > 50 ? '#43a047' : hpPct > 25 ? '#fb8c00' : '#e53935'};height:100%;width:${hpPct}%;transition:width .3s"></div>
@@ -4342,12 +4366,12 @@ function renderPetsMy() {
       </div>` : ''}
 
     <div style="background:#e8f5e9;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">
-      <div style="font-weight:600;margin-bottom:6px">⚔️ Бойові характеристики</div>
+      <div style="font-weight:600;margin-bottom:6px">${IC.swords(14)} Бойові характеристики</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <div>⚡ Урон за удар:<br><b>${Math.max(1,Math.floor((eff.power||pet.power)*0.8))}–${Math.floor((eff.power||pet.power)*1.2)}</b></div>
-        <div>🎯 Шанс влучення:<br><b>${Math.min(100,Math.round(50+(eff.accuracy||pet.accuracy)*0.625))}%</b></div>
-        <div>🛡️ Зниження урону:<br><b>${Math.min(40,Math.round((eff.endurance||pet.endurance)*0.5))}%</b></div>
-        <div>💨 Ініціатива:<br><b>${eff.speed||pet.speed} оч.</b></div>
+        <div>${IC.lightning(14)} Урон за удар:<br><b>${Math.max(1,Math.floor((eff.power||pet.power)*0.8))}–${Math.floor((eff.power||pet.power)*1.2)}</b></div>
+        <div>${IC.accuracy(14)} Шанс влучення:<br><b>${Math.min(100,Math.round(50+(eff.accuracy||pet.accuracy)*0.625))}%</b></div>
+        <div>${IC.shield(14)} Зниження урону:<br><b>${Math.min(40,Math.round((eff.endurance||pet.endurance)*0.5))}%</b></div>
+        <div>${IC.speed(14)} Ініціатива:<br><b>${eff.speed||pet.speed} оч.</b></div>
       </div>
     </div>
 
@@ -4359,13 +4383,13 @@ function renderPetsMy() {
     <div style="display:flex;gap:8px;flex-wrap:wrap">
       ${isDead
         ? `<div style="background:#ffebee;border:1px solid #ef9a9a;border-radius:8px;padding:10px;margin-bottom:10px;font-size:13px">
-             💀 Тваринка загинула.<br>
+             ${IC.skull(14)} Тваринка загинула.<br>
              Вартість відновлення: <b>${reviveCostLabel}</b><br>
              <span style="color:#777;font-size:11px">Після відновлення HP = 50% від максимуму · HP надалі відновлюється на 10%/год</span>
            </div>
            <button class="btn btn-red" onclick="revivePet()">💊 Відновити (${reviveCostLabel})</button>`
         : `<button class="btn ${pet.is_active ? 'btn-gray' : 'btn-green'}" onclick="togglePet()">
-             ${pet.is_active ? '🏠 Лишити вдома' : '⚔️ Взяти в бій'}
+             ${pet.is_active ? '🏠 Лишити вдома' : `${IC.swords(14)} Взяти в бій`}
            </button>
            <button class="btn btn-blue btn-sm" onclick="healPet()">💉 Вилікувати</button>`
       }
@@ -4373,11 +4397,11 @@ function renderPetsMy() {
 
     ${stats ? `
       <div style="margin-top:16px;padding-top:12px;border-top:1px solid #eee;font-size:12px;color:#666;display:flex;flex-wrap:wrap;gap:8px">
-        <span>⚔️ Боїв: <b>${stats.battles_participated}</b></span>
-        <span>🏆 Перемог: <b>${stats.wins}</b></span>
-        <span>💀 Загибель: <b>${stats.deaths}</b>р</span>
+        <span>${IC.swords(14)} Боїв: <b>${stats.battles_participated}</b></span>
+        <span>${IC.trophy(14)} Перемог: <b>${stats.wins}</b></span>
+        <span>${IC.skull(14)} Загибель: <b>${stats.deaths}</b>р</span>
         <span>💥 Урон: <b>${fmtNum(stats.total_damage)}</b></span>
-        ${stats.pets_killed > 0 ? `<span>🐾 Вбито ворожих: <b>${stats.pets_killed}</b></span>` : ''}
+        ${stats.pets_killed > 0 ? `<span>${IC.paw(14)} Вбито ворожих: <b>${stats.pets_killed}</b></span>` : ''}
         ${stats.ability_procs > 0 ? `<span>✨ Здібність: <b>${stats.ability_procs}</b>р</span>` : ''}
       </div>` : ''}
   `;
@@ -4386,7 +4410,7 @@ function renderPetsMy() {
 async function togglePet() {
   try {
     const r = await API.post('/api/pets/toggle');
-    toast(r.is_active ? '⚔️ Тваринка йде в бій!' : '🏠 Тваринка залишається вдома');
+    toast(r.is_active ? `${IC.swords(14)} Тваринка йде в бій!` : '🏠 Тваринка залишається вдома');
     await loadPets();
   } catch(e) { toast(e.message, true); }
 }
@@ -4398,11 +4422,11 @@ async function revivePet() {
     const green = Math.max(0, Math.floor(spent * 0.5));
     const gold  = spent === 0 ? 100 : Math.min(500, 50 * (Math.floor(spent / 5000) + 1));
     const costParts = [];
-    if (green > 0) costParts.push(`${fmtNum(green)} 🌿`);
-    costParts.push(`${fmtNum(gold)} 🏅`);
+    if (green > 0) costParts.push(`${fmtNum(green)} ${IC.greens(14)}`);
+    costParts.push(`${fmtNum(gold)} ${IC.gold(14)}`);
     if (!confirm(`Відновлення тваринки коштує: ${costParts.join(' + ')}.\nПісля відновлення HP = 50% від максимуму.\nПродовжити?`)) return;
     const r = await API.post('/api/pets/revive');
-    const spent2 = [r.greenCost > 0 ? `${fmtNum(r.greenCost)} 🌿` : null, `${fmtNum(r.goldCost)} 🏅`].filter(Boolean).join(' + ');
+    const spent2 = [r.greenCost > 0 ? `${fmtNum(r.greenCost)} ${IC.greens(14)}` : null, `${fmtNum(r.goldCost)} ${IC.gold(14)}`].filter(Boolean).join(' + ');
     toast(`💊 Тваринка відновлена! HP: ${fmtNum(r.hpCurrent)} · Витрачено: ${spent2}`);
     await loadPets();
     refreshPlayer();
@@ -4412,7 +4436,7 @@ async function revivePet() {
 async function healPet() {
   try {
     const r = await API.post('/api/pets/heal');
-    toast(`💉 HP відновлено! Витрачено ${fmtNum(r.cost)} 🌿`);
+    toast(`💉 HP відновлено! Витрачено ${fmtNum(r.cost)} ${IC.greens(14)}`);
     await loadPets();
     refreshPlayer();
   } catch(e) { toast(e.message, true); }
@@ -4425,11 +4449,11 @@ function _petCard(p, hasPet) {
   const defPct = Math.min(40, Math.round(p.endurance * 0.5));
   const statRow = `
     <div class="pet-stats-grid">
-      <div class="pet-stat-chip"><span>⚡ Міць</span><b>${p.power}</b></div>
-      <div class="pet-stat-chip"><span>🛡️ Стійк</span><b>${p.endurance}</b></div>
-      <div class="pet-stat-chip"><span>💨 Швид</span><b>${p.speed}</b></div>
-      <div class="pet-stat-chip"><span>🎯 Точн</span><b>${p.accuracy}</b></div>
-      <div class="pet-stat-chip" style="grid-column:1/-1"><span>❤️ HP</span><b>${p.hp}</b></div>
+      <div class="pet-stat-chip"><span>${IC.lightning(14)} Міць</span><b>${p.power}</b></div>
+      <div class="pet-stat-chip"><span>${IC.shield(14)} Стійк</span><b>${p.endurance}</b></div>
+      <div class="pet-stat-chip"><span>${IC.speed(14)} Швид</span><b>${p.speed}</b></div>
+      <div class="pet-stat-chip"><span>${IC.accuracy(14)} Точн</span><b>${p.accuracy}</b></div>
+      <div class="pet-stat-chip" style="grid-column:1/-1"><span>${IC.heart(14)} HP</span><b>${p.hp}</b></div>
     </div>
     <div style="font-size:11px;color:#777;background:rgba(0,0,0,.04);border-radius:6px;padding:4px 6px;margin-bottom:6px">
       Урон: ${dmgMin}–${dmgMax} · Влучення: ${hitPct}% · Захист: ${defPct}%
@@ -4437,7 +4461,7 @@ function _petCard(p, hasPet) {
   const abilityBox = p.abilityDesc
     ? `<div class="pet-ability-box">✨ ${p.abilityDesc}</div>`
     : '';
-  const btnLabel = `${p.price} ${p.currency === 'diamonds' ? '💎' : '🏅'}`;
+  const btnLabel = `${p.price} ${p.currency === 'diamonds' ? IC.diamonds(14) : IC.gold(14)}`;
   return `
     <div class="pet-card rarity-${p.rarity}">
       <div class="pet-card-icon">${p.icon}</div>
@@ -4490,7 +4514,7 @@ async function renderPetsShop() {
                 onclick="buyEquip('${eq.slot}',${l.level})"
                 ${(!hasPet || isCurrent) ? 'disabled' : ''}
                 title="${l.bonus > 0 ? `+${l.bonus} до ${statLabel}` : ''}">
-                ${isCurrent ? `✓ Рів.${l.level}` : `Рів.${l.level}: +${l.bonus} · ${fmtNum(l.price)}🏅`}
+                ${isCurrent ? `✓ Рів.${l.level}` : `Рів.${l.level}: +${l.bonus} · ${fmtNum(l.price)}${IC.gold(14)}`}
               </button>`;
             }).join('')}
           </div>
@@ -4517,13 +4541,13 @@ async function renderPetsShop() {
         <div></div>
       </div>
 
-      <div class="pet-section-title" style="margin-top:20px">🛡️ Екіпіровка тваринки</div>
+      <div class="pet-section-title" style="margin-top:20px">${IC.shield(14)} Екіпіровка тваринки</div>
       ${!hasPet ? '<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>' : ''}
       ${eqRows}
 
-      <div class="pet-section-title" style="margin-top:20px">🧪 Зілля для тваринки</div>
+      <div class="pet-section-title" style="margin-top:20px">${IC.pill(14)} Зілля для тваринки</div>
       ${!hasPet
-        ? '<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>'
+        ? `<p style="font-size:13px;color:#888;margin-bottom:8px">Спочатку придбайте тваринку</p>`
         : (() => {
             const myPet = petsData?.pet;
             const hpFull = myPet && myPet.hp_current >= (myPet.effective?.hp_max || myPet.hp_max);
@@ -4531,19 +4555,19 @@ async function renderPetsShop() {
               <div style="font-size:12px;color:#888;margin-bottom:10px">📌 Разові предмети — купівля = миттєве використання</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
                 <div style="background:#fff3e0;border:1px solid #ffe0b2;border-radius:10px;padding:12px;text-align:center">
-                  <div style="font-size:28px">❤️</div>
+                  <div style="font-size:28px">${IC.heart(14)}</div>
                   <div style="font-weight:600;margin:4px 0;font-size:14px">Зілля HP</div>
                   <div style="font-size:12px;color:#666;margin-bottom:8px">Відновлює 30% HP тваринки миттєво</div>
-                  <div style="font-size:12px;font-weight:600;color:#e65100;margin-bottom:6px">200 🏅</div>
+                  <div style="font-size:12px;font-weight:600;color:#e65100;margin-bottom:6px">200 ${IC.gold(14)}</div>
                   ${hpFull
-                    ? `<div style="font-size:11px;color:#388e3c">✅ HP вже повне</div>`
+                    ? `<div style="font-size:11px;color:#388e3c">${IC.ok(14)} HP вже повне</div>`
                     : `<button class="btn btn-sm btn-orange" onclick="buyPetPotion('hp')">Використати</button>`}
                 </div>
                 <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:12px;text-align:center">
-                  <div style="font-size:28px">⚡</div>
+                  <div style="font-size:28px">${IC.lightning(14)}</div>
                   <div style="font-weight:600;margin:4px 0;font-size:14px">Зілля мощі</div>
                   <div style="font-size:12px;color:#666;margin-bottom:8px">+1 до Мощі назавжди</div>
-                  <div style="font-size:12px;font-weight:600;color:#1565c0;margin-bottom:6px">400 🏅</div>
+                  <div style="font-size:12px;font-weight:600;color:#1565c0;margin-bottom:6px">400 ${IC.gold(14)}</div>
                   <button class="btn btn-sm btn-blue" onclick="buyPetPotion('power')">Використати</button>
                 </div>
               </div>`;
@@ -4556,7 +4580,7 @@ async function buyPet(petType) {
   if (!confirm(`Купити тваринку? Ця дія незворотня — тваринка одна на все життя.`)) return;
   try {
     const r = await API.post('/api/pets/buy', { petType });
-    toast(`🐾 ${r.pet.name} тепер ваша тваринка!`);
+    toast(`${IC.paw(14)} ${r.pet.name} тепер ваша тваринка!`);
     await loadPets();
     showPetsTab('my', document.querySelector('#pets-tabs .cat-tab'));
   } catch(e) { toast(e.message, true); }
@@ -4568,10 +4592,10 @@ async function buyEquip(slot, level) {
   const lvlData  = slotData?.levels.find(l => l.level === level);
   if (!lvlData) return;
   const statLabel = slot === 'armor' ? 'HP' : STAT_LABELS[slotData.stat] || slotData.stat;
-  if (!confirm(`${SLOT_NAMES[slot]} рівень ${level}\n+${lvlData.bonus} до ${statLabel}\nВартість: ${fmtNum(lvlData.price)} 🏅\nПридбати?`)) return;
+  if (!confirm(`${SLOT_NAMES[slot]} рівень ${level}\n+${lvlData.bonus} до ${statLabel}\nВартість: ${fmtNum(lvlData.price)} ${IC.gold(14)}\nПридбати?`)) return;
   try {
-    const r = await API.post('/api/pets/equip', { slot, level });
-    toast(`✅ ${SLOT_NAMES[slot]} рів.${level} (+${r.bonus} ${statLabel}) встановлено!`);
+    const r = await API.post(`/api/pets/equip`, { slot, level });
+    toast(`${IC.ok(14)} ${SLOT_NAMES[slot]} рів.${level} (+${r.bonus} ${statLabel}) встановлено!`);
     await loadPets();
     renderPetsShop();
     refreshPlayer();
@@ -4581,11 +4605,11 @@ async function buyEquip(slot, level) {
 async function buyPetPotion(type) {
   const names = { hp: 'Зілля HP (відновить 30% HP)', power: 'Зілля мощі (+1 до Мощі назавжди)' };
   const costs = { hp: 200, power: 400 };
-  if (!confirm(`${names[type]}\nВартість: ${fmtNum(costs[type])} 🏅\nВикористати?`)) return;
+  if (!confirm(`${names[type]}\nВартість: ${fmtNum(costs[type])} ${IC.gold(14)}\nВикористати?`)) return;
   try {
     const r = await API.post('/api/pets/potion', { type });
-    if (type === 'hp') toast(`❤️ Зілля HP! +${r.restored} HP · Залишок: ${fmtNum(r.hpCurrent)}`);
-    else toast(`⚡ Зілля мощі! Міць тепер ${r.newPower}`);
+    if (type === 'hp') toast(`${IC.heart(14)} Зілля HP! +${r.restored} HP · Залишок: ${fmtNum(r.hpCurrent)}`);
+    else toast(`${IC.lightning(14)} Зілля мощі! Міць тепер ${r.newPower}`);
     await loadPets();
     renderPetsShop();
     refreshPlayer();
@@ -4641,34 +4665,34 @@ async function renderPetsTrain() {
         ${lvl < 50
           ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
                <button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
-                 ▲ +1 · ${fmtNum(cost)} 🌿
+                 ▲ +1 · ${fmtNum(cost)} ${IC.greens(14)}
                </button>
                ${[5,10,20,50].filter(t => t > lvl).slice(0,2).map(t => {
                  let bulkCost = 0;
                  for (let l = lvl+1; l <= t; l++) bulkCost += Math.floor(l*l*10+l*20);
-                 return `<button class="btn btn-gray btn-sm" onclick="trainPetBulk('${stat}',${t})">до рів.${t} · ${fmtNum(bulkCost)} 🌿</button>`;
+                 return `<button class="btn btn-gray btn-sm" onclick="trainPetBulk('${stat}',${t})">до рів.${t} · ${fmtNum(bulkCost)} ${IC.greens(14)}</button>`;
                }).join('')}
              </div>`
-          : `<span style="color:#388e3c;font-size:13px;font-weight:600">✅ Максимум</span>`}
+          : `<span style="color:#388e3c;font-size:13px;font-weight:600">${IC.ok(14)} Максимум</span>`}
       </div>`;
-  }).join('');
+  }).join(``);
 
   // Таблиця витрат
   const totalAll       = Math.floor(training.total_green_spent);
   const revGreen       = Math.max(0, Math.floor(totalAll * 0.5));
   const revGold        = totalAll === 0 ? 100 : Math.min(500, 50 * (Math.floor(totalAll / 5000) + 1));
-  const revCostStr     = [revGreen > 0 ? `${fmtNum(revGreen)} 🌿` : null, `${fmtNum(revGold)} 🏅`].filter(Boolean).join(' + ');
+  const revCostStr     = [revGreen > 0 ? `${fmtNum(revGreen)} ${IC.greens(14)}` : null, `${fmtNum(revGold)} ${IC.gold(14)}`].filter(Boolean).join(` + `);
 
   el.innerHTML = `
     <div style="background:#f1f8e9;border-radius:8px;padding:10px;margin-bottom:14px;font-size:13px">
-      💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> 🌿
+      💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> ${IC.greens(14)}
       · Вартість відновлення: <b>${revCostStr}</b>
     </div>
     <div class="pet-combat-legend">
-      <div class="pet-combat-legend-item"><b>⚡ Міць</b>Урон за удар</div>
-      <div class="pet-combat-legend-item"><b>🛡️ Стійкість</b>Зниження вх. урону (до 40%)</div>
-      <div class="pet-combat-legend-item"><b>💨 Швидкість</b>Ініціатива — хто б'є першим</div>
-      <div class="pet-combat-legend-item"><b>🎯 Точність</b>Шанс влучення (50%–100%)</div>
+      <div class="pet-combat-legend-item"><b>${IC.lightning(14)} Міць</b>Урон за удар</div>
+      <div class="pet-combat-legend-item"><b>${IC.shield(14)} Стійкість</b>Зниження вх. урону (до 40%)</div>
+      <div class="pet-combat-legend-item"><b>${IC.speed(14)} Швидкість</b>Ініціатива — хто б'є першим</div>
+      <div class="pet-combat-legend-item"><b>${IC.accuracy(14)} Точність</b>Шанс влучення (50%–100%)</div>
     </div>
     <div style="font-size:12px;color:#999;margin-bottom:12px">
       Формула прокачки: рівень² × 10 + рівень × 20 · Макс рівень: 50
@@ -4680,7 +4704,7 @@ async function renderPetsTrain() {
 async function trainPet(stat) {
   try {
     const r = await API.post('/api/pets/train', { stat });
-    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} 🌿`);
+    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} ${IC.greens(14)}`);
     await loadPets();
     renderPetsTrain();
     refreshPlayer();
@@ -4690,7 +4714,7 @@ async function trainPet(stat) {
 async function trainPetBulk(stat, targetLevel) {
   try {
     const r = await API.post('/api/pets/train-bulk', { stat, targetLevel });
-    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} 🌿`);
+    toast(`${STAT_LABELS[stat]} → рівень ${r.newLevel}! Витрачено ${fmtNum(r.cost)} ${IC.greens(14)}`);
     await loadPets();
     renderPetsTrain();
     refreshPlayer();
