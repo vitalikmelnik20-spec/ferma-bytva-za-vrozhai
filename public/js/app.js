@@ -3713,28 +3713,6 @@ function renderDragonInactive(lastEvent) {
   </div>`;
 }
 
-function _updateDragonAttackBtn() {
-  const btn = document.getElementById('dragon-attack-btn');
-  if (!btn) return;
-  if (_dragonAttackState === 'waiting') {
-    btn.disabled = true;
-    btn.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
-    btn.style.cssText = 'background:#9e9e9e;color:#fff';
-  } else if (_dragonAttackState === 'ready') {
-    btn.disabled = false;
-    btn.textContent = `⚔️ АТАКУВАТИ! (${_dragonWindowCd}с)`;
-    btn.style.cssText = 'background:#c62828;color:#fff;animation:dragon-pulse 0.4s ease infinite alternate';
-  } else if (_dragonAttackState === 'missed') {
-    btn.disabled = true;
-    btn.textContent = '⏰ Удар пропущено...';
-    btn.style.cssText = 'background:#9e9e9e;color:#fff';
-  } else if (_dragonAttackState === 'attacking') {
-    btn.disabled = true;
-    btn.textContent = '⚔️ Атакую...';
-    btn.style.cssText = 'background:#e53935;color:#fff';
-  }
-}
-
 function _enableDragonAttack() {
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
@@ -3743,7 +3721,9 @@ function _enableDragonAttack() {
   if (!btn) return;
   btn.disabled = false;
   btn.textContent = '⚔️ АТАКУВАТИ!';
-  btn.style.cssText = 'background:#c62828;color:#fff;animation:dragon-pulse 0.4s ease infinite alternate';
+  btn.style.background = '#c62828';
+  btn.style.color = '#fff';
+  btn.style.animation = '';
 }
 
 function startDragonAttackTimer() {
@@ -3751,7 +3731,14 @@ function startDragonAttackTimer() {
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'waiting';
   _dragonAttackCd    = 30 + Math.floor(Math.random() * 91); // 30–120s
-  _updateDragonAttackBtn();
+  const btn = document.getElementById('dragon-attack-btn');
+  if (btn) {
+    btn.disabled = true;
+    btn.style.background = '#9e9e9e';
+    btn.style.color = '#fff';
+    btn.style.animation = '';
+    btn.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
+  }
   _dragonAttackCdInterval = setInterval(() => {
     _dragonAttackCd--;
     if (_dragonAttackCd <= 0) {
@@ -3759,7 +3746,8 @@ function startDragonAttackTimer() {
       _enableDragonAttack();
       return;
     }
-    _updateDragonAttackBtn();
+    const b = document.getElementById('dragon-attack-btn');
+    if (b) b.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
   }, 1000);
 }
 
@@ -3767,7 +3755,8 @@ async function attackDragon() {
   if (_dragonAttackState !== 'ready') return;
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'attacking';
-  _updateDragonAttackBtn();
+  const btn = document.getElementById('dragon-attack-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '⚔️ Атакую...'; btn.style.background = '#e53935'; }
   try {
     const r = await API.post('/api/dragon/attack');
     const critTxt = r.isCrit ? ' 💥 КРИТ!' : '';
