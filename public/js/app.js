@@ -3661,6 +3661,7 @@ function renderDragonActive(r) {
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
       <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>⏳ Зачекай...</button>
+      <div id="dragon-cd-label" style="text-align:center;font-size:13px;color:#aaa;margin:-6px 0 6px;min-height:18px"></div>
       <div class="dragon-top5" id="dragon-top5">
         ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${p.username}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
@@ -3717,6 +3718,8 @@ function _enableDragonAttack() {
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'ready';
+  const lbl = document.getElementById('dragon-cd-label');
+  if (lbl) lbl.textContent = '';
   const btn = document.getElementById('dragon-attack-btn');
   if (!btn) return;
   btn.disabled = false;
@@ -3737,17 +3740,20 @@ function startDragonAttackTimer() {
     btn.style.background = '#9e9e9e';
     btn.style.color = '#fff';
     btn.style.animation = '';
-    btn.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
+    btn.textContent = 'Перезаряджання...';
   }
+  const lbl = document.getElementById('dragon-cd-label');
+  if (lbl) lbl.textContent = `наступний удар через ${_dragonAttackCd}с`;
   _dragonAttackCdInterval = setInterval(() => {
     _dragonAttackCd--;
+    const l = document.getElementById('dragon-cd-label');
     if (_dragonAttackCd <= 0) {
       clearInterval(_dragonAttackCdInterval); _dragonAttackCdInterval = null;
+      if (l) l.textContent = '';
       _enableDragonAttack();
       return;
     }
-    const b = document.getElementById('dragon-attack-btn');
-    if (b) b.textContent = `⏳ Атака через: ${_dragonAttackCd}с`;
+    if (l) l.textContent = `наступний удар через ${_dragonAttackCd}с`;
   }, 1000);
 }
 
