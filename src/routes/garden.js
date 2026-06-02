@@ -108,18 +108,19 @@ router.post('/:plotId/plant', async (req, res) => {
        WHERE tu.player_id=$1`,
       [req.session.playerId]
     );
-    const farmerReduction = farmerTali ? farmerTali.bonus_pct : 0;
-    const growthMs = plant.growth_minutes * 60000 * (1 - farmerReduction / 100);
-    const readyAt = new Date(Date.now() + growthMs);
+    const farmerReduction = Math.max(0, farmerTali ? farmerTali.bonus_pct : 0);
+    const growthMinutes = Math.ceil(plant.growth_minutes * (1 - farmerReduction / 100));
     await pool.query('UPDATE players SET greens = greens - $1, plants_planted = plants_planted + 1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
     updateClanTask(req.session.playerId, 'plant_seeds', 1);
-    await pool.query(
-      `UPDATE plots SET plant_id=$1, planted_at=NOW(), ready_at=$2, status='growing', watered=false, watered_by=NULL
-       WHERE id=$3`,
-      [plantId, readyAt, req.params.plotId]
+    const { rows: [updated] } = await pool.query(
+      `UPDATE plots SET plant_id=$1, planted_at=NOW(),
+         ready_at=NOW() + ($2 * INTERVAL '1 minute'),
+         status='growing', watered=false, watered_by=NULL
+       WHERE id=$3 RETURNING ready_at`,
+      [plantId, growthMinutes, req.params.plotId]
     );
 
-    res.json({ success: true, readyAt });
+    res.json({ success: true, readyAt: updated.ready_at });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

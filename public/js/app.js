@@ -91,6 +91,17 @@ let fightTargetId = null;
 let fightTargetName = null;
 let socket = null;
 
+// Dragon state (declared here to avoid TDZ errors)
+let _dragonTimerInterval       = null;
+let _dragonAttackCdInterval    = null;
+let _dragonAttackWinInterval   = null;
+let _dragonAttackState         = 'idle';
+let _dragonAttackCd            = 0;
+let _dragonWindowCd            = 0;
+
+// Pets state (declared here to avoid TDZ errors)
+let petsData = null;
+
 // ─── INIT ────────────────────────────────────────────────────────────────────
 (async function init() {
   // Telegram Mini App: auto-auth if running inside Telegram
@@ -2623,7 +2634,7 @@ function initSocket() {
     const names = { quest: `${IC.clipboard(14)} Квест`, tournament: `${IC.swords(14)} Турнір`, wheel: `${IC.slot(14)} Колесо Фортуни` };
     toast(`${IC.celebrate(14)} Новий щоденний івент: ${names[eventType] || eventType}!`);
     const lbl = document.getElementById('daily-menu-label');
-    if (lbl) lbl.textContent = names[eventType] || 'Щоденний івент';
+    if (lbl) lbl.innerHTML = names[eventType] || 'Щоденний івент';
     if (document.getElementById('page-daily')?.classList.contains('active')) loadDaily();
   });
 
@@ -2860,7 +2871,7 @@ async function submitTgSetup() {
 
   const btn = document.querySelector('#tg-setup-modal .btn-green');
   btn.disabled = true;
-  btn.textContent = `${IC.timer(14)} Завантаження...`;
+  btn.innerHTML = `${IC.timer(14)} Завантаження...`;
 
   const r = await fetch('/api/auth/telegram-webapp', {
     method: 'POST',
@@ -3624,12 +3635,6 @@ async function confirmListItem() {
 }
 
 // ─── DRAGON ──────────────────────────────────────────────────────────────────
-let _dragonTimerInterval       = null;
-let _dragonAttackCdInterval    = null; // countdown to attack window
-let _dragonAttackWinInterval   = null; // 10s attack window
-let _dragonAttackState         = 'idle'; // 'waiting' | 'ready' | 'missed' | 'attacking'
-let _dragonAttackCd            = 0;
-let _dragonWindowCd            = 0;
 
 function showDragonTab(tab, btn) {
   ['battle','leaderboard','history'].forEach(t => {
@@ -3744,7 +3749,7 @@ function _enableDragonAttack() {
   const btn = document.getElementById('dragon-attack-btn');
   if (!btn) return;
   btn.disabled = false;
-  btn.textContent = `${IC.swords(14)} АТАКУВАТИ!`;
+  btn.innerHTML = `${IC.swords(14)} АТАКУВАТИ!`;
   btn.style.background = '#c62828';
   btn.style.color = '#fff';
   btn.style.animation = '';
@@ -3764,7 +3769,7 @@ function startDragonAttackTimer() {
     btn.textContent = 'Перезаряджання...';
   }
   const timer = document.getElementById('dragon-timer');
-  if (timer) timer.textContent = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
+  if (timer) timer.innerHTML = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
   _dragonAttackCdInterval = setInterval(() => {
     _dragonAttackCd--;
     if (_dragonAttackCd <= 0) {
@@ -3773,7 +3778,7 @@ function startDragonAttackTimer() {
       return;
     }
     const t = document.getElementById(`dragon-timer`);
-    if (t) t.textContent = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
+    if (t) t.innerHTML = `${IC.timer(14)} Наступний удар через: ${_dragonAttackCd}с`;
   }, 1000);
 }
 
@@ -3782,7 +3787,7 @@ async function attackDragon() {
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'attacking';
   const btn = document.getElementById('dragon-attack-btn');
-  if (btn) { btn.disabled = true; btn.textContent = `${IC.swords(14)} Атакую...`; btn.style.background = '#e53935'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = `${IC.swords(14)} Атакую...`; btn.style.background = '#e53935'; }
   try {
     const r = await API.post('/api/dragon/attack');
     const critTxt = r.isCrit ? ' ${IC.hit(14)} КРИТ!' : '';
@@ -3929,13 +3934,13 @@ async function loadDaily() {
     const titleEl = document.getElementById('daily-panel-title');
 
     if (ev.event_type === 'quest') {
-      if (titleEl) titleEl.textContent = `${IC.clipboard(14)} Щоденний квест`;
+      if (titleEl) titleEl.innerHTML = `${IC.clipboard(14)} Щоденний квест`;
       renderDailyQuest(el, ev, progress);
     } else if (ev.event_type === 'tournament') {
-      if (titleEl) titleEl.textContent = `${IC.swords(14)} Щоденний турнір`;
+      if (titleEl) titleEl.innerHTML = `${IC.swords(14)} Щоденний турнір`;
       renderDailyTournament(el, ev, progress);
     } else {
-      if (titleEl) titleEl.textContent = `${IC.slot(14)} Колесо Фортуни`;
+      if (titleEl) titleEl.innerHTML = `${IC.slot(14)} Колесо Фортуни`;
       renderDailyWheel(el, ev, wheelSpunToday);
     }
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
@@ -4197,7 +4202,7 @@ function renderCdefActive(el, r) {
     const timerEl = document.getElementById(`cdef-wave-timer`);
     if (timerEl) {
       const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
-      timerEl.textContent = left > 0 ? `${IC.timer(14)} ${m}:${s.toString().padStart(2,'0')}` : `${IC.timer(14)} Перехід...`;
+      timerEl.innerHTML = left > 0 ? `${IC.timer(14)} ${m}:${s.toString().padStart(2,'0')}` : `${IC.timer(14)} Перехід...`;
     }
     if (left === 0) { clearInterval(_cdefTimerInterval); setTimeout(() => loadClanDefense(), 5000); }
   }, 1000);
@@ -4272,7 +4277,6 @@ async function loadCdefHistory() {
 }
 
 // ─── ПИТОМНИК ─────────────────────────────────────────────────────────────────
-let petsData = null; // кеш даних тваринки
 
 const RARITY_LABEL = { 1: `${IC.star(14)} Звичайна`, 2: `${IC.star(13)}${IC.star(13)} Рідкісна`, 3: `${IC.star(13)}${IC.star(13)}${IC.star(13)} Легендарна` };
 const STAT_LABELS   = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
