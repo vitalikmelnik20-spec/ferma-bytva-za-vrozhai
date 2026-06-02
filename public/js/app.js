@@ -3676,7 +3676,7 @@ function renderDragonActive(r) {
     if (left === 0) { _dragonClearTimers(); loadDragon(); }
   }, 1000);
 
-  _openDragonAttackWindow();
+  _enableDragonAttack();
 }
 
 function renderDragonInactive(lastEvent) {
@@ -3730,6 +3730,17 @@ function _updateDragonAttackBtn() {
   }
 }
 
+function _enableDragonAttack() {
+  if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
+  if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
+  _dragonAttackState = 'ready';
+  const btn = document.getElementById('dragon-attack-btn');
+  if (!btn) return;
+  btn.disabled = false;
+  btn.textContent = '⚔️ АТАКУВАТИ!';
+  btn.style.cssText = 'background:#c62828;color:#fff;animation:dragon-pulse 0.4s ease infinite alternate';
+}
+
 function startDragonAttackTimer() {
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
@@ -3740,24 +3751,7 @@ function startDragonAttackTimer() {
     _dragonAttackCd--;
     if (_dragonAttackCd <= 0) {
       clearInterval(_dragonAttackCdInterval); _dragonAttackCdInterval = null;
-      _openDragonAttackWindow();
-      return;
-    }
-    _updateDragonAttackBtn();
-  }, 1000);
-}
-
-function _openDragonAttackWindow() {
-  _dragonAttackState = 'ready';
-  _dragonWindowCd    = 10;
-  _updateDragonAttackBtn();
-  _dragonAttackWinInterval = setInterval(() => {
-    _dragonWindowCd--;
-    if (_dragonWindowCd <= 0) {
-      clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null;
-      _dragonAttackState = 'missed';
-      _updateDragonAttackBtn();
-      setTimeout(() => startDragonAttackTimer(), 1200);
+      _enableDragonAttack();
       return;
     }
     _updateDragonAttackBtn();
