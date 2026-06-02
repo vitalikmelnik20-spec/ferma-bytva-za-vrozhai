@@ -29,11 +29,13 @@ router.get('/', async (req, res) => {
   try {
     const { rows: [player] } = await pool.query(
       `SELECT p.*, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,
-              c.id as clan_id, c.name as clan_name, c.tag as clan_tag, cm.role as clan_role
+              c.id as clan_id, c.name as clan_name, c.tag as clan_tag, cm.role as clan_role,
+              pt.power as pet_power, pt.endurance as pet_endurance
        FROM players p
        LEFT JOIN training t ON t.player_id = p.id
        LEFT JOIN clan_members cm ON cm.player_id = p.id
        LEFT JOIN clans c ON c.id = cm.clan_id
+       LEFT JOIN pets pt ON pt.player_id = p.id
        WHERE p.id = $1`,
       [req.session.playerId]
     );

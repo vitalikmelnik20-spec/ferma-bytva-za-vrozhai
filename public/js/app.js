@@ -1349,7 +1349,7 @@ async function loadProfile() {
     const p = r.player;
     const el = document.getElementById('profile-content');
 
-    const maxStat = Math.max(p.power_level, p.endurance_level, p.speed_level, p.accuracy_level, p.pet_power, p.pet_endurance, 1);
+    const maxStat = Math.max(p.power_level, p.endurance_level, p.speed_level, p.accuracy_level, p.pet_power || 0, p.pet_endurance || 0, 1);
     const statRow = (icon, label, stat, key) => `
       <div class="stat-row">
         <span class="stat-icon">${icon}</span>

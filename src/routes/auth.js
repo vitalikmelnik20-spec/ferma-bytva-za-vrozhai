@@ -104,7 +104,7 @@ router.get('/me', async (req, res) => {
               p.city_name, p.status_text, p.medals, p.is_online, p.is_admin,
               p.on_vacation, p.created_at,
               t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,
-              pt.power_level as pet_power, pt.endurance_level as pet_endurance,
+              pt.power as pet_power, pt.endurance as pet_endurance,
               c.name as clan_name, c.tag as clan_tag, cm.role as clan_role
        FROM players p
        LEFT JOIN training t ON t.player_id = p.id
