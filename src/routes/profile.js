@@ -218,6 +218,18 @@ router.get('/stats', async (req, res) => {
       if (t.name === 'Талісман Захисника') taliEndurance += t.bonus_pct;
     }
 
+    const { rows: [petStatsRow] } = await pool.query(
+      `SELECT ps.battles_participated, ps.wins, ps.deaths,
+              ps.total_damage, ps.pets_killed, ps.ability_procs,
+              p.name AS pet_name, p.pet_type, p.rarity, p.icon
+       FROM pets p
+       JOIN pet_stats ps ON ps.pet_id = p.id
+       WHERE p.player_id=$1
+       ORDER BY p.is_active DESC LIMIT 1`,
+      [req.session.playerId]
+    );
+    const petStats = petStatsRow || null;
+
     res.json({
       player,
       friendsCount:    parseInt(friendsCount),
@@ -240,6 +252,7 @@ router.get('/stats', async (req, res) => {
       dragonGreensEarned: player.dragon_greens_earned   || 0,
       insectsDefeated:    player.insects_defeated       || 0,
       insectsGreensSaved: player.insects_greens_saved   || 0,
+      petStats,
     });
   } catch (err) {
     console.error(err);

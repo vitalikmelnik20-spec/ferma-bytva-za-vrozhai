@@ -1566,6 +1566,15 @@ async function loadStats() {
         ${row(`${IC.dragon(28)}`, 'Участей у нападах', fmtNum(r.dragonBattles))}
         ${row(`${IC.swords(14)}`, 'Загальний урон',    fmtNum(r.dragonTotalDamage))}
         ${row(`${IC.greens(14)}`, 'Зароблено зелені',  fmtNum(r.dragonGreensEarned))}
+      </div>` : ''}
+      ${r.petStats ? `<div class="stats-section">
+        <div class="stats-section-title">${IC.paw(14)} Тваринка — ${IC.petIcon(r.petStats.icon, 18)} ${r.petStats.pet_name}</div>
+        ${row(IC.swords(14), 'Боїв взято участь',  fmtNum(r.petStats.battles_participated))}
+        ${row(IC.wins(14),   'Перемог',             fmtNum(r.petStats.wins))}
+        ${row(IC.skull(14),  'Загибелей',           fmtNum(r.petStats.deaths))}
+        ${row(IC.hit(14),    'Загальний урон',       fmtNum(r.petStats.total_damage))}
+        ${row(IC.paw(14),    'Ворожих тварин вбито', fmtNum(r.petStats.pets_killed))}
+        ${r.petStats.ability_procs > 0 ? row(IC.sparkle(14), 'Здібностей активовано', fmtNum(r.petStats.ability_procs)) : ''}
       </div>` : ''}` ;
   } catch (e) { toast(e.message, true); }
 
@@ -4480,7 +4489,7 @@ function _petCard(p, hasPet) {
   const btnLabel = `${p.price} ${p.currency === 'diamonds' ? IC.diamonds(14) : IC.gold(14)}`;
   return `
     <div class="pet-card rarity-${p.rarity}">
-      <div class="pet-card-icon">${p.icon}</div>
+      <div class="pet-card-icon">${IC.petIcon(p.icon, 52)}</div>
       <div class="pet-card-name">${p.name}</div>
       <div class="pet-card-rarity">${RARITY_LABEL[p.rarity]}</div>
       ${statRow}
