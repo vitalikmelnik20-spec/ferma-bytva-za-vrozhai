@@ -7,37 +7,37 @@ router.use(requireAuth);
 // ─── Довідник тваринок ────────────────────────────────────────────────────────
 const PET_CATALOG = [
   // Звичайні (rarity 1) — за золото
-  { type: 'mink',   rarity: 1, name: 'Мінь',   icon: '🐟', price: 200,  currency: 'gold',
+  { type: 'mink',   rarity: 1, name: 'Мінь',    icon: '/icons/pets/beaver.svg', price: 200,  currency: 'gold',
     power: 5, endurance: 3, speed: 8, accuracy: 7, hp: 150 },
-  { type: 'beaver', rarity: 1, name: 'Бобер',  icon: '🦫', price: 600,  currency: 'gold',
+  { type: 'beaver', rarity: 1, name: 'Бобер',   icon: '/icons/pets/beaver.svg', price: 600,  currency: 'gold',
     power: 6, endurance: 8, speed: 4, accuracy: 5, hp: 220 },
-  { type: 'wolf',   rarity: 1, name: 'Вовк',   icon: '🐺', price: 500,  currency: 'gold',
+  { type: 'wolf',   rarity: 1, name: 'Вовк',    icon: '/icons/pets/wolf.svg',   price: 500,  currency: 'gold',
     power: 9, endurance: 5, speed: 7, accuracy: 6, hp: 180 },
-  { type: 'bear',   rarity: 1, name: 'Медвідь', icon: '🐻', price: 800,  currency: 'gold',
+  { type: 'bear',   rarity: 1, name: 'Медвідь', icon: '/icons/pets/bear.svg',   price: 800,  currency: 'gold',
     power: 12, endurance: 9, speed: 3, accuracy: 4, hp: 300 },
-  { type: 'lizard', rarity: 1, name: 'Ящір',   icon: '🦎', price: 1200, currency: 'gold',
+  { type: 'lizard', rarity: 1, name: 'Ящір',    icon: '/icons/pets/lizard.svg', price: 1200, currency: 'gold',
     power: 8, endurance: 12, speed: 5, accuracy: 6, hp: 260 },
   // Рідкісні (rarity 2) — за алмази
-  { type: 'silver_wolf',  rarity: 2, name: 'Срібний Вовк',    icon: '🐺✨', price: 50,  currency: 'diamonds',
+  { type: 'silver_wolf',  rarity: 2, name: 'Срібний Вовк',     icon: '/icons/pets/wolf.svg',   price: 50,  currency: 'diamonds',
     power: 11, endurance: 6, speed: 9, accuracy: 8, hp: 225 },
-  { type: 'ice_lizard',   rarity: 2, name: 'Льодяний Ящір',   icon: '🦎❄️', price: 50,  currency: 'diamonds',
+  { type: 'ice_lizard',   rarity: 2, name: 'Льодяний Ящір',    icon: '/icons/pets/lizard.svg', price: 50,  currency: 'diamonds',
     power: 10, endurance: 15, speed: 6, accuracy: 8, hp: 325 },
-  { type: 'mighty_bear',  rarity: 2, name: 'Могутній Медвідь', icon: '🐻💪', price: 50,  currency: 'diamonds',
+  { type: 'mighty_bear',  rarity: 2, name: 'Могутній Медвідь', icon: '/icons/pets/bear.svg',   price: 50,  currency: 'diamonds',
     power: 15, endurance: 11, speed: 4, accuracy: 5, hp: 375 },
   // Легендарні (rarity 3) — за алмази
-  { type: 'fire_wolf',  rarity: 3, name: 'Вогняний Вовк', icon: '🐺🔥', price: 150, currency: 'diamonds',
+  { type: 'fire_wolf',  rarity: 3, name: 'Вогняний Вовк', icon: '/icons/pets/wolf.svg',   price: 150, currency: 'diamonds',
     power: 14, endurance: 8, speed: 11, accuracy: 9, hp: 270,
     ability: 'double_bite', abilityDesc: '15% шанс: урон ×2 у раунді' },
-  { type: 'dragonling', rarity: 3, name: 'Дракончик',     icon: '🐲',   price: 150, currency: 'diamonds',
+  { type: 'dragonling', rarity: 3, name: 'Дракончик',     icon: '/icons/pets/dragon.svg', price: 150, currency: 'diamonds',
     power: 13, endurance: 9, speed: 9, accuracy: 10, hp: 240,
     ability: 'fire_breath', abilityDesc: '10% шанс: урон ×3 один раз за бій' },
-  { type: 'golden_eagle', rarity: 3, name: 'Золотий Орел', icon: '🦅',  price: 150, currency: 'diamonds',
+  { type: 'golden_eagle', rarity: 3, name: 'Золотий Орел', icon: '/icons/pets/eagle.svg', price: 150, currency: 'diamonds',
     power: 11, endurance: 10, speed: 12, accuracy: 11, hp: 210,
     ability: 'wing_shield', abilityDesc: '20% шанс: блокує атаку ворожої тваринки (0 урону)' },
 ];
 
 const EQUIPMENT_CATALOG = [
-  { slot: 'collar', name: 'Бойовий ошийник', stat: 'power',    icon: '🔴',
+  { slot: 'collar', name: 'Бойовий ошийник', stat: 'power',    icon: '/icons/stats/power.svg',
     levels: [
       { level: 1, bonus: 10, price: 200 },
       { level: 2, bonus: 20, price: 500 },
@@ -45,7 +45,7 @@ const EQUIPMENT_CATALOG = [
       { level: 4, bonus: 50, price: 1400 },
       { level: 5, bonus: 60, price: 2000 },
     ]},
-  { slot: 'amulet', name: 'Захисний амулет', stat: 'endurance', icon: '🔵',
+  { slot: 'amulet', name: 'Захисний амулет', stat: 'endurance', icon: '/icons/stats/endurance.svg',
     levels: [
       { level: 1, bonus: 10, price: 200 },
       { level: 2, bonus: 20, price: 500 },
@@ -53,7 +53,7 @@ const EQUIPMENT_CATALOG = [
       { level: 4, bonus: 50, price: 1400 },
       { level: 5, bonus: 60, price: 2000 },
     ]},
-  { slot: 'armor', name: 'Легкий панцир', stat: 'hp',        icon: '🟢',
+  { slot: 'armor', name: 'Легкий панцир', stat: 'hp',        icon: '/icons/res/hp.svg',
     levels: [
       { level: 1, bonus: 50,  price: 300 },
       { level: 2, bonus: 100, price: 700 },
@@ -61,7 +61,7 @@ const EQUIPMENT_CATALOG = [
       { level: 4, bonus: 250, price: 2000 },
       { level: 5, bonus: 300, price: 3000 },
     ]},
-  { slot: 'boots', name: 'Чоботи мисливця', stat: 'accuracy', icon: '🟡',
+  { slot: 'boots', name: 'Чоботи мисливця', stat: 'accuracy', icon: '/icons/stats/accuracy.svg',
     levels: [
       { level: 1, bonus: 5,  price: 150 },
       { level: 2, bonus: 10, price: 350 },

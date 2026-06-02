@@ -49,6 +49,24 @@ const IC = {
   star:      (s=14) => `<img src="/icons/ui/star.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
   paw:       (s=14) => `<img src="/icons/ui/paw.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
   camera:    (s=14) => `<img src="/icons/ui/camera.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  trophy:    (s=14) => `<img src="/icons/ui/trophy.svg"      width="${s}" height="${s}" style="vertical-align:middle">`,
+  crown:     (s=14) => `<img src="/icons/ui/crown.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  fire:      (s=14) => `<img src="/icons/ui/fire.svg"        width="${s}" height="${s}" style="vertical-align:middle">`,
+  hit:       (s=14) => `<img src="/icons/ui/hit.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  sparkle:   (s=14) => `<img src="/icons/ui/sparkle.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  warn:      (s=14) => `<img src="/icons/ui/warning.svg"     width="${s}" height="${s}" style="vertical-align:middle">`,
+  heart:     (s=14) => `<img src="/icons/ui/heart.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  ok:        (s=14) => `<img src="/icons/ui/checkmark.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  no:        (s=14) => `<img src="/icons/ui/cross.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  gem:       (s=14) => `<img src="/icons/ui/gem.svg"         width="${s}" height="${s}" style="vertical-align:middle">`,
+  moneybag:  (s=14) => `<img src="/icons/ui/moneybag.svg"   width="${s}" height="${s}" style="vertical-align:middle">`,
+  house:     (s=14) => `<img src="/icons/ui/house.svg"       width="${s}" height="${s}" style="vertical-align:middle">`,
+  swords:    (s=14) => `<img src="/icons/ui/crossed-swords.svg" width="${s}" height="${s}" style="vertical-align:middle">`,
+  // Online status dots
+  online:    ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#43a047;vertical-align:middle"></span>`,
+  offline:   ()     => `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#757575;vertical-align:middle"></span>`,
+  // Pet icon helper — supports both SVG path and legacy emoji string
+  petIcon:   (icon, s=22) => icon?.startsWith('/') ? `<img src="${icon}" width="${s}" height="${s}" style="vertical-align:middle">` : `<span style="font-size:${s}px;line-height:1;vertical-align:middle">${icon||'🐾'}</span>`,
 };
 
 let gardenData = null;
@@ -529,7 +547,7 @@ async function loadOpponents() {
               &nbsp;|&nbsp; ${IC.gold(13)} ${op.glory} слави
             </div>
             <div style="font-size:11px;color:#999;font-style:italic">"${op.slogan}"</div>
-            ${op.pet_icon ? `<div style="font-size:11px;color:#6a1b9a;margin-top:2px">🐾 ${op.pet_icon} ${op.pet_name}</div>` : ''}
+            ${op.pet_icon ? `<div style="font-size:11px;color:#6a1b9a;margin-top:2px">${IC.paw(13)} ${IC.petIcon(op.pet_icon,16)} ${op.pet_name}</div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:6px">
             <button class="btn btn-red btn-sm" onclick="startFight(${op.id},'${op.username}')">${IC.battle(14)} Битись</button>
@@ -603,26 +621,26 @@ async function selectZoneForRound(zone) {
       const p = pd.aPetAction;
       const petName = pd.aPetName || 'Твій питомець';
       const tgt = p.target === 'enemyPet' ? 'ворожого питомця' : p.target === 'enemy' ? 'ворога напряму' : '—';
-      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 ${petName} — промах</div>`;
-      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 ${petName} — заблоковано ворожим питомцем</div>`;
-      else petLines += `<div style="color:#2e7d32">🐾 ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">${IC.paw(13)} ${petName} — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">${IC.paw(13)} ${petName} — заблоковано ворожим питомцем</div>`;
+      else petLines += `<div style="color:#2e7d32">${IC.paw(13)} ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
     }
     if (pd.dPetAction) {
       const p = pd.dPetAction;
       const petName = pd.dPetName || 'Ворожий питомець';
       const tgt = p.target === 'myPet' ? 'твого питомця' : p.target === 'myPlayer' ? 'тебе напряму' : '—';
-      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">🐾 ${petName} — промах</div>`;
-      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">🐾 ${petName} — заблоковано твоїм питомцем</div>`;
-      else petLines += `<div style="color:#b71c1c">🐾 ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
+      if (p.type === 'miss') petLines += `<div style="color:#7b8d8d">${IC.paw(13)} ${petName} — промах</div>`;
+      else if (p.type === 'blocked') petLines += `<div style="color:#7b1fa2">${IC.paw(13)} ${petName} — заблоковано твоїм питомцем</div>`;
+      else petLines += `<div style="color:#b71c1c">${IC.paw(13)} ${petName} б'є ${tgt}${p.abilityProc?' <b style="color:#e65100">[здібність!]</b>':''}. Урон (<b>${p.damage}</b>)</div>`;
     }
     if ((pd.aPetAction || pd.dPetAction) && pd.aPetHp !== undefined && pd.dPetHp !== undefined) {
       const aAlive = pd.aPetHp > 0;
       const dAlive = pd.dPetHp > 0;
       const aHpStr = pd.aPetName
-        ? `${pd.aPetName}: ${aAlive ? `${pd.aPetHp}/${pd.aPetHpMax}` : '💀'}`
+        ? `${pd.aPetName}: ${aAlive ? `${pd.aPetHp}/${pd.aPetHpMax}` : '${IC.skull(12)}'}`
         : (aAlive ? pd.aPetHp : '💀');
       const dHpStr = pd.dPetName
-        ? `${pd.dPetName}: ${dAlive ? `${pd.dPetHp}/${pd.dPetHpMax}` : '💀'}`
+        ? `${pd.dPetName}: ${dAlive ? `${pd.dPetHp}/${pd.dPetHpMax}` : '${IC.skull(12)}'}`
         : (dAlive ? pd.dPetHp : '💀');
       petLines += `<div style="font-size:11px;color:#aaa">HP: ${aHpStr} · ${dHpStr}</div>`;
     }
@@ -716,13 +734,13 @@ function showBattleResult(r) {
 
     ${(r.aPet || r.dPet) ? `
     <div style="${bs}">
-      <div style="font-size:13px;font-weight:600;margin-bottom:4px">🐾 Тваринки у бою</div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:4px">${IC.paw(16)} Тваринки у бою</div>
       <div style="font-size:13px;line-height:1.8">
-        ${r.aPet ? `${r.aPet.icon} ${r.aPet.name}: урон <b>${fmtNum(r.aPet.totalDamage)}</b>${r.aPet.died?' <span style="color:#c62828">💀 загинула</span>':''}` : ''}
+        ${r.aPet ? `${IC.petIcon(r.aPet.icon,18)} ${r.aPet.name}: урон <b>${fmtNum(r.aPet.totalDamage)}</b>${r.aPet.died?' <span style="color:#c62828">${IC.skull(14)} загинула</span>':''}` : ''}
         ${r.aPet && r.dPet ? ' &nbsp;|&nbsp; ' : ''}
-        ${r.dPet ? `${r.dPet.icon} ${r.dPet.name}: урон <b>${fmtNum(r.dPet.totalDamage)}</b>${r.dPet.died?' <span style="color:#c62828">💀 загинула</span>':''}` : ''}
+        ${r.dPet ? `${IC.petIcon(r.dPet.icon,18)} ${r.dPet.name}: урон <b>${fmtNum(r.dPet.totalDamage)}</b>${r.dPet.died?' <span style="color:#c62828">${IC.skull(14)} загинула</span>':''}` : ''}
       </div>
-      ${r.aPet?.died ? `<div style="color:#e65100;font-size:12px;margin-top:4px">⚠️ Твоя тваринка загинула! Відновіть у Питомнику.</div>` : ''}
+      ${r.aPet?.died ? `<div style="color:#e65100;font-size:12px;margin-top:4px">${IC.warn(14)} Твоя тваринка загинула! Відновіть у Питомнику.</div>` : ''}
     </div>` : ''}
 
     ${r.ringEffect && r.ringEffect.triggered ? `
@@ -831,13 +849,13 @@ let currentMarketFilter = 'all';
 let currentMarketCat = null;
 
 const MARKET_CATEGORIES = [
-  { cat: 'weapon',    label: 'Зброя',     icon: '/icons/items/sword.svg',       currency: '🌿 / 🏅' },
-  { cat: 'armor',     label: 'Броня',     icon: '/icons/items/chainmail.svg',   currency: '🌿' },
-  { cat: 'helmet',    label: 'Шоломи',    icon: '/icons/items/helmet.svg',      currency: '🌿' },
-  { cat: 'shield',    label: 'Щити',      icon: '/icons/items/iron-shield.svg', currency: '🌿' },
-  { cat: 'potion',    label: 'Настої',    icon: '/icons/items/potion-base.svg', currency: '🌿' },
-  { cat: 'rune',      label: 'Руни',      icon: '/icons/items/rune-fire.svg',   currency: '🌿' },
-  { cat: 'accessory', label: 'Аксесуари', icon: '/icons/items/ring.svg',        currency: '🌿 / 🏅' },
+  { cat: 'weapon',    label: 'Зброя',     icon: '/icons/items/sword.svg',       currency: `${IC.greens(12)} / ${IC.gold(12)}` },
+  { cat: 'armor',     label: 'Броня',     icon: '/icons/items/chainmail.svg',   currency: `${IC.greens(12)}` },
+  { cat: 'helmet',    label: 'Шоломи',    icon: '/icons/items/helmet.svg',      currency: `${IC.greens(12)}` },
+  { cat: 'shield',    label: 'Щити',      icon: '/icons/items/iron-shield.svg', currency: `${IC.greens(12)}` },
+  { cat: 'potion',    label: 'Настої',    icon: '/icons/items/potion-base.svg', currency: `${IC.greens(12)}` },
+  { cat: 'rune',      label: 'Руни',      icon: '/icons/items/rune-fire.svg',   currency: `${IC.greens(12)}` },
+  { cat: 'accessory', label: 'Аксесуари', icon: '/icons/items/ring.svg',        currency: `${IC.greens(12)} / ${IC.gold(12)}` },
 ];
 
 async function loadMarket() {
@@ -1368,7 +1386,7 @@ async function loadProfile() {
       <div class="panel mb-12">
         <div class="panel-header flex-between">
           <span class="profile-nick-header ${p.faction}">${p.username}</span>
-          <span style="font-size:12px">${p.is_online ? '🟢' : '⚫'}</span>
+          <span style="font-size:12px">${p.is_online ? IC.online() : IC.offline()}</span>
         </div>
         ${buildDoll(equipped, r.itemRunes, p.avatar_url, p.faction, p.gender, true)}
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
@@ -1382,7 +1400,7 @@ async function loadProfile() {
 
       <div class="panel mb-12">
         <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
-        ${infoRow(p.is_online ? '🟢' : '⚫', 'Статус', p.is_online ? 'Зараз онлайн' : 'Офлайн')}
+        ${infoRow(p.is_online ? IC.online() : IC.offline(), 'Статус', p.is_online ? 'Зараз онлайн' : 'Офлайн')}
         ${infoRow(IC.level(14), 'Рівень', p.level)}
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
@@ -1524,12 +1542,12 @@ async function loadProfilePetTrain() {
   try {
     const { pet, training, stats } = await API.get('/api/pets/my');
     if (!pet) {
-      el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">🐾 Питомець</div>
+      el.innerHTML = `<div style="font-weight:700;margin-bottom:6px">${IC.paw(16)} Питомець</div>
         <div style="font-size:13px;color:#888">Тваринки немає · <a href="#" onclick="navigate('pets');return false">Купити у Питомнику</a></div>`;
       return;
     }
-    const catalog = { mink:'🐟',beaver:'🦫',wolf:'🐺',bear:'🐻',lizard:'🦎',silver_wolf:'🐺✨',ice_lizard:'🦎❄️',mighty_bear:'🐻💪',fire_wolf:'🐺🔥',dragonling:'🐲',golden_eagle:'🦅' };
-    const icon = catalog[pet.pet_type] || '🐾';
+    const catalog = { mink:'/icons/pets/beaver.svg',beaver:'/icons/pets/beaver.svg',wolf:'/icons/pets/wolf.svg',bear:'/icons/pets/bear.svg',lizard:'/icons/pets/lizard.svg',silver_wolf:'/icons/pets/wolf.svg',ice_lizard:'/icons/pets/lizard.svg',mighty_bear:'/icons/pets/bear.svg',fire_wolf:'/icons/pets/wolf.svg',dragonling:'/icons/pets/dragon.svg',golden_eagle:'/icons/pets/eagle.svg' };
+    const icon = catalog[pet.pet_type] || '/icons/ui/paw.svg';
     const deadBadge = pet.is_dead ? ' <span style="color:#c62828;font-size:11px">💀</span>' : '';
     const activeBadge = pet.is_active ? ' <span style="color:#388e3c;font-size:11px">⚔️</span>' : '';
 
@@ -1549,17 +1567,17 @@ async function loadProfilePetTrain() {
     }).join('');
 
     el.innerHTML = `
-      <div style="font-weight:700;margin-bottom:6px">🐾 Питомець${deadBadge}${activeBadge} — ${icon} ${pet.name}</div>
+      <div style="font-weight:700;margin-bottom:6px">${IC.paw(16)} Питомець${deadBadge}${activeBadge} — ${IC.petIcon(icon,18)} ${pet.name}</div>
       ${pet.is_dead ? `<div style="color:#c62828;font-size:12px;margin-bottom:6px">💀 Мертва — <a href="#" onclick="navigate('pets');return false">відновити у Питомнику</a></div>` : ''}
       ${statMini}
       ${stats ? `
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid #eee;font-size:12px;color:#666;display:flex;flex-wrap:wrap;gap:6px">
-        <span>⚔️ <b>${stats.battles_participated}</b> боїв</span>
-        <span>🏆 <b>${stats.wins}</b> перемог</span>
+        <span>${IC.swords(13)} <b>${stats.battles_participated}</b> боїв</span>
+        <span>${IC.trophy(13)} <b>${stats.wins}</b> перемог</span>
         <span>💀 <b>${stats.deaths}</b> загибелей</span>
-        <span>💥 <b>${fmtNum(stats.total_damage)}</b> урону</span>
-        ${stats.pets_killed > 0 ? `<span>🐾 <b>${stats.pets_killed}</b> вбито</span>` : ''}
-        ${stats.ability_procs > 0 ? `<span>✨ <b>${stats.ability_procs}</b> здібностей</span>` : ''}
+        <span>${IC.hit(13)} <b>${fmtNum(stats.total_damage)}</b> урону</span>
+        ${stats.pets_killed > 0 ? `<span>${IC.paw(13)} <b>${stats.pets_killed}</b> вбито</span>` : ''}
+        ${stats.ability_procs > 0 ? `<span>${IC.sparkle(13)} <b>${stats.ability_procs}</b> здібностей</span>` : ''}
       </div>` : ''}
       <div style="margin-top:6px">
         <button class="btn btn-gray btn-sm" onclick="navigate('pets')">🐾 Відкрити Питомник</button>
@@ -1679,7 +1697,7 @@ async function loadFriends() {
 
     el.innerHTML = r.friends.map(f => `
       <div class="opponent-card">
-        <div class="opponent-avatar">${f.friend_online ? '🟢' : '⚫'}</div>
+        <div class="opponent-avatar">${f.friend_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
           <div class="opponent-name ${f.friend_faction}">${f.friend_name} <span class="text-muted">Рів.${f.friend_level}</span></div>
           <div class="text-muted">${f.status === 'pending' ? (f.requester_id === player.id ? '⏳ Очікує підтвердження' : `${IC.bell(14)} Новий запит`) : `${IC.check(14)} Друг`}</div>
@@ -1729,7 +1747,7 @@ async function doSearch(query) {
     if (!r.players.length) { el.innerHTML = '<p class="text-muted">Нічого не знайдено</p>'; return; }
     el.innerHTML = r.players.map(p => `
       <div class="opponent-card">
-        <div class="opponent-avatar">${p.is_online ? '🟢' : '⚫'}</div>
+        <div class="opponent-avatar">${p.is_online ? IC.online() : IC.offline()}</div>
         <div class="opponent-info">
           <div class="opponent-name ${p.faction}">${p.username} <span class="text-muted">Рів.${p.level}</span></div>
           <div class="text-muted">Слава: ${p.glory}</div>
@@ -2387,17 +2405,20 @@ async function adminSearch() {
   try {
     const r = await API.get(`/api/admin/players?search=${encodeURIComponent(q)}`);
     document.getElementById('admin-players').innerHTML = r.players.map(p => `
-      <div class="admin-player-row ${p.is_banned ? 'banned' : ''}">
-        <div style="flex:1">
-          <b>${p.username}</b> Рів.${p.level} ${p.is_online ? '🟢' : '⚫'}
-          ${p.is_banned ? `<span class="badge-notif">БАН</span>` : ''}
-          <div class="text-muted">${IC.greens(13)}${fmtNum(p.greens)} ${IC.gold(13)}${fmtNum(p.gold)}</div>
+      <div class="admin-player-row ${p.is_banned ? 'banned' : ''}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid #eee">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:14px">${p.username} <span style="color:#888;font-weight:400;font-size:12px">Рів.${p.level}</span> ${p.is_online ? IC.online() : IC.offline()}</div>
+          ${p.is_banned ? `<span style="background:#c62828;color:#fff;font-size:10px;padding:1px 6px;border-radius:6px">БАН</span>` : ''}
+          <div style="font-size:12px;color:#555;margin-top:2px">${IC.greens(12)}${fmtNum(p.greens)} ${IC.gold(12)}${fmtNum(p.gold)} ${IC.diamonds(12)}${p.diamonds||0}</div>
         </div>
-        <div style="display:flex;gap:4px">
-          ${p.is_banned
-            ? `<button class="btn btn-green btn-sm" onclick="adminUnban(${p.id})">Розбан</button>`
-            : `<button class="btn btn-red btn-sm" onclick="adminBan(${p.id})">Бан</button>`}
-          <button class="btn btn-orange btn-sm" onclick="adminGive(${p.id})">${IC.gold(14)}</button>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;gap:4px">
+            ${p.is_banned
+              ? `<button class="btn btn-green btn-sm" onclick="adminUnban(${p.id})">Розбан</button>`
+              : `<button class="btn btn-red btn-sm" onclick="adminBan(${p.id})">Бан</button>`}
+            <button class="btn btn-orange btn-sm" onclick="adminGive(${p.id})">${IC.moneybag(14)} Дати</button>
+          </div>
+          <button class="btn btn-blue btn-sm" onclick="adminEdit(${p.id})">${IC.settings(14)} Редагувати</button>
         </div>
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
@@ -2422,12 +2443,97 @@ async function adminUnban(id) {
 }
 
 async function adminGive(id) {
-  const greens = parseInt(prompt('Зелень (0 якщо не потрібно):')) || 0;
-  const gold   = parseInt(prompt('Золото:')) || 0;
+  const greens   = parseInt(prompt('Зелень (0 якщо не потрібно):')) || 0;
+  const gold     = parseInt(prompt('Золото:')) || 0;
+  const diamonds = parseInt(prompt('Алмази:')) || 0;
+  if (!greens && !gold && !diamonds) return;
   try {
-    await API.post(`/api/admin/players/${id}/give`, { greens, gold, diamonds: 0 });
+    await API.post(`/api/admin/players/${id}/give`, { greens, gold, diamonds });
     toast('Видано!');
     adminSearch();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function adminEdit(id) {
+  try {
+    const { player: p } = await API.get(`/api/admin/players/${id}`);
+    let modal = document.getElementById('admin-edit-modal');
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.id = 'admin-edit-modal';
+      modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+      document.body.appendChild(modal);
+    }
+    const field = (label, name, val, type='text') =>
+      `<div style="margin-bottom:8px">
+        <label style="font-size:12px;color:#666;display:block;margin-bottom:2px">${label}</label>
+        <input id="ae-${name}" type="${type}" value="${val ?? ''}" style="width:100%;padding:6px 8px;border:1px solid #ddd;border-radius:6px;font-size:13px;box-sizing:border-box">
+      </div>`;
+    const chk = (label, name, val) =>
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:8px;cursor:pointer">
+        <input id="ae-${name}" type="checkbox" ${val ? 'checked' : ''}> ${label}
+      </label>`;
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:14px;padding:20px;width:100%;max-width:500px;max-height:90vh;overflow-y:auto">
+        <div style="font-weight:700;font-size:16px;margin-bottom:14px">${IC.settings(16)} Редагування: <span style="color:#1565c0">${p.username}</span></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+          ${field('Нікнейм','username',p.username)}
+          ${field('Рівень','level',p.level,'number')}
+          ${field('Фракція','faction',p.faction)}
+          ${field('Стать','gender',p.gender)}
+          ${field('Статус-текст','status_text',p.status_text)}
+          ${field('Місто','city_name',p.city_name)}
+        </div>
+        <div style="font-weight:600;font-size:13px;margin:8px 0 6px;color:#555">${IC.greens(13)} Ресурси</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 8px">
+          ${field('Зелень','greens',p.greens,'number')}
+          ${field('Золото','gold',p.gold,'number')}
+          ${field('Алмази','diamonds',p.diamonds,'number')}
+          ${field('Слава','glory',p.glory,'number')}
+          ${field('HP','hp',p.hp,'number')}
+          ${field('Max HP','max_hp',p.max_hp,'number')}
+          ${field('Рейтинг','rating_points',p.rating_points,'number')}
+          ${field('Перемоги','wins',p.wins,'number')}
+          ${field('Поразки','losses',p.losses,'number')}
+        </div>
+        <div style="font-weight:600;font-size:13px;margin:8px 0 6px;color:#555">${IC.power(13)} Тренування (рівні)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 12px">
+          ${field('Міць','power_level',p.power_level,'number')}
+          ${field('Стійкість','endurance_level',p.endurance_level,'number')}
+          ${field('Швидкість','speed_level',p.speed_level,'number')}
+          ${field('Точність','accuracy_level',p.accuracy_level,'number')}
+        </div>
+        <div style="font-weight:600;font-size:13px;margin:8px 0 6px;color:#555">Прапори</div>
+        ${chk('Адмін-права','is_admin',p.is_admin)}
+        ${chk('На канікулах','on_vacation',p.on_vacation)}
+        ${chk('Заблокований','is_banned',p.is_banned)}
+        ${field('Причина бану','ban_reason',p.ban_reason)}
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <button class="btn btn-green" style="flex:1" onclick="adminSave(${p.id})">Зберегти</button>
+          <button class="btn btn-gray" style="flex:1" onclick="document.getElementById('admin-edit-modal').remove()">Скасувати</button>
+        </div>
+      </div>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function adminSave(id) {
+  const g   = n => document.getElementById(`ae-${n}`);
+  const num = n => { const v = g(n)?.value; return v !== '' && v != null ? parseInt(v) : undefined; };
+  const str = n => { const v = g(n)?.value?.trim(); return v !== undefined ? v : undefined; };
+  const bol = n => g(n) ? g(n).checked : undefined;
+
+  const body = {};
+  ['username','faction','gender','status_text','city_name','ban_reason'].forEach(k => { const v=str(k); if(v!==undefined) body[k]=v; });
+  ['level','greens','gold','diamonds','glory','hp','max_hp','rating_points','wins','losses',
+   'power_level','endurance_level','speed_level','accuracy_level'].forEach(k => { const v=num(k); if(v!==undefined) body[k]=v; });
+  ['is_admin','on_vacation','is_banned'].forEach(k => { const v=bol(k); if(v!==undefined) body[k]=v; });
+
+  try {
+    await API.put(`/api/admin/players/${id}`, body);
+    toast('Збережено!');
+    document.getElementById('admin-edit-modal')?.remove();
+    adminSearch();
+    if (id === player.id) await refreshPlayer();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -4019,7 +4125,7 @@ async function loadClanDefense() {
   } catch(e) { el.innerHTML = `<p class="text-muted">${e.message}</p>`; }
 }
 
-const WAVE_DANGER = ['','🟢','🟢','🟢','🟡','🟡','🟡','🟠','🟠','🟠','🔴','🔴','💀'];
+const WAVE_DANGER = ['','✅','✅','✅','🟡','🟡','🟡','🟠','🟠','🟠','🔴','🔴','☠️'];
 
 function renderCdefActive(el, r) {
   const ev      = r.event;
@@ -4141,8 +4247,8 @@ async function loadCdefHistory() {
 let petsData = null; // кеш даних тваринки
 
 const RARITY_LABEL = { 1: '⭐ Звичайна', 2: '⭐⭐ Рідкісна', 3: '⭐⭐⭐ Легендарна' };
-const STAT_LABELS   = { power: '⚡ Міць', endurance: '🛡️ Стійкість', speed: '💨 Швидкість', accuracy: '🎯 Точність' };
-const SLOT_NAMES    = { collar: '🔴 Ошийник', amulet: '🔵 Амулет', armor: '🟢 Панцир', boots: '🟡 Чоботи' };
+const STAT_LABELS   = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
+const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor: 'Панцир', boots: 'Чоботи' };
 
 function showPetsTab(tab, btn) {
   ['my','shop','train'].forEach(t => {
@@ -4171,7 +4277,7 @@ function renderPetsMy() {
   if (!pet) {
     el.innerHTML = `
       <div style="text-align:center;padding:24px">
-        <div style="font-size:48px;margin-bottom:12px">🐾</div>
+        <div style="margin-bottom:12px">${IC.paw(48)}</div>
         <p style="color:#666;margin-bottom:16px">У вас ще немає тваринки</p>
         <button class="btn btn-green" onclick="showPetsTab('shop', document.querySelector('#pets-tabs .cat-tab:nth-child(2)'))">🛒 До магазину</button>
       </div>`;
