@@ -3992,6 +3992,16 @@ function renderPetsMy() {
         <div style="font-size:13px">${pet.abilityDesc}</div>
       </div>` : ''}
 
+    <div style="background:#e8f5e9;border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">
+      <div style="font-weight:600;margin-bottom:6px">⚔️ Бойові характеристики</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+        <div>⚡ Урон за удар:<br><b>${Math.max(1,Math.floor((eff.power||pet.power)*0.8))}–${Math.floor((eff.power||pet.power)*1.2)}</b></div>
+        <div>🎯 Шанс влучення:<br><b>${Math.min(100,Math.round(50+(eff.accuracy||pet.accuracy)*0.625))}%</b></div>
+        <div>🛡️ Зниження урону:<br><b>${Math.min(40,Math.round((eff.endurance||pet.endurance)*0.5))}%</b></div>
+        <div>💨 Ініціатива:<br><b>${eff.speed||pet.speed} оч.</b></div>
+      </div>
+    </div>
+
     <div style="margin-bottom:16px">
       <div style="font-weight:600;margin-bottom:8px">Екіпіровка</div>
       ${eqSlots}
@@ -4051,6 +4061,10 @@ async function healPet() {
 }
 
 function _petCard(p, hasPet) {
+  const dmgMin = Math.max(1, Math.floor(p.power * 0.8));
+  const dmgMax = Math.floor(p.power * 1.2);
+  const hitPct = Math.min(100, Math.round(50 + p.accuracy * 0.625));
+  const defPct = Math.min(40, Math.round(p.endurance * 0.5));
   const statRow = `
     <div class="pet-stats-grid">
       <div class="pet-stat-chip"><span>⚡ Міць</span><b>${p.power}</b></div>
@@ -4058,6 +4072,9 @@ function _petCard(p, hasPet) {
       <div class="pet-stat-chip"><span>💨 Швид</span><b>${p.speed}</b></div>
       <div class="pet-stat-chip"><span>🎯 Точн</span><b>${p.accuracy}</b></div>
       <div class="pet-stat-chip" style="grid-column:1/-1"><span>❤️ HP</span><b>${p.hp}</b></div>
+    </div>
+    <div style="font-size:11px;color:#777;background:rgba(0,0,0,.04);border-radius:6px;padding:4px 6px;margin-bottom:6px">
+      Урон: ${dmgMin}–${dmgMax} · Влучення: ${hitPct}% · Захист: ${defPct}%
     </div>`;
   const abilityBox = p.abilityDesc
     ? `<div class="pet-ability-box">✨ ${p.abilityDesc}</div>`
@@ -4220,8 +4237,14 @@ async function renderPetsTrain() {
       💰 Витрачено зелені: <b>${fmtNum(totalAll)}</b> 🌿
       · Вартість відновлення: <b>${fmtNum(reviveCost)}</b> 🌿
     </div>
+    <div class="pet-combat-legend">
+      <div class="pet-combat-legend-item"><b>⚡ Міць</b>Урон за удар</div>
+      <div class="pet-combat-legend-item"><b>🛡️ Стійкість</b>Зниження вх. урону (до 40%)</div>
+      <div class="pet-combat-legend-item"><b>💨 Швидкість</b>Ініціатива — хто б'є першим</div>
+      <div class="pet-combat-legend-item"><b>🎯 Точність</b>Шанс влучення (50%–100%)</div>
+    </div>
     <div style="font-size:12px;color:#999;margin-bottom:12px">
-      Формула: рівень² × 10 + рівень × 20 · Макс рівень: 50
+      Формула прокачки: рівень² × 10 + рівень × 20 · Макс рівень: 50
     </div>
     ${rows}
   `;

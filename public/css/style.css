@@ -1741,3 +1741,17 @@ html {
 }
 .pet-section-title.rare  { color: #388e3c; border-color: #a5d6a7; }
 .pet-section-title.legendary { color: #8e24aa; border-color: #ce93d8; }
+
+.pet-combat-legend {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.pet-combat-legend-item {
+  background: #f5f5f5;
+  border-radius: 8px;
+  padding: 7px 9px;
+  font-size: 12px;
+}
+.pet-combat-legend-item b { display: block; font-size: 13px; margin-bottom: 1px; }
