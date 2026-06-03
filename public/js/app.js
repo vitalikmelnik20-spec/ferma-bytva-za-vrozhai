@@ -2767,7 +2767,7 @@ async function loadWarLeaderboard(warId) {
 
 async function warAttackPrepare(warId, defenderId, defenderName) {
   try {
-    await API.post('/api/clan-war/attack-prepare', { warId, defenderId });
+    await API.post(`/api/clan-war/${warId}/attack/${defenderId}`, {});
     // Open fight zone selector
     _warZones = ['body', 'body', 'body'];
     document.getElementById('clan-modal-body').innerHTML = `

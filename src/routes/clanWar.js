@@ -365,6 +365,72 @@ router.post('/attack-prepare', async (req, res) => {
   }
 });
 
+// ─── POST /api/clan-war/:warId/attack/:defenderId ────────────────────────────
+// Spec §9 compliant URL — validates attack, stores context in session
+router.post('/:warId/attack/:defenderId', async (req, res) => {
+  try {
+    const warIdNum      = parseInt(req.params.warId);
+    const defenderIdNum = parseInt(req.params.defenderId);
+
+    const m = await getMembership(req.session.playerId);
+    if (!m) return res.status(403).json({ error: 'Ви не в клані' });
+
+    const [{ rows: [me] }, { rows: [defender] }] = await Promise.all([
+      pool.query('SELECT on_vacation FROM players WHERE id=$1', [req.session.playerId]),
+      pool.query('SELECT on_vacation FROM players WHERE id=$1', [defenderIdNum]),
+    ]);
+    if (me?.on_vacation)      return res.status(400).json({ error: 'Ви на канікулах' });
+    if (!defender)            return res.status(404).json({ error: 'Суперника не знайдено' });
+    if (defender.on_vacation) return res.status(400).json({ error: 'Суперник на канікулах' });
+
+    const { rows: [war] } = await pool.query(
+      `SELECT * FROM clan_wars WHERE id=$1 AND status='active' AND ends_at > NOW()
+         AND (attacker_clan_id=$2 OR defender_clan_id=$2)`,
+      [warIdNum, m.clan_id]
+    );
+    if (!war) return res.status(404).json({ error: 'Активну війну не знайдено' });
+
+    const enemyClanId = war.attacker_clan_id == m.clan_id
+      ? war.defender_clan_id : war.attacker_clan_id;
+
+    const { rows: [defMem] } = await pool.query(
+      'SELECT clan_id FROM clan_members WHERE player_id=$1', [defenderIdNum]
+    );
+    if (!defMem || defMem.clan_id != enemyClanId)
+      return res.status(400).json({ error: 'Гравець не є членом ворожого клану' });
+
+    const { rows: [limit] } = await pool.query(
+      `SELECT attacks_used FROM clan_war_attack_limits
+       WHERE war_id=$1 AND attacker_id=$2 AND defender_id=$3`,
+      [warIdNum, req.session.playerId, defenderIdNum]
+    );
+    if ((limit?.attacks_used || 0) >= 2)
+      return res.status(400).json({ error: 'Ліміт атак на цього гравця вичерпано (2/2)' });
+
+    const [{ rows: myB }, { rows: enB }] = await Promise.all([
+      pool.query('SELECT building_key, level FROM clan_buildings WHERE clan_id=$1', [m.clan_id]),
+      pool.query('SELECT building_key, level FROM clan_buildings WHERE clan_id=$1', [enemyClanId]),
+    ]);
+    const bv = (arr, key) => arr.find(b => b.building_key === key)?.level || 0;
+
+    req.session.clanWarFight = {
+      warId: warIdNum,
+      attackerClanId: m.clan_id,
+      defenderClanId: enemyClanId,
+      defenderId: defenderIdNum,
+      extraAttackerPower:     bv(myB, 'smithy') * 5,
+      extraAttackerEndurance: bv(myB, 'tower')  * 5,
+      extraDefenderPower:     bv(enB, 'smithy') * 5,
+      extraDefenderEndurance: bv(enB, 'tower')  * 5,
+    };
+    await new Promise((ok, fail) => req.session.save(e => e ? fail(e) : ok()));
+    res.json({ success: true, defenderId: defenderIdNum });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 // ─── GET /api/clan-war/:warId/leaderboard ────────────────────────────────────
 router.get('/:warId/leaderboard', async (req, res) => {
   try {
