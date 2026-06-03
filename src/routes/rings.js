@@ -7,13 +7,15 @@ router.use(requireAuth);
 const RING_CONFIG = {
   'Кільце злодія': {
     currency: 'gold',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    costs: [0, 0, 600, 800, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
     effects: (lv) => {
-      const sc = lv <= 5 ? Math.round(5 + (lv - 1) * 4.5) : 25 + (lv - 5) * 5;
-      return { steal_chance: sc, max_steal_pct: sc / 2, bonus_value: sc };
+      const STEAL_CHANCE = [0, 5, 9, 14, 19, 25, 31, 37, 43, 47, 50];
+      const sc = STEAL_CHANCE[lv];
+      const msp = +(lv * 0.3).toFixed(1);
+      return { steal_chance: sc, max_steal_pct: msp, bonus_value: sc };
     },
-    statLabel: (v) => `Шанс крадіжки: ${v}%`,
-    subLabel:  (v) => `Вкрасти до: ${Math.round(v / 2)}% золота`,
+    statLabel: (v)     => `Шанс крадіжки: ${v}%`,
+    subLabel:  (v, ru) => `Вкрасти до: ${ru ? ru.max_steal_pct : (v * 0.3).toFixed(1)}% золота`,
   },
   'Кільце Жнеця': {
     currency: 'greens',
@@ -62,7 +64,7 @@ async function ensureRingRow(playerId, invId, itemName) {
   await pool.query(
     `INSERT INTO ring_upgrades (player_id, item_id, inv_id, ring_level, steal_chance, max_steal_pct, bonus_value)
      VALUES ($1,$2,$3,1,$4,$5,$6)`,
-    [playerId, inv.item_id, invId, ef.steal_chance || 5, ef.max_steal_pct || 2.5, ef.bonus_value || 0]
+    [playerId, inv.item_id, invId, ef.steal_chance ?? 5, ef.max_steal_pct ?? 0.3, ef.bonus_value ?? 0]
   );
 }
 
@@ -86,8 +88,8 @@ router.get('/info/:invId', async (req, res) => {
     res.json({
       ring: ru,
       ringName: inv.name,
-      statLabel: cfg.statLabel(ru.bonus_value),
-      subLabel:  cfg.subLabel(ru.bonus_value),
+      statLabel: cfg.statLabel(ru.bonus_value, ru),
+      subLabel:  cfg.subLabel(ru.bonus_value, ru),
       nextCost,
       currency: cfg.currency,
     });
@@ -158,7 +160,7 @@ router.post('/buy', async (req, res) => {
       [req.session.playerId, ring.id]
     );
     await pool.query(
-      `INSERT INTO ring_upgrades (player_id, item_id, inv_id, ring_level, steal_chance, max_steal_pct, bonus_value) VALUES ($1,$2,$3,1,5,2.5,5)`,
+      `INSERT INTO ring_upgrades (player_id, item_id, inv_id, ring_level, steal_chance, max_steal_pct, bonus_value) VALUES ($1,$2,$3,1,5,0.3,5)`,
       [req.session.playerId, ring.id, inv.id]
     );
     res.json({ success: true, inventoryId: inv.id });

@@ -2723,7 +2723,7 @@ function initSocket() {
     toast(`${IC.dragon(28)} Дракон нападає! HP: ${fmtNum(hpMax)} — Поспішай до битви!`);
     document.getElementById('dragon-notif-sub').textContent = `HP: ${fmtNum(hpMax)} / ${fmtNum(hpMax)}`;
     document.getElementById('dragon-notif').style.display = 'flex';
-    if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
+    loadDragon();
   });
 
   socket.on('dragon:damage', ({ hpCurrent, hpMax }) => {
@@ -3764,14 +3764,9 @@ function renderDragonActive(r) {
       </div>
     </div>`;
 
-  // Check once if event already expired on client clock — avoid clock-skew loop
-  if (new Date(ev.ends_at).getTime() <= Date.now()) {
-    renderDragonInactive(null);
-    return;
-  }
-
   // Schedule loadDragon once when event ends (single timeout, no repeating interval)
   const msLeft = new Date(ev.ends_at).getTime() - Date.now();
+  if (msLeft <= 0) { loadDragon(); return; }
   _dragonTimerInterval = setTimeout(() => {
     _dragonTimerInterval = null;
     _dragonClearTimers();

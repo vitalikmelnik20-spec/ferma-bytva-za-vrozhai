@@ -138,7 +138,8 @@ async function checkRingEffect(winnerId, loserId, battleId, io) {
   );
   if (!victim || victim.gold <= 0) return null;
 
-  const stealPct = Math.random() * (ru.max_steal_pct - 1) + 1;
+  const maxPct  = parseFloat(ru.max_steal_pct) || 0.3;
+  const stealPct = 0.1 + Math.random() * Math.max(0, maxPct - 0.1);
   let stolen = Math.max(1, Math.floor(victim.gold * stealPct / 100));
   stolen = Math.min(stolen, victim.gold);
 

@@ -206,6 +206,44 @@ setInterval(async () => {
     } catch (err) { console.error('[Dragon startup]', err.message); }
   })();
 
+  // v4 migration: rebalance Кільце злодія for existing owners
+  (async () => {
+    try {
+      const STEAL_CHANCE = [0, 5, 9, 14, 19, 25, 31, 37, 43, 47, 50];
+      const { rows: affected } = await pool.query(`
+        UPDATE ring_upgrades ru
+        SET steal_chance = CASE ru.ring_level
+              WHEN 1 THEN 5 WHEN 2 THEN 9  WHEN 3 THEN 14 WHEN 4 THEN 19
+              WHEN 5 THEN 25 WHEN 6 THEN 31 WHEN 7 THEN 37 WHEN 8 THEN 43
+              WHEN 9 THEN 47 WHEN 10 THEN 50
+            END,
+            max_steal_pct = ROUND((ru.ring_level * 0.3)::NUMERIC, 1),
+            bonus_value   = CASE ru.ring_level
+              WHEN 1 THEN 5 WHEN 2 THEN 9  WHEN 3 THEN 14 WHEN 4 THEN 19
+              WHEN 5 THEN 25 WHEN 6 THEN 31 WHEN 7 THEN 37 WHEN 8 THEN 43
+              WHEN 9 THEN 47 WHEN 10 THEN 50
+            END
+        FROM inventory inv
+        JOIN items it ON it.id = inv.item_id AND it.name = 'Кільце злодія'
+        WHERE ru.inv_id = inv.id
+          AND ru.max_steal_pct > (ru.ring_level * 0.3 + 0.01)
+        RETURNING ru.player_id, ru.ring_level, ROUND((ru.ring_level * 0.3)::NUMERIC,1) AS new_pct
+      `);
+      if (affected.length) {
+        console.log(`[v4 migration] Кільце злодія: оновлено ${affected.length} власників`);
+        for (const row of affected) {
+          const sc = STEAL_CHANCE[row.ring_level] ?? 5;
+          await pool.query(
+            `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+            [row.player_id,
+             'Кільце злодія збалансовано',
+             `Параметри кільця оновлено (v4). Нові характеристики рів.${row.ring_level}: шанс спрацювання ${sc}%, крадіжка до ${row.new_pct}% золота. Рівень прокачки збережено.`]
+          );
+        }
+      }
+    } catch (err) { console.error('[v4 migration ring]', err.message); }
+  })();
+
   setInterval(async () => {
     try {
       const now = new Date();
