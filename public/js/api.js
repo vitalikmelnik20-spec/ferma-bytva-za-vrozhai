@@ -61,5 +61,5 @@ function playerAvatar(faction, gender) {
 }
 
 function factionLabel(f) {
-  return f === 'elves' ? 'Ельфи' : 'Орки';
+  return { elves: 'Ельфи', orcs: 'Орки', humans: 'Люди' }[f] || f || '—';
 }

@@ -61,7 +61,7 @@ router.post('/open', async (req, res) => {
     const { rows: [dep] } = await pool.query(
       `INSERT INTO bank_deposits
          (player_id, currency, amount, interest_rate, term_days, status, matures_at)
-       VALUES ($1,$2,$3,$4,$5,'active', NOW() + ($5 || ' days')::INTERVAL)
+       VALUES ($1,$2,$3,$4,$5,'active', NOW() + ($5 * INTERVAL '1 day'))
        RETURNING *`,
       [req.session.playerId, currency, amountNum, rate, termNum]
     );

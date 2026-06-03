@@ -89,7 +89,7 @@ const IC = {
 const plink = (id, username, faction = '') =>
   `<span class="${faction}" style="cursor:pointer;text-decoration:underline dotted" onclick="viewProfile(${id})">${username}</span>`;
 
-const factionLabel = (f) => ({ elves: 'Ельфи', orcs: 'Орки', humans: 'Люди' }[f] || f || '—');
+// factionLabel defined in api.js (extended there to include humans)
 
 let gardenData = null;
 let marketData = null;
