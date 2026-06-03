@@ -89,6 +89,8 @@ const IC = {
 const plink = (id, username, faction = '') =>
   `<span class="${faction}" style="cursor:pointer;text-decoration:underline dotted" onclick="viewProfile(${id})">${username}</span>`;
 
+const factionLabel = (f) => ({ elves: 'Ельфи', orcs: 'Орки', humans: 'Люди' }[f] || f || '—');
+
 let gardenData = null;
 let marketData = null;
 let currentPickRound = 1;
@@ -138,6 +140,7 @@ const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor:
   updateHomeProfile();
   initSocket();
   navigate('home');
+  refreshEventsCount();
   // Auto-refresh header stats every 5 seconds
   setInterval(refreshPlayer, 5000);
   // Global caves mine notifier — runs on every page
@@ -282,6 +285,7 @@ function navigate(page) {
   if (page === 'daily')        loadDaily();
   if (page === 'clan-defense') loadClanDefense();
   if (page === 'pets')         loadPets();
+  if (page === 'events')       loadEvents();
   if (page !== 'caves')      stopCavesPolling();
 }
 
@@ -2988,7 +2992,112 @@ function initSocket() {
     if (document.getElementById('page-dragon')?.classList.contains('active')) loadDragon();
   });
 
+  socket.on('events:new', ({ title, icon }) => {
+    toast(`${icon || '📋'} ${title}`);
+    refreshEventsCount();
+  });
+
+  socket.on('events:count', ({ unread_count }) => {
+    updateEventsBadge(unread_count);
+  });
+
   initChatHistory();
+}
+
+// ─── EVENTS ──────────────────────────────────────────────────────────────────
+function updateEventsBadge(count) {
+  const badge = document.getElementById('events-badge');
+  const menuLabel = document.getElementById('events-menu-label');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = 'inline-block';
+    if (menuLabel) menuLabel.textContent = `Події (${count})`;
+  } else {
+    badge.style.display = 'none';
+    if (menuLabel) menuLabel.textContent = 'Події';
+  }
+}
+
+async function refreshEventsCount() {
+  try {
+    const r = await API.get('/api/events/count');
+    updateEventsBadge(r.unread_count);
+  } catch (_) {}
+}
+
+async function loadEvents() {
+  try {
+    // mark all as read
+    await API.post('/api/events/read-all');
+    updateEventsBadge(0);
+
+    const r = await API.get('/api/events');
+    const events = r.events;
+
+    // Block 0: mini profile
+    const mpEl = document.getElementById('events-miniprofile');
+    if (mpEl && player) {
+      const pct = player.exp_to_next > 0 ? Math.min(100, player.experience / player.exp_to_next * 100).toFixed(1) : 0;
+      mpEl.innerHTML = `
+        <div class="panel-body" style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:40px;flex-shrink:0">${playerAvatar(player.faction, player.gender)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:15px">${player.username}</div>
+            <div class="text-muted" style="font-size:12px">Рів. ${player.level} · ${factionLabel(player.faction)} · Слава: ${player.glory}</div>
+            <div class="exp-bar-wrap" style="margin:4px 0"><div class="exp-bar" style="width:${pct}%"></div></div>
+            <div style="font-size:11px;color:#aaa">${fmtNum(player.experience)} / ${fmtNum(player.exp_to_next)} досвіду</div>
+          </div>
+        </div>`;
+    }
+
+    const contentEl = document.getElementById('events-content');
+    if (!contentEl) return;
+
+    const SYSTEM  = ['insects_attack','dragon_start','dragon_end','clan_war_start','clan_war_end','greenhouse_full','deposit_ready'];
+    const BATTLE  = ['battle_win','battle_lose','battle_attacked_win','battle_attacked_lose','ring_stolen','ring_stolen_from'];
+    const SOCIAL  = ['gift_received','friend_request','garden_watered','prank','clan_join','clan_kicked'];
+    const REWARDS = ['level_up','quest_done','deposit_done','daily_reward','tournament_end'];
+
+    const sys     = events.filter(e => SYSTEM.includes(e.event_type));
+    const battle  = events.filter(e => BATTLE.includes(e.event_type));
+    const social  = events.filter(e => SOCIAL.includes(e.event_type));
+    const rewards = events.filter(e => REWARDS.includes(e.event_type));
+
+    const COLOR_MAP = { green:'#388e3c', red:'#c62828', orange:'#e65100', gold:'#f9a825', blue:'#1565c0', purple:'#6a1b9a' };
+
+    const renderBlock = (title, list) => {
+      if (!list.length) return '';
+      return `
+        <div class="panel mb-12">
+          <div class="panel-header">${title}</div>
+          <div class="panel-body" style="padding:0">
+            ${list.map(ev => {
+              const color = COLOR_MAP[ev.color] || '#555';
+              const timeStr = new Date(ev.created_at).toLocaleString('uk-UA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+              return `
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f0f0">
+                <span style="font-size:22px;flex-shrink:0">${ev.icon || '📋'}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-weight:600;font-size:13px;color:${color}">${ev.title}</div>
+                  ${ev.body ? `<div class="text-muted" style="font-size:12px;margin-top:2px">${ev.body}</div>` : ''}
+                  <div style="font-size:11px;color:#bbb;margin-top:3px">${timeStr}</div>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>`;
+    };
+
+    const html = [
+      renderBlock('⚔️ Бойовий журнал', battle),
+      renderBlock('🔔 Системні події', sys),
+      renderBlock('👥 Соціальні події', social),
+      renderBlock('🏆 Нагороди', rewards),
+    ].join('');
+
+    contentEl.innerHTML = html || `<div class="panel"><div class="panel-body"><p class="text-muted" style="text-align:center">Подій ще немає</p></div></div>`;
+  } catch (e) { toast(e.message, true); }
 }
 
 // ─── CAVES ───────────────────────────────────────────────────────────────────

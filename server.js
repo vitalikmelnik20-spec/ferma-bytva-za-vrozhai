@@ -57,6 +57,7 @@ app.use('/api/clan-defense', require('./src/routes/clanDefense'));
 app.use('/api/pets',         require('./src/routes/pets'));
 app.use('/api/greenhouse',   require('./src/routes/greenhouse'));
 app.use('/api/bank',         require('./src/routes/bank'));
+app.use('/api/events',       require('./src/routes/events'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -90,6 +91,10 @@ const scheduleDailyReset = (io) => {
     // Notify online players that caves are open
     if (io) io.emit('caves:open');
     console.log('[Reset] caves:open розіслано');
+    // Auto-cleanup events older than 7 days
+    try {
+      await pool.query(`DELETE FROM events WHERE created_at < NOW() - INTERVAL '7 days'`);
+    } catch (err) { console.error('[Reset] events cleanup помилка:', err.message); }
     // Greenhouse accrual — add daily greens (max 2 days worth)
     try {
       const { DAILY_GREEN } = require('./src/routes/greenhouse');
@@ -155,6 +160,12 @@ setInterval(async () => {
         type: 'bank',
         message: `🏦 Депозит готовий! Забери ${label} у Банку`,
       });
+      const writeEvent = require('./src/helpers/writeEvent');
+      await writeEvent(dep.player_id, {
+        event_type: 'deposit_ready', title: 'Депозит готовий до отримання',
+        body: `${dep.currency === 'gold' ? '🏅' : '🌿'} ${dep.amount} дозрів. Забери ${label}.`,
+        icon: '🏦', color: 'green',
+      }, io);
     }
     if (matured.length) console.log(`[Bank] ${matured.length} депозитів позначено готовими`);
   } catch (err) { console.error('[Bank cron]', err.message); }
@@ -201,6 +212,13 @@ setInterval(async () => {
         [player_id, swarmHp, penaltyPct]
       );
       io.to(`player:${player_id}`).emit('insects:started', { swarmHp, penaltyPct });
+      const writeEvent = require('./src/helpers/writeEvent');
+      await writeEvent(player_id, {
+        event_type: 'insects_attack',
+        title: 'Комахи атакували твій город!',
+        body: `Рой HP: ${swarmHp}. Штраф до врожаю: -${penaltyPct}%`,
+        icon: '🪲', color: 'orange',
+      }, io);
     }
   } catch (err) { console.error('[Insects]', err.message); }
 }, 10 * 60 * 1000);
@@ -234,6 +252,17 @@ setInterval(async () => {
     );
     io.emit('dragon:started', { eventId: ev.id, hpMax: ev.hp_max });
     console.log(`[Dragon] Подія розпочалась! HP: ${hp}`);
+    // Write dragon_start event for all non-banned players
+    const writeEvent = require('./src/helpers/writeEvent');
+    const { rows: allPlayers } = await pool.query(`SELECT id FROM players WHERE is_banned=false`);
+    for (const p of allPlayers) {
+      await writeEvent(p.id, {
+        event_type: 'dragon_start',
+        title: 'Дракон нападає! Бери участь у битві',
+        body: `HP дракона: ${hp.toLocaleString('uk-UA')}`,
+        icon: '🐉', color: 'red',
+      }, io);
+    }
   }
 
   // Finalize any events that expired while the server was offline
@@ -245,6 +274,27 @@ setInterval(async () => {
       for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
       if (expired.length) console.log(`[Dragon] Завершено ${expired.length} протерміновані події при запуску`);
     } catch (err) { console.error('[Dragon startup]', err.message); }
+  })();
+
+  // v4: ensure events table exists
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS events (
+          id          SERIAL PRIMARY KEY,
+          player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          event_type  VARCHAR(50) NOT NULL,
+          title       VARCHAR(200) NOT NULL,
+          body        TEXT,
+          icon        VARCHAR(10),
+          color       VARCHAR(20) DEFAULT 'blue',
+          is_read     BOOLEAN NOT NULL DEFAULT false,
+          related_id  INTEGER,
+          created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS events_player_id_idx ON events(player_id, created_at DESC)`);
+    } catch (err) { console.error('[v4 events table]', err.message); }
   })();
 
   // v4: ensure bank_deposits table exists

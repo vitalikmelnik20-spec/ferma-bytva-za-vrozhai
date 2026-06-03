@@ -47,6 +47,13 @@ router.post('/friends/request/:targetId', async (req, res) => {
       'INSERT INTO friends (requester_id, addressee_id) VALUES ($1,$2)',
       [req.session.playerId, targetId]
     );
+    const { rows: [requester] } = await pool.query('SELECT username FROM players WHERE id=$1', [req.session.playerId]);
+    const writeEvent = require('../helpers/writeEvent');
+    await writeEvent(targetId, {
+      event_type: 'friend_request',
+      title: `${requester.username} хоче додати тебе в друзі`,
+      icon: '👥', color: 'blue',
+    }, req.app.locals.io);
     res.json({ success: true });
   } catch (err) {
     console.error(err);
@@ -200,6 +207,15 @@ router.post('/tricks/:targetId', async (req, res) => {
       'INSERT INTO tricks (attacker_id, victim_id, greens_stolen) VALUES ($1,$2,$3)',
       [req.session.playerId, targetId, stolen]
     );
+
+    const { rows: [attacker] } = await pool.query('SELECT username FROM players WHERE id=$1', [req.session.playerId]);
+    const writeEvent = require('../helpers/writeEvent');
+    await writeEvent(targetId, {
+      event_type: 'prank',
+      title: `${attacker.username} зробив тобі пакість!`,
+      body: `Вкрав ${stolen} 🌿`,
+      icon: '🐛', color: 'orange',
+    }, req.app.locals.io);
 
     res.json({ success: true, stolen });
   } catch (err) {

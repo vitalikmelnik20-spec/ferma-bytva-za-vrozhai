@@ -71,6 +71,9 @@
         </div>
       </div>
       <div class="menu-grid">
+        <div class="menu-btn" onclick="navigate('events')">
+          <span class="menu-icon">📋</span><span class="menu-label" id="events-menu-label">Події</span>
+        </div>
         <div class="menu-btn" onclick="navigate('inventory')">
           <span class="menu-icon"><img src="/icons/ui/inventory.svg" width="24" height="24" style="vertical-align:middle" alt="inventory"></span><span class="menu-label"><img src="/icons/ui/inventory.svg" width="16" height="16" style="vertical-align:middle"> Інвентар</span>
         </div>
@@ -199,6 +202,12 @@
           <p class="text-muted">Щоденне джерело золота і досвіду</p>
         </div>
       </div>
+    </section>
+
+    <!-- EVENTS -->
+    <section class="page" id="page-events">
+      <div class="panel mb-12" id="events-miniprofile"></div>
+      <div id="events-content"></div>
     </section>
 
     <!-- AUCTION -->
@@ -473,7 +482,10 @@
   <!-- Bottom Nav -->
   <nav class="bottom-nav">
     <button class="nav-btn active" data-page="home" onclick="navigate('home')">
-      <span class="nav-icon"><img src="/icons/ui/home.svg" width="24" height="24" style="vertical-align:middle" alt="home"></span>Головна
+      <span class="nav-icon" style="position:relative;display:inline-block">
+        <img src="/icons/ui/home.svg" width="24" height="24" style="vertical-align:middle" alt="home">
+        <span id="events-badge" style="display:none;position:absolute;top:-4px;right:-6px;background:#e53935;color:#fff;border-radius:50%;font-size:10px;font-weight:700;min-width:16px;height:16px;line-height:16px;text-align:center;padding:0 3px"></span>
+      </span>Головна
     </button>
     <button class="nav-btn" data-page="garden" onclick="navigate('garden')">
       <span class="nav-icon"><img src="/icons/menu/garden.png" style="width:24px;height:24px"></span>Город

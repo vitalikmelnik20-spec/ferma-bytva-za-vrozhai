@@ -191,6 +191,15 @@ router.post('/friend/:plotId/water', async (req, res) => {
       [req.session.playerId]
     );
 
+    const { rows: [waterer] } = await pool.query('SELECT username FROM players WHERE id=$1', [req.session.playerId]);
+    const writeEvent = require('../helpers/writeEvent');
+    await writeEvent(plot.player_id, {
+      event_type: 'garden_watered',
+      title: `${waterer.username} полив твою грядку`,
+      body: `Рослина росте на 10% швидше`,
+      icon: '💧', color: 'blue',
+    }, req.app.locals.io);
+
     res.json({ success: true });
   } catch (err) {
     console.error(err);

@@ -100,6 +100,14 @@ router.post('/send', async (req, res) => {
       });
     }
 
+    const writeEvent = require('../helpers/writeEvent');
+    await writeEvent(friendId, {
+      event_type: 'gift_received',
+      title: `${sender.username} подарував тобі ${gift.name}`,
+      body: `Подарунок активний 48 годин`,
+      icon: '🎁', color: 'blue',
+    }, io);
+
     res.json({ success: true, giftId: newGift.id });
   } catch (err) {
     console.error(err);

@@ -171,6 +171,16 @@ async function checkRingEffect(winnerId, loserId, battleId, io) {
     });
   }
 
+  const writeEvent = require('../helpers/writeEvent');
+  await writeEvent(winnerId, { event_type:'ring_stolen',
+    title:`Кільце злодія спрацювало!`,
+    body:`Вкрав ${stolen} 🏅 у ${victim.username}`,
+    icon:'💍', color:'gold' }, io);
+  await writeEvent(loserId, { event_type:'ring_stolen_from',
+    title:`${winner.username} вкрав у тебе золото`,
+    body:`Вкрав ${stolen} 🏅 після бою. Залишилось: ${victim.gold - stolen} 🏅`,
+    icon:'💸', color:'orange' }, io);
+
   return { triggered: true, stolenGold: stolen, victimName: victim.username };
 }
 
@@ -649,6 +659,30 @@ router.post('/round', async (req, res) => {
       // ─────────────────────────────────────────────────────────────────────
 
       delete req.session.fight;
+
+      // Write battle events for both players
+      const writeEvent = require('../helpers/writeEvent');
+      const _io = req.app.locals.io;
+      const aName = fight.attackerName, dName = fight.defenderName;
+      if (attackerWon) {
+        await writeEvent(attacker.id, { event_type:'battle_win',
+          title:`Перемога над ${dName}!`,
+          body:`+${greensReward} 🌿${goldReward ? ` +${goldReward} 🏅` : ''}`,
+          icon:'⚔️', color:'green' }, _io);
+        await writeEvent(defender.id, { event_type:'battle_attacked_lose',
+          title:`${aName} атакував тебе. Поразка.`,
+          body:`-${greensReward} 🌿${goldReward ? ` -${goldReward} 🏅` : ''}`,
+          icon:'🛡️', color:'red' }, _io);
+      } else {
+        await writeEvent(attacker.id, { event_type:'battle_lose',
+          title:`Поразка від ${dName}.`,
+          body:`-${greensReward} 🌿`,
+          icon:'⚔️', color:'red' }, _io);
+        await writeEvent(defender.id, { event_type:'battle_attacked_win',
+          title:`${aName} атакував тебе. Ти відбився!`,
+          body:`+${greensReward} 🌿`,
+          icon:'🛡️', color:'green' }, _io);
+      }
 
       return res.json({
         roundData, roundNum: fight.rounds.length, isLast: true,
