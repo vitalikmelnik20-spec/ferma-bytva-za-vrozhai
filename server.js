@@ -452,6 +452,36 @@ setInterval(async () => {
       // Add win/loss counters to clans if not exists
       await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_wars_won  INTEGER NOT NULL DEFAULT 0`);
       await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_wars_lost INTEGER NOT NULL DEFAULT 0`);
+
+      // --- Migrate old clan_wars schema (attacker_id → attacker_clan_id etc.) ---
+      const migrations = [
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS attacker_clan_id      INTEGER REFERENCES clans(id)`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS defender_clan_id      INTEGER REFERENCES clans(id)`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS winner_clan_id        INTEGER REFERENCES clans(id)`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS attacker_total_damage BIGINT NOT NULL DEFAULT 0`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS defender_total_damage BIGINT NOT NULL DEFAULT 0`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS treasury_taken_green  INTEGER NOT NULL DEFAULT 0`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS treasury_taken_gold   INTEGER NOT NULL DEFAULT 0`,
+        `ALTER TABLE clan_wars ADD COLUMN IF NOT EXISTS finished_at           TIMESTAMP`,
+        // Copy old column values into new columns for any existing rows
+        `UPDATE clan_wars SET
+           attacker_clan_id      = COALESCE(attacker_clan_id, attacker_id),
+           defender_clan_id      = COALESCE(defender_clan_id, defender_id),
+           winner_clan_id        = COALESCE(winner_clan_id,   winner_id),
+           attacker_total_damage = GREATEST(attacker_total_damage, COALESCE(attacker_dmg, 0)),
+           defender_total_damage = GREATEST(defender_total_damage, COALESCE(defender_dmg, 0))
+         WHERE attacker_clan_id IS NULL OR defender_clan_id IS NULL`,
+        // Fix status CHECK constraint to allow 'draw'
+        `ALTER TABLE clan_wars DROP CONSTRAINT IF EXISTS clan_wars_status_check`,
+        `ALTER TABLE clan_wars ADD CONSTRAINT clan_wars_status_check
+           CHECK (status IN ('active','finished','draw'))`,
+        // clan_tasks: add task_key column if missing
+        `ALTER TABLE clan_tasks ADD COLUMN IF NOT EXISTS task_key VARCHAR(50)`,
+      ];
+      for (const sql of migrations) {
+        try { await pool.query(sql); } catch (e) { /* column/constraint may already exist */ }
+      }
+
       console.log('[ClanWar] Tables ready');
     } catch (err) { console.error('[ClanWar tables]', err.message); }
   })();
