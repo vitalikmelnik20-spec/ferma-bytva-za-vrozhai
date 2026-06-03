@@ -2196,6 +2196,8 @@ async function loadClans() {
 }
 
 async function renderMyClan(el) {
+  if (!el) el = document.getElementById('clans-list');
+  if (!el) return;
   const [r, warData, tasksData] = await Promise.all([
     API.get('/api/clans/my'),
     API.get('/api/clan-war/current').catch(() => ({ war: null })),
@@ -3456,8 +3458,8 @@ function initSocket() {
 
   socket.on('clan_war:started', ({ warId, attackerClan, defenderClan, endsAt }) => {
     toast(`⚔️ Кланова Війна! ${attackerClan.name} vs ${defenderClan.name}`);
-    const sec = document.getElementById('section-clans');
-    if (sec && !sec.classList.contains('hidden')) renderMyClan();
+    const page = document.getElementById('page-clans');
+    if (page && page.classList.contains('active')) renderMyClan();
   });
 
   socket.on('clan_war:damage', ({ warId, totalA, totalB }) => {
@@ -3503,12 +3505,9 @@ function initSocket() {
       toast(`💀 Клан програв. ${gloryChanges} слави`);
     }
 
-    const sec = document.getElementById('section-clans');
-    if (sec && !sec.classList.contains('hidden')) {
-      renderMyClan().then(() => {
-        // After re-render, show results in war-history-section
-        loadWarResults(warId);
-      });
+    const page = document.getElementById('page-clans');
+    if (page && page.classList.contains('active')) {
+      renderMyClan().then(() => loadWarResults(warId));
     }
   });
 
