@@ -3486,20 +3486,21 @@ function initSocket() {
     }
   });
 
-  socket.on('clan_war:ended', ({ warId, isWinner, isDraw, glory, greenTaken, goldTaken }) => {
+  socket.on('clan_war:ended', ({ warId, winner, treasuryTaken, gloryChanges, isWinner, isDraw }) => {
     _warPanelId  = null;
     _activeWarId = null;
     if (_warTimerInterval) { clearInterval(_warTimerInterval); _warTimerInterval = null; }
 
+    const t = treasuryTaken || {};
     if (isDraw) {
       toast('🤝 Кланова війна завершилась нічиєю');
     } else if (isWinner) {
-      const treasuryPart = (greenTaken || goldTaken)
-        ? ` · ${IC.greens(13)}${fmtNum(greenTaken)} ${IC.gold(13)}${fmtNum(goldTaken)}`
+      const tPart = (t.green || t.gold)
+        ? ` · ${IC.greens(13)}${fmtNum(t.green)} ${IC.gold(13)}${fmtNum(t.gold)}`
         : '';
-      toast(`🏆 Клан переміг! +${glory} слави${treasuryPart}`);
+      toast(`🏆 Клан "${winner?.name}" переміг! +${gloryChanges} слави${tPart}`);
     } else {
-      toast(`💀 Клан програв. -${glory} слави`);
+      toast(`💀 Клан програв. ${gloryChanges} слави`);
     }
 
     const sec = document.getElementById('section-clans');

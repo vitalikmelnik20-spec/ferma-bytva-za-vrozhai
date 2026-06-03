@@ -130,9 +130,12 @@ async function finishWar(warId, io) {
         icon: isWinner ? '⚔️' : '💀', color: isWinner ? 'green' : 'red',
       }, io);
       if (io) io.to(`player:${m.player_id}`).emit('clan_war:ended', {
-        warId, isWinner,
-        winnerClanName: wClan.name, loserClanName: lClan.name,
-        greenTaken, goldTaken, glory,
+        warId,
+        winner:        { clanId: winnerClanId, name: wClan.name },
+        treasuryTaken: { green: greenTaken, gold: goldTaken },
+        gloryChanges:  isWinner ? glory : -glory,
+        isWinner,
+        isDraw: false,
       });
     }
   } else {
@@ -142,7 +145,14 @@ async function finishWar(warId, io) {
       [war.attacker_clan_id, war.defender_clan_id]
     );
     for (const m of drawMembers) {
-      if (io) io.to(`player:${m.player_id}`).emit('clan_war:ended', { warId, isDraw: true });
+      if (io) io.to(`player:${m.player_id}`).emit('clan_war:ended', {
+        warId,
+        winner:        null,
+        treasuryTaken: { green: 0, gold: 0 },
+        gloryChanges:  0,
+        isWinner: false,
+        isDraw: true,
+      });
     }
   }
 
