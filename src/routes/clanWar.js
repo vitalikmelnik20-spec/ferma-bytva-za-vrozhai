@@ -69,7 +69,13 @@ async function finishWar(warId, io) {
     const winParts  = participants.filter(p => p.clan_id == winnerClanId);
     const loseParts = participants.filter(p => p.clan_id == loserClanId);
 
-    const winGloryPool = 50 + loseParts.length * 2;
+    // Use total clan member counts per spec §11.3 ("членів ворога")
+    const [{ rows: [{ count: loserMemberCount }] }] = await Promise.all([
+      pool.query('SELECT COUNT(*)::INTEGER AS count FROM clan_members WHERE clan_id=$1', [loserClanId]),
+    ]);
+    const loserMembers = parseInt(loserMemberCount) || loseParts.length;
+
+    const winGloryPool = 50 + loserMembers * 2;
     const winTotalDmg  = winParts.reduce((s, p) => s + (parseInt(p.damage_dealt) || 0), 0);
 
     const sorted = [...winParts].sort((a, b) => parseInt(b.damage_dealt) - parseInt(a.damage_dealt));
@@ -86,7 +92,7 @@ async function finishWar(warId, io) {
       }
     }
 
-    const loseGloryPool    = 25 + loseParts.length;
+    const loseGloryPool    = 25 + loserMembers;
     const loseTotalDmgRecv = loseParts.reduce((s, p) => s + (parseInt(p.damage_received) || 0), 0);
 
     for (const p of loseParts) {
