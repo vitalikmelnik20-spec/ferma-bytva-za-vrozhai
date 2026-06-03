@@ -274,7 +274,7 @@ router.post('/:plotId/harvest', async (req, res) => {
     const greensEarned = Math.floor(plant.greens_reward
       * (1 + (farmPct + harvestGiftPct + potionHarvestPct + reaperRingPct) / 100)
       * (1 - insectPenaltyPct / 100));
-    const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100));
+    const expEarned    = Math.floor(plant.exp_reward    * (1 + academyPct / 100) * 0.1);
 
     // Give rewards
     const { rows: [player] } = await pool.query(

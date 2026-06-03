@@ -62,6 +62,40 @@ async function ensureTalismanRow(playerId, invId, itemName) {
   );
 }
 
+router.get('/owned', async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT inv.id AS inv_id, it.name,
+              COALESCE(tu.talisman_level, 1) AS talisman_level,
+              COALESCE(tu.bonus_pct, 0)      AS bonus_pct
+       FROM inventory inv
+       JOIN items it ON it.id = inv.item_id AND it.category='talisman'
+       LEFT JOIN talisman_upgrades tu ON tu.inv_id = inv.id
+       WHERE inv.player_id=$1`,
+      [req.session.playerId]
+    );
+    const talismans = rows.map(row => {
+      const cfg = TALISMAN_CONFIG[row.name];
+      if (!cfg) return null;
+      const lv = parseInt(row.talisman_level);
+      return {
+        inv_id: row.inv_id,
+        name: row.name,
+        level: lv,
+        maxed: lv >= 10,
+        currency: cfg.currency,
+        nextCost: lv < 10 ? cfg.costs[lv + 1] : null,
+        statLabel: cfg.statLabel(row.bonus_pct),
+        subLabel: cfg.subLabel(row.bonus_pct),
+      };
+    }).filter(Boolean);
+    res.json({ talismans });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 router.get('/info/:invId', async (req, res) => {
   try {
     const { rows: [inv] } = await pool.query(

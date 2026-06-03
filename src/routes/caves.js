@@ -153,7 +153,7 @@ router.post('/mine', async (req, res) => {
     const clanB = await getClanBonuses(req.session.playerId);
     const mineBonus  = clanB.mine    || 0;
     const academyPct = (clanB.academy || 0) * 5;
-    const baseExp = Math.floor(Math.random() * 16) + 5;
+    const baseExp = Math.floor((Math.floor(Math.random() * 16) + 5) * 0.5);
     const exp = Math.floor(baseExp * (1 + academyPct / 100));
 
     // Talisman золотошукача bonus (only this talisman affects caves)

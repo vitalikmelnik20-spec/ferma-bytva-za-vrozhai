@@ -1323,11 +1323,20 @@ async function loadGreenhouse() {
         <span style="color:#388e3c;font-weight:700">${IC.greens(13)} ${fmtNum(g.daily_green)} / день</span>
       </div>
       ${overflowing ? `<div style="color:#e65100;font-size:12px;text-align:center;margin-bottom:6px">⚠️ Теплиця переповнена! Забери врожай</div>` : ''}
-      <div class="flex-between" style="margin-bottom:10px">
+      <div class="flex-between" style="margin-bottom:6px">
         <span class="text-muted" style="font-size:13px">Доступно: <b style="color:#388e3c">${fmtNum(g.green_available)} 🌿</b></span>
         <button class="btn ${hasGreens ? 'btn-green' : 'btn-gray'} btn-sm" onclick="collectGreenhouse()" ${hasGreens ? '' : 'disabled'}>
           Забрати
         </button>
+      </div>
+      <div style="margin-bottom:8px">
+        <div class="flex-between" style="font-size:12px;color:#555;margin-bottom:3px">
+          <span>Накопичується сьогодні: <b id="gh-acc" style="color:#388e3c">—</b></span>
+          <span class="text-muted" id="gh-acc-pct"></span>
+        </div>
+        <div style="height:5px;background:#e8f5e9;border-radius:3px">
+          <div id="gh-acc-bar" style="height:5px;background:#388e3c;border-radius:3px;width:0%"></div>
+        </div>
       </div>
       <div class="text-muted" style="font-size:12px;margin-bottom:8px">
         Наступне поповнення: <span id="gh-timer">—</span>
@@ -1338,7 +1347,7 @@ async function loadGreenhouse() {
            </button>`
         : `<div style="text-align:center;color:#e65100;font-weight:700;font-size:14px">${IC.star(14)} Максимальний рівень!</div>`}`;
 
-    // countdown timer
+    // countdown timer + real-time accumulation
     if (_ghTimerInterval) clearInterval(_ghTimerInterval);
     let msLeft = g.timer_ms;
     const updateTimer = () => {
@@ -1349,6 +1358,15 @@ async function loadGreenhouse() {
       const m = Math.floor((msLeft % 3600000) / 60000);
       const s = Math.floor((msLeft % 60000) / 1000);
       el2.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      const msElapsed = 86400000 - msLeft;
+      const pct = Math.min(100, msElapsed / 86400000 * 100);
+      const acc = Math.floor(g.daily_green * pct / 100);
+      const accEl = document.getElementById('gh-acc');
+      const barEl = document.getElementById('gh-acc-bar');
+      const pctEl = document.getElementById('gh-acc-pct');
+      if (accEl) accEl.textContent = `${fmtNum(acc)} 🌿`;
+      if (barEl) barEl.style.width = `${pct.toFixed(1)}%`;
+      if (pctEl) pctEl.textContent = `${pct.toFixed(1)}%`;
       msLeft -= 1000;
     };
     updateTimer();
@@ -1385,6 +1403,7 @@ async function upgradeGreenhouse() {
 
 // ─── BANK ─────────────────────────────────────────────────────────────────────
 let _bankTab = 'green';
+let _bankProgressInterval = null;
 
 async function loadBank() {
   try {
@@ -1398,6 +1417,7 @@ async function loadBank() {
 function renderBank(deposits) {
   const el = document.getElementById('village-bank');
   if (!el) return;
+  if (_bankProgressInterval) { clearInterval(_bankProgressInterval); _bankProgressInterval = null; }
 
   const tabDeposits = deposits.filter(d => d.currency === _bankTab);
   const activeCnt   = tabDeposits.filter(d => d.status === 'active').length;
@@ -1435,10 +1455,17 @@ function renderBank(deposits) {
               <span style="font-weight:700">${currIcon} ${fmtNum(d.amount)}</span>
               ${statusBadge(d.status)}
             </div>
-            <div class="text-muted" style="font-size:12px;margin-bottom:6px">
+            <div class="text-muted" style="font-size:12px;margin-bottom:4px">
               ${d.term_days}д · +${d.interest_rate}% · +${fmtNum(interest)} ${_bankTab==='green'?'🌿':'🏅'}
               ${d.status==='active' ? ` · залишилось: ${daysLeft(d.matures_at)}` : ''}
             </div>
+            ${d.status==='active' ? `
+            <div style="margin-bottom:6px">
+              <div style="height:5px;background:#e8f5e9;border-radius:3px;margin-bottom:3px">
+                <div id="bank-bar-${d.id}" style="height:5px;background:#1976d2;border-radius:3px;width:0%"></div>
+              </div>
+              <div style="font-size:11px;color:#1976d2">Нараховано: <span id="bank-acc-${d.id}">0</span> ${_bankTab==='green'?'🌿':'🏅'}</div>
+            </div>` : ''}
             <div style="display:flex;gap:6px">
               ${d.status==='ready'
                 ? `<button class="btn btn-green btn-sm" style="flex:1" onclick="bankCollect(${d.id})">Забрати ${fmtNum(d.amount+interest)}</button>`
@@ -1470,6 +1497,26 @@ function renderBank(deposits) {
 
   // auto-select first term button style
   bankSelectTerm(7, true);
+
+  // real-time deposit accumulation
+  const activeDeposits = tabDeposits.filter(d => d.status === 'active');
+  if (activeDeposits.length > 0) {
+    const tickDeposits = () => {
+      activeDeposits.forEach(d => {
+        const barEl = document.getElementById(`bank-bar-${d.id}`);
+        const accEl = document.getElementById(`bank-acc-${d.id}`);
+        if (!barEl) { clearInterval(_bankProgressInterval); _bankProgressInterval = null; return; }
+        const totalMs  = d.term_days * 86400000;
+        const elapsed  = Math.min(totalMs, Date.now() - new Date(d.created_at).getTime());
+        const pct      = (elapsed / totalMs * 100).toFixed(1);
+        const interest = Math.floor(d.amount * d.interest_rate / 100 * elapsed / totalMs);
+        barEl.style.width = `${pct}%`;
+        if (accEl) accEl.textContent = fmtNum(interest);
+      });
+    };
+    tickDeposits();
+    _bankProgressInterval = setInterval(tickDeposits, 1000);
+  }
 }
 
 let _bankTerm = 7;
@@ -1757,7 +1804,7 @@ async function loadProfile() {
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
+        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${infoRow(IC.village(14), 'Місто', p.city_name || '—', '<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>')}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
@@ -4215,7 +4262,82 @@ async function craftPotion(recipeId) {
 // ─── ENCHANT ─────────────────────────────────────────────────────────────────
 function openEnchantPage() {
   document.getElementById('enchant-modal').style.display = 'flex';
-  loadEnchantItems();
+  smithTab('enchant', document.querySelector('#smith-tabs .cat-tab'));
+}
+
+function smithTab(tab, btnEl) {
+  document.querySelectorAll('#smith-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  document.getElementById('smith-enchant').style.display   = tab === 'enchant'   ? '' : 'none';
+  document.getElementById('smith-rings').style.display     = tab === 'rings'     ? '' : 'none';
+  document.getElementById('smith-talismans').style.display = tab === 'talismans' ? '' : 'none';
+  if (tab === 'enchant')   loadEnchantItems();
+  if (tab === 'rings')     loadSmithRings();
+  if (tab === 'talismans') loadSmithTalismans();
+}
+
+async function loadSmithRings() {
+  const el = document.getElementById('smith-rings-list');
+  if (!el) return;
+  try {
+    const { rings } = await API.get('/api/rings/owned');
+    if (!rings.length) { el.innerHTML = '<p class="text-muted text-center">У вас немає кілець</p>'; return; }
+    el.innerHTML = rings.map(r => {
+      const currIcon = r.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+      return `<div class="item-card">
+        ${IC.ring(28)}
+        <div class="item-info">
+          <div class="item-name">${r.name} <span style="color:#e65100">+${r.level}</span></div>
+          <div class="text-muted" style="font-size:12px">${r.statLabel}</div>
+          ${!r.maxed ? `<div style="font-size:11px;color:#888">${currIcon} ${fmtNum(r.nextCost)}</div>` : ''}
+        </div>
+        ${r.maxed
+          ? `<span style="color:#e65100;font-size:12px;white-space:nowrap">${IC.star(12)} Макс</span>`
+          : `<button class="btn btn-orange btn-sm" onclick="smithUpgradeRing(${r.inv_id})">${IC.levelup(13)} +1</button>`}
+      </div>`;
+    }).join('');
+  } catch(e) { toast(e.message, true); }
+}
+
+async function smithUpgradeRing(invId) {
+  try {
+    const r = await API.post(`/api/rings/upgrade/${invId}`);
+    toast(`${IC.ring(14)} Кільце покращено до рівня ${r.newLevel}!`);
+    await refreshPlayer();
+    loadSmithRings();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function loadSmithTalismans() {
+  const el = document.getElementById('smith-talismans-list');
+  if (!el) return;
+  try {
+    const { talismans } = await API.get('/api/talismans/owned');
+    if (!talismans.length) { el.innerHTML = '<p class="text-muted text-center">У вас немає талісманів</p>'; return; }
+    el.innerHTML = talismans.map(t => {
+      const currIcon = t.currency === 'gold' ? IC.gold(13) : IC.greens(13);
+      return `<div class="item-card">
+        ${IC.talisman(28)}
+        <div class="item-info">
+          <div class="item-name">${t.name} <span style="color:#e65100">+${t.level}</span></div>
+          <div class="text-muted" style="font-size:12px">${t.statLabel}</div>
+          ${!t.maxed ? `<div style="font-size:11px;color:#888">${currIcon} ${fmtNum(t.nextCost)}</div>` : ''}
+        </div>
+        ${t.maxed
+          ? `<span style="color:#e65100;font-size:12px;white-space:nowrap">${IC.star(12)} Макс</span>`
+          : `<button class="btn btn-orange btn-sm" onclick="smithUpgradeTalisman(${t.inv_id})">${IC.levelup(13)} +1</button>`}
+      </div>`;
+    }).join('');
+  } catch(e) { toast(e.message, true); }
+}
+
+async function smithUpgradeTalisman(invId) {
+  try {
+    const r = await API.post(`/api/talismans/upgrade/${invId}`);
+    toast(`${IC.talisman(14)} Талісман покращено до рівня ${r.newLevel}! Бонус: +${r.newBonus}%`);
+    await refreshPlayer();
+    loadSmithTalismans();
+  } catch(e) { toast(e.message, true); }
 }
 
 function closeEnchantModal(e) {

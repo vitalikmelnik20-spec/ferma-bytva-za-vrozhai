@@ -606,12 +606,25 @@
 <div class="modal-overlay" id="enchant-modal" style="display:none" onclick="closeEnchantModal(event)">
   <div class="modal-box" style="max-width:380px;width:96%">
     <div class="modal-header">
-      <img src="/icons/ui/levelup.svg" width="16" height="16" style="vertical-align:middle"> Коваль — Зачарування
+      <img src="/icons/ui/levelup.svg" width="16" height="16" style="vertical-align:middle"> Коваль
       <button class="modal-close" onclick="closeEnchantModal()">✕</button>
     </div>
     <div style="padding:14px">
-      <p style="font-size:13px;color:#5d4037;margin:0 0 10px">Вибери предмет для зачарування. При +3 і вище є шанс провалу — зачарування скидається до 0.</p>
-      <div id="enchant-items"><p class="text-muted">Завантаження...</p></div>
+      <div class="category-tabs" id="smith-tabs" style="margin-bottom:10px">
+        <button class="cat-tab active" onclick="smithTab('enchant',this)">🔥 Закалення</button>
+        <button class="cat-tab" onclick="smithTab('rings',this)">💍 Кільця</button>
+        <button class="cat-tab" onclick="smithTab('talismans',this)">🧿 Талісмани</button>
+      </div>
+      <div id="smith-enchant">
+        <p style="font-size:13px;color:#5d4037;margin:0 0 10px">Вибери предмет для зачарування. При +3 і вище є шанс провалу — зачарування скидається до 0.</p>
+        <div id="enchant-items"><p class="text-muted">Завантаження...</p></div>
+      </div>
+      <div id="smith-rings" style="display:none">
+        <div id="smith-rings-list"><p class="text-muted text-center">Завантаження...</p></div>
+      </div>
+      <div id="smith-talismans" style="display:none">
+        <div id="smith-talismans-list"><p class="text-muted text-center">Завантаження...</p></div>
+      </div>
     </div>
   </div>
 </div>
