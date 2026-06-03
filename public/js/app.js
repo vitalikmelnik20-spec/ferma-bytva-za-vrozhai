@@ -2812,14 +2812,20 @@ async function loadClanWarRating() {
   el.innerHTML = `<div class="panel-header" style="margin-top:12px">🌍 Рейтинг кланів</div><p class="text-muted">Завантаження...</p>`;
   try {
     const r = await API.get('/api/clan-war/rating');
+    const factionEmoji = { elves: '🧝', orcs: '👹', humans: '👤' };
     el.innerHTML = `<div class="panel-header" style="margin-top:12px">🌍 Рейтинг кланів</div>` +
-      r.clans.map((c, i) => `
+      (r.clans.length ? r.clans.map((c, i) => {
+        const total  = (parseInt(c.wars_won) || 0) + (parseInt(c.wars_lost) || 0);
+        const winPct = total > 0 ? Math.round((parseInt(c.wars_won) || 0) / total * 100) : 0;
+        const emoji  = factionEmoji[c.faction] || '';
+        return `
         <div class="flex-between" style="padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
           <span>${i+1}. <b>[${c.tag}]</b> ${c.name}
-            <span class="badge-faction ${c.faction}" style="font-size:10px;margin-left:4px">${factionLabel(c.faction)}</span>
+            <span class="badge-faction ${c.faction}" style="font-size:10px;margin-left:4px">${emoji} ${factionLabel(c.faction)}</span>
           </span>
-          <span class="text-muted">${IC.glory(12)}${fmtNum(c.total_glory)} · ${c.wars_won}П/${c.wars_lost}П</span>
-        </div>`).join('') || '<p class="text-muted">Немає даних</p>';
+          <span class="text-muted">${IC.glory(12)}${fmtNum(c.total_glory)} · ${c.wars_won}П/${c.wars_lost}П · ${winPct}%</span>
+        </div>`;
+      }).join('') : '<p class="text-muted">Немає даних</p>');
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2971,9 +2977,15 @@ async function viewProfile(id) {
         </div>
       </div>
 
+      <div class="panel mb-12" id="pubprofile-war-block" style="display:none">
+        <div class="panel-header">${IC.battle(14)} Кланові Війни</div>
+        <div class="panel-body" id="pubprofile-war-body"></div>
+      </div>
+
       <button class="btn btn-gray btn-sm mb-12" onclick="history.back()">← Назад</button>`;
 
     _loadPubProfilePet(id);
+    _loadPubProfileWarStats(id);
   } catch (e) { toast(e.message, true); }
 }
 
@@ -3063,6 +3075,29 @@ async function _loadPubProfilePet(playerId) {
   } catch(e) {
     el.innerHTML = '<p class="text-muted" style="font-size:13px">Не вдалось завантажити</p>';
   }
+}
+
+async function _loadPubProfileWarStats(playerId) {
+  try {
+    const wr = await API.get(`/api/clan-war/player-stats/${playerId}`);
+    const ws = wr.stats || {};
+    if (parseInt(ws.total_battles) <= 0) return;
+    const block = document.getElementById('pubprofile-war-block');
+    const body  = document.getElementById('pubprofile-war-body');
+    if (!block || !body) return;
+    const row = (icon, label, val) =>
+      `<div class="flex-between" style="padding:5px 0;border-bottom:1px solid #f5f5f5;font-size:13px">
+         <span class="text-muted">${icon} ${label}</span><span><b>${val}</b></span>
+       </div>`;
+    body.innerHTML =
+      row(IC.battle(14), 'Боїв у войнах',      fmtNum(ws.total_battles))  +
+      row(IC.wins(14),   'Перемог у боях',      fmtNum(ws.total_wins))     +
+      row(IC.hit(14),    'Загальний урон',       fmtNum(ws.total_damage))   +
+      row(IC.glory(14),  'Воєн виграно кланом', fmtNum(wr.warsWonWithClan)) +
+      (parseInt(ws.glory_gained) > 0 ? row(IC.glory(14), 'Слави здобуто',  `+${fmtNum(ws.glory_gained)}`) : '') +
+      (parseInt(ws.glory_lost)   > 0 ? row(IC.skull(14), 'Слави втрачено', `-${fmtNum(ws.glory_lost)}`)   : '');
+    block.style.display = '';
+  } catch (_) {}
 }
 
 function strokeFriendPet(petId, todayKey) {

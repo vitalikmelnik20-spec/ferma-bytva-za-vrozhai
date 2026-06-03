@@ -603,5 +603,36 @@ router.get('/my-stats', async (req, res) => {
   }
 });
 
+// GET /api/clan-war/player-stats/:playerId  — public war stats for any player
+router.get('/player-stats/:playerId', async (req, res) => {
+  try {
+    const targetId = parseInt(req.params.playerId);
+    if (!targetId) return res.status(400).json({ error: 'Невірний ID' });
+
+    const { rows: [s] } = await pool.query(
+      `SELECT
+         COUNT(*)::INTEGER                              AS wars_participated,
+         COALESCE(SUM(damage_dealt),  0)::BIGINT        AS total_damage,
+         COALESCE(SUM(battles_count), 0)::INTEGER       AS total_battles,
+         COALESCE(SUM(wins),          0)::INTEGER       AS total_wins,
+         COALESCE(SUM(glory_gained),  0)::INTEGER       AS glory_gained,
+         COALESCE(SUM(glory_lost),    0)::INTEGER       AS glory_lost
+       FROM clan_war_participants WHERE player_id=$1`,
+      [targetId]
+    );
+    const { rows: [{ count: warsWonWithClan }] } = await pool.query(
+      `SELECT COUNT(*)::INTEGER AS count
+       FROM clan_war_participants cwp
+       JOIN clan_wars cw ON cw.id = cwp.war_id
+       WHERE cwp.player_id=$1 AND cw.winner_clan_id=cwp.clan_id`,
+      [targetId]
+    );
+    res.json({ stats: s || {}, warsWonWithClan: parseInt(warsWonWithClan) || 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 module.exports = router;
 module.exports.finishWar = finishWar;
