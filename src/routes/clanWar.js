@@ -445,5 +445,112 @@ router.get('/rating', async (req, res) => {
   }
 });
 
+// ─── GET /api/clan-war/clan-stats ────────────────────────────────────────────
+router.get('/clan-stats', async (req, res) => {
+  try {
+    const m = await getMembership(req.session.playerId);
+    if (!m) return res.status(403).json({ error: 'Ви не в клані' });
+
+    // Total wars, wins, losses
+    const { rows: [totals] } = await pool.query(
+      `SELECT
+         COUNT(*)::INTEGER                                                AS total_wars,
+         COUNT(CASE WHEN winner_clan_id=$1 THEN 1 END)::INTEGER          AS wins,
+         COUNT(CASE WHEN status='finished' AND winner_clan_id!=$1 AND winner_clan_id IS NOT NULL THEN 1 END)::INTEGER AS losses,
+         COUNT(CASE WHEN status='draw' THEN 1 END)::INTEGER              AS draws,
+         COALESCE(MAX(CASE WHEN attacker_clan_id=$1 THEN attacker_total_damage
+                           WHEN defender_clan_id=$1 THEN defender_total_damage
+                      END),0)::BIGINT                                    AS best_damage
+       FROM clan_wars
+       WHERE (attacker_clan_id=$1 OR defender_clan_id=$1)
+         AND status != 'active'`,
+      [m.clan_id]
+    );
+
+    // Most active member (highest total damage_dealt across all wars)
+    const { rows: [topPlayer] } = await pool.query(
+      `SELECT p.username, p.level, SUM(cwp.damage_dealt)::BIGINT AS total_damage,
+              COUNT(*)::INTEGER AS wars_participated
+       FROM clan_war_participants cwp
+       JOIN players p ON p.id = cwp.player_id
+       WHERE cwp.clan_id=$1
+       GROUP BY p.id, p.username, p.level
+       ORDER BY total_damage DESC LIMIT 1`,
+      [m.clan_id]
+    );
+
+    // Current streak (consecutive wins or losses from most recent wars)
+    const { rows: recent } = await pool.query(
+      `SELECT winner_clan_id, status FROM clan_wars
+       WHERE (attacker_clan_id=$1 OR defender_clan_id=$1) AND status != 'active'
+       ORDER BY finished_at DESC NULLS LAST LIMIT 20`,
+      [m.clan_id]
+    );
+    let streak = 0, streakType = null;
+    for (const w of recent) {
+      const isWin  = w.winner_clan_id == m.clan_id;
+      const isDraw = w.status === 'draw';
+      const cur    = isDraw ? 'draw' : isWin ? 'win' : 'loss';
+      if (streakType === null) { streakType = cur; streak = 1; }
+      else if (cur === streakType) streak++;
+      else break;
+    }
+
+    // Last 10 wars
+    const { rows: lastWars } = await pool.query(
+      `SELECT cw.id, cw.status, cw.winner_clan_id, cw.finished_at,
+              cw.attacker_clan_id, cw.defender_clan_id,
+              cw.attacker_total_damage, cw.defender_total_damage,
+              ac.name AS attacker_name, ac.tag AS attacker_tag,
+              dc.name AS defender_name, dc.tag AS defender_tag
+       FROM clan_wars cw
+       JOIN clans ac ON ac.id = cw.attacker_clan_id
+       JOIN clans dc ON dc.id = cw.defender_clan_id
+       WHERE (cw.attacker_clan_id=$1 OR cw.defender_clan_id=$1)
+         AND cw.status != 'active'
+       ORDER BY cw.finished_at DESC NULLS LAST LIMIT 10`,
+      [m.clan_id]
+    );
+
+    res.json({ totals, topPlayer: topPlayer || null, streak, streakType, lastWars, myClanId: m.clan_id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ─── GET /api/clan-war/my-stats ───────────────────────────────────────────────
+// Personal war statistics for the current player
+router.get('/my-stats', async (req, res) => {
+  try {
+    const { rows: [s] } = await pool.query(
+      `SELECT
+         COUNT(*)::INTEGER                              AS wars_participated,
+         COALESCE(SUM(damage_dealt),  0)::BIGINT        AS total_damage,
+         COALESCE(SUM(battles_count), 0)::INTEGER       AS total_battles,
+         COALESCE(SUM(wins),          0)::INTEGER       AS total_wins,
+         COALESCE(SUM(glory_gained),  0)::INTEGER       AS glory_gained,
+         COALESCE(SUM(glory_lost),    0)::INTEGER       AS glory_lost
+       FROM clan_war_participants
+       WHERE player_id=$1`,
+      [req.session.playerId]
+    );
+
+    // Wars won by clan while player participated
+    const { rows: [{ count: warsWonWithClan }] } = await pool.query(
+      `SELECT COUNT(*)::INTEGER AS count
+       FROM clan_war_participants cwp
+       JOIN clan_wars cw ON cw.id = cwp.war_id
+       WHERE cwp.player_id=$1 AND cw.winner_clan_id=cwp.clan_id`,
+      [req.session.playerId]
+    );
+
+    res.json({ stats: s || {}, warsWonWithClan: parseInt(warsWonWithClan) || 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 module.exports = router;
 module.exports.finishWar = finishWar;

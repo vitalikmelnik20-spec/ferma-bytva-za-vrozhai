@@ -467,6 +467,21 @@ setInterval(async () => {
       if (expired.length) console.log(`[ClanWar] Завершено ${expired.length} воєн`);
     } catch (err) { console.error('[ClanWar cron]', err.message); }
   }, 5 * 60 * 1000);
+
+  // Cron: weekly cleanup — delete detailed war records older than 30 days
+  setInterval(async () => {
+    try {
+      const { rowCount: b } = await pool.query(
+        `DELETE FROM clan_war_battles WHERE created_at < NOW() - INTERVAL '30 days'`
+      );
+      const { rowCount: p } = await pool.query(
+        `DELETE FROM clan_war_participants cwp
+         USING clan_wars cw
+         WHERE cwp.war_id=cw.id AND cw.finished_at < NOW() - INTERVAL '30 days'`
+      );
+      if (b > 0 || p > 0) console.log(`[ClanWar cleanup] Видалено: ${b} боїв, ${p} учасників`);
+    } catch (err) { console.error('[ClanWar cleanup]', err.message); }
+  }, 7 * 24 * 60 * 60 * 1000);
 }
 
 const PORT = process.env.PORT || 3000;
