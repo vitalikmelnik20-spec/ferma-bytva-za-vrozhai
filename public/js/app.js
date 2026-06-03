@@ -2654,21 +2654,33 @@ async function warDoFight(defenderId) {
     const r = await API.post('/api/battle/fight', { defenderId, zones: _warZones });
     const resultColor = r.attackerWon ? '#2e7d32' : '#c62828';
     const resultText  = r.attackerWon ? '⚔️ Перемога!' : '🛡️ Поразка';
+    const petLine = r.petResult
+      ? `<div style="font-size:12px;color:#7b5ea7;margin-bottom:4px">
+           🐾 Тваринка: +${fmtNum(r.petResult.attackerPetDamage)} урону твоя
+           · +${fmtNum(r.petResult.defenderPetDamage)} ворожа
+         </div>` : '';
+    const roundHit = (side) => side.type === 'miss'
+      ? '<span style="color:#888">промах</span>'
+      : `<b>+${side.damage}</b>${side.type==='crit'?' 💥':side.type==='double'?' ×2':''}`;
     document.getElementById('clan-modal-body').innerHTML = `
       <div style="padding:14px">
         <div style="font-weight:700;font-size:16px;color:${resultColor};margin-bottom:10px">${resultText}</div>
-        <div style="font-size:13px;margin-bottom:6px">
+        <div style="font-size:13px;margin-bottom:4px">
           Ти завдав: <b>${fmtNum(r.attackerDamageDealt)}</b> урону
         </div>
         <div style="font-size:13px;margin-bottom:6px">
           Суперник завдав: <b>${fmtNum(r.defenderDamageDealt)}</b> урону
         </div>
-        <div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px">
-          ${r.rounds.map((rnd, i) => `
-            <div style="font-size:12px;margin-bottom:4px">
-              Раунд ${i+1}: Ти ${rnd.attacker.type==='miss'?'<span style="color:#888">промах</span>':`<b>+${rnd.attacker.damage}</b>`}
-              · Суперник ${rnd.defender.type==='miss'?'<span style="color:#888">промах</span>':`<b>+${rnd.defender.damage}</b>`}
-            </div>`).join('')}
+        ${petLine}
+        <div style="border-top:1px solid #eee;padding-top:10px;margin-top:8px">
+          ${r.rounds.map((rnd, i) => {
+            const petPart = (rnd.aPetAction && rnd.aPetAction.damage > 0)
+              ? ` <span style="color:#7b5ea7;font-size:11px">🐾+${rnd.aPetAction.damage}</span>` : '';
+            return `<div style="font-size:12px;margin-bottom:4px">
+              Раунд ${i+1}: Ти ${roundHit(rnd.attacker)}${petPart}
+              · Суперник ${roundHit(rnd.defender)}
+            </div>`;
+          }).join('')}
         </div>
         <button class="btn btn-gray btn-full" style="margin-top:12px" onclick="closeClanModal();openWarBattlePanel(${_warPanelId})">← Назад</button>
       </div>`;

@@ -852,9 +852,22 @@ router.post('/fight', async (req, res) => {
     dStats.speed     += dPotions.speed;
     dStats.accuracy  += dPotions.accuracy;
 
+    // Load pets for war battle (spec 3.2: pet damage counts toward war total)
+    const [aPet, dPet] = await Promise.all([
+      fetchPetForBattle(attacker.id),
+      fetchPetForBattle(defender.id),
+    ]);
+    let aPetHp = aPet ? aPet.hp_current : 0;
+    let dPetHp = dPet ? dPet.hp_current : 0;
+    let aPetTotalDmg = 0, dPetTotalDmg = 0;
+    let aPetAbilityUsed = false, dPetAbilityUsed = false;
+    let aPetAbilityProcs = 0, dPetAbilityProcs = 0;
+
     const rounds = [];
-    let attackerDamageDealt = 0;
-    let defenderDamageDealt = 0;
+    let attackerDamageDealt = 0;  // war total: all damage including pets
+    let defenderDamageDealt = 0;  // war total: all damage including pets
+    let aDmgToDefHP = 0;          // only damage that reduces defender player HP
+    let dDmgToAtkHP = 0;          // only damage that reduces attacker player HP
     let aHpSim = attacker.hp;
     let dHpSim = defender.hp;
 
@@ -871,23 +884,76 @@ router.post('/fight', async (req, res) => {
         dRoll.damage = Math.max(1, Math.floor(dRoll.damage * (1 - aPotions.damageReducePct / 100)));
 
       if (aRingTali.doubleStrike > 0 && aRoll.type !== 'miss' && Math.random() < aRingTali.doubleStrike / 100) {
-        aRoll.damage *= 2;
-        aRoll.type = 'double';
+        aRoll.damage *= 2; aRoll.type = 'double';
       }
       if (dRingTali.doubleStrike > 0 && dRoll.type !== 'miss' && Math.random() < dRingTali.doubleStrike / 100) {
-        dRoll.damage *= 2;
-        dRoll.type = 'double';
+        dRoll.damage *= 2; dRoll.type = 'double';
       }
 
       attackerDamageDealt += aRoll.damage;
       defenderDamageDealt += dRoll.damage;
+      aDmgToDefHP += aRoll.damage;
+      dDmgToAtkHP += dRoll.damage;
       aHpSim = Math.max(1, aHpSim - dRoll.damage);
       dHpSim = Math.max(1, dHpSim - aRoll.damage);
+
+      // Pet combat (spec 3.2: pet damage counts toward clan war total)
+      let aPetAction = null, dPetAction = null;
+      if (aPet && aPetHp > 0) {
+        const hit = petCombat.checkPetHit(aPet.accuracy);
+        if (!hit) {
+          aPetAction = { type: 'miss', damage: 0 };
+        } else {
+          const { damage, abilityProc } = petCombat.calcPetDamage(aPet.power, aPet.ability, aPetAbilityUsed);
+          if (abilityProc && aPet.ability === 'fire_breath') aPetAbilityUsed = true;
+          if (abilityProc) aPetAbilityProcs++;
+          if (dPet && dPetHp > 0) {
+            // Pet vs enemy pet
+            const blocked  = petCombat.checkEagleShield(dPet.ability);
+            const finalDmg = blocked ? 0 : petCombat.calcPetDefense(dPet.endurance, damage);
+            if (!blocked) dPetHp = Math.max(0, dPetHp - finalDmg);
+            aPetAction = { type: blocked ? 'blocked' : (abilityProc ? 'ability' : 'hit'), damage: finalDmg };
+            aPetTotalDmg += finalDmg;
+            attackerDamageDealt += finalDmg;
+            // pet-vs-pet does NOT reduce player HP
+          } else {
+            // Pet vs enemy player directly
+            aPetAction = { type: abilityProc ? 'ability' : 'hit', damage };
+            aPetTotalDmg += damage;
+            attackerDamageDealt += damage;
+            aDmgToDefHP += damage;  // pet hitting player reduces their HP
+          }
+        }
+      }
+      if (dPet && dPetHp > 0) {
+        const hit = petCombat.checkPetHit(dPet.accuracy);
+        if (!hit) {
+          dPetAction = { type: 'miss', damage: 0 };
+        } else {
+          const { damage, abilityProc } = petCombat.calcPetDamage(dPet.power, dPet.ability, dPetAbilityUsed);
+          if (abilityProc && dPet.ability === 'fire_breath') dPetAbilityUsed = true;
+          if (abilityProc) dPetAbilityProcs++;
+          if (aPet && aPetHp > 0) {
+            const blocked  = petCombat.checkEagleShield(aPet.ability);
+            const finalDmg = blocked ? 0 : petCombat.calcPetDefense(aPet.endurance, damage);
+            if (!blocked) aPetHp = Math.max(0, aPetHp - finalDmg);
+            dPetAction = { type: blocked ? 'blocked' : (abilityProc ? 'ability' : 'hit'), damage: finalDmg };
+            dPetTotalDmg += finalDmg;
+            defenderDamageDealt += finalDmg;
+          } else {
+            dPetAction = { type: abilityProc ? 'ability' : 'hit', damage };
+            dPetTotalDmg += damage;
+            defenderDamageDealt += damage;
+            dDmgToAtkHP += damage;
+          }
+        }
+      }
 
       rounds.push({
         round: r + 1,
         attacker: { zone: attackZone, ...aRoll },
-        defender: { zone: defZone,    ...dRoll }
+        defender: { zone: defZone,    ...dRoll },
+        aPetAction, dPetAction,
       });
 
       if (aHpSim <= 1 || dHpSim <= 1) break;
@@ -913,14 +979,14 @@ router.post('/fight', async (req, res) => {
       goldReward   = 0;
     }
 
-    // Deduct HP — attacker loses defenderDamageDealt, defender loses attackerDamageDealt
+    // Deduct player HP (pet-vs-pet damage doesn't reduce player HP)
     const { rows: [attackerAfter] } = await pool.query(
       'UPDATE players SET hp = GREATEST(1, hp - $1) WHERE id=$2 RETURNING hp',
-      [defenderDamageDealt, attacker.id]
+      [dDmgToAtkHP, attacker.id]
     );
     const { rows: [defenderAfter] } = await pool.query(
       'UPDATE players SET hp = GREATEST(1, hp - $1) WHERE id=$2 RETURNING hp',
-      [attackerDamageDealt, defender.id]
+      [aDmgToDefHP, defender.id]
     );
 
     // Save battle record
@@ -998,6 +1064,34 @@ router.post('/fight', async (req, res) => {
     }
 
     // Кланові завдання + clan war recording
+    // Save pet HP and stats
+    const aPetDied = aPet && aPetHp <= 0;
+    const dPetDied = dPet && dPetHp <= 0;
+    await Promise.all([
+      aPet ? pool.query('UPDATE pets SET hp_current=$1, is_dead=$2 WHERE id=$3',
+        [Math.max(0, aPetHp), aPetDied, aPet.id]) : Promise.resolve(),
+      dPet ? pool.query('UPDATE pets SET hp_current=$1, is_dead=$2 WHERE id=$3',
+        [Math.max(0, dPetHp), dPetDied, dPet.id]) : Promise.resolve(),
+      aPet ? pool.query(
+        `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths, pets_killed, ability_procs)
+         VALUES ($1,1,$2,$3,$4,$5,$6)
+         ON CONFLICT (pet_id) DO UPDATE SET
+           battles_participated=pet_stats.battles_participated+1, wins=pet_stats.wins+$2,
+           total_damage=pet_stats.total_damage+$3, deaths=pet_stats.deaths+$4,
+           pets_killed=pet_stats.pets_killed+$5, ability_procs=pet_stats.ability_procs+$6`,
+        [aPet.id, attackerWon?1:0, aPetTotalDmg, aPetDied?1:0, dPetDied?1:0, aPetAbilityProcs]
+      ) : Promise.resolve(),
+      dPet ? pool.query(
+        `INSERT INTO pet_stats (pet_id, battles_participated, wins, total_damage, deaths, pets_killed, ability_procs)
+         VALUES ($1,1,$2,$3,$4,$5,$6)
+         ON CONFLICT (pet_id) DO UPDATE SET
+           battles_participated=pet_stats.battles_participated+1, wins=pet_stats.wins+$2,
+           total_damage=pet_stats.total_damage+$3, deaths=pet_stats.deaths+$4,
+           pets_killed=pet_stats.pets_killed+$5, ability_procs=pet_stats.ability_procs+$6`,
+        [dPet.id, attackerWon?0:1, dPetTotalDmg, dPetDied?1:0, aPetDied?1:0, dPetAbilityProcs]
+      ) : Promise.resolve(),
+    ]);
+
     if (!isWarBattle && attackerWon) updateClanTask(attacker.id, 'win_battles', 1);
     if (isWarBattle) {
       delete req.session.clanWarFight;
@@ -1027,6 +1121,14 @@ router.post('/fight', async (req, res) => {
       defenderHpBefore: defender.hp,
       defenderHpAfter:  defenderAfter.hp,
       ringEffect,
+      petResult: (aPet || dPet) ? {
+        attackerPetDamage: aPetTotalDmg,
+        defenderPetDamage: dPetTotalDmg,
+        attackerPetAlive:  !aPetDied,
+        defenderPetAlive:  !dPetDied,
+        attackerPetName:   aPet?.name  || null,
+        defenderPetName:   dPet?.name  || null,
+      } : null,
     });
   } catch (err) {
     console.error(err);
