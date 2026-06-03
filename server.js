@@ -58,6 +58,7 @@ app.use('/api/pets',         require('./src/routes/pets'));
 app.use('/api/greenhouse',   require('./src/routes/greenhouse'));
 app.use('/api/bank',         require('./src/routes/bank'));
 app.use('/api/events',       require('./src/routes/events'));
+app.use('/api/clan-war',     require('./src/routes/clanWar'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -391,6 +392,81 @@ setInterval(async () => {
       if (ev) io.emit('dragon:damage', { eventId: ev.id, hpCurrent: ev.hp_current, hpMax: ev.hp_max });
     } catch (err) { console.error('[Dragon:broadcast]', err.message); }
   }, 5 * 1000);
+
+  // Clan Wars — 4 tables
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS clan_wars (
+          id                    SERIAL PRIMARY KEY,
+          attacker_clan_id      INTEGER NOT NULL REFERENCES clans(id),
+          defender_clan_id      INTEGER NOT NULL REFERENCES clans(id),
+          status                VARCHAR(20) NOT NULL DEFAULT 'active'
+                                  CHECK (status IN ('active','finished','draw')),
+          attacker_total_damage BIGINT NOT NULL DEFAULT 0,
+          defender_total_damage BIGINT NOT NULL DEFAULT 0,
+          winner_clan_id        INTEGER REFERENCES clans(id),
+          treasury_taken_green  INTEGER NOT NULL DEFAULT 0,
+          treasury_taken_gold   INTEGER NOT NULL DEFAULT 0,
+          started_at            TIMESTAMP NOT NULL DEFAULT NOW(),
+          ends_at               TIMESTAMP NOT NULL,
+          finished_at           TIMESTAMP
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS clan_war_participants (
+          id               SERIAL PRIMARY KEY,
+          war_id           INTEGER NOT NULL REFERENCES clan_wars(id),
+          player_id        INTEGER NOT NULL REFERENCES players(id),
+          clan_id          INTEGER NOT NULL REFERENCES clans(id),
+          damage_dealt     BIGINT NOT NULL DEFAULT 0,
+          damage_received  BIGINT NOT NULL DEFAULT 0,
+          battles_count    INTEGER NOT NULL DEFAULT 0,
+          wins             INTEGER NOT NULL DEFAULT 0,
+          glory_gained     INTEGER NOT NULL DEFAULT 0,
+          glory_lost       INTEGER NOT NULL DEFAULT 0,
+          UNIQUE (war_id, player_id)
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS clan_war_battles (
+          id           SERIAL PRIMARY KEY,
+          war_id       INTEGER NOT NULL REFERENCES clan_wars(id),
+          battle_id    INTEGER REFERENCES battles(id),
+          attacker_id  INTEGER NOT NULL REFERENCES players(id),
+          defender_id  INTEGER NOT NULL REFERENCES players(id),
+          damage       INTEGER NOT NULL DEFAULT 0,
+          is_win       BOOLEAN NOT NULL DEFAULT false,
+          created_at   TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS clan_war_attack_limits (
+          war_id       INTEGER NOT NULL REFERENCES clan_wars(id),
+          attacker_id  INTEGER NOT NULL REFERENCES players(id),
+          defender_id  INTEGER NOT NULL REFERENCES players(id),
+          attacks_used SMALLINT NOT NULL DEFAULT 0,
+          PRIMARY KEY (war_id, attacker_id, defender_id)
+        )
+      `);
+      // Add win/loss counters to clans if not exists
+      await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_wars_won  INTEGER NOT NULL DEFAULT 0`);
+      await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS clan_wars_lost INTEGER NOT NULL DEFAULT 0`);
+      console.log('[ClanWar] Tables ready');
+    } catch (err) { console.error('[ClanWar tables]', err.message); }
+  })();
+
+  // Cron: every 5 min — finalize expired clan wars
+  setInterval(async () => {
+    try {
+      const { rows: expired } = await pool.query(
+        `SELECT id FROM clan_wars WHERE status='active' AND ends_at <= NOW()`
+      );
+      const { finishWar } = require('./src/routes/clanWar');
+      for (const w of expired) await finishWar(w.id, io);
+      if (expired.length) console.log(`[ClanWar] Завершено ${expired.length} воєн`);
+    } catch (err) { console.error('[ClanWar cron]', err.message); }
+  }, 5 * 60 * 1000);
 }
 
 const PORT = process.env.PORT || 3000;

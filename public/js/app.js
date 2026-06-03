@@ -2175,7 +2175,7 @@ async function loadClans() {
 async function renderMyClan(el) {
   const [r, warData, tasksData] = await Promise.all([
     API.get('/api/clans/my'),
-    API.get('/api/clans/war/active').catch(() => ({ war: null })),
+    API.get('/api/clan-war/current').catch(() => ({ war: null })),
     API.get('/api/clans/tasks').catch(() => ({ tasks: [] })),
   ]);
   const c = r.clan;
@@ -2207,37 +2207,47 @@ async function renderMyClan(el) {
     </div>`;
   }).join('');
 
-  // War section
+  // War section (new API)
   const war = warData.war;
+  const myClanId = warData.myClanId || c.id;
   let warHtml = '';
   if (war) {
-    const myId = c.id;
-    const isAttacker = war.attacker_id === myId;
-    const myDmg   = isAttacker ? war.attacker_dmg : war.defender_dmg;
-    const foeDmg  = isAttacker ? war.defender_dmg : war.attacker_dmg;
-    const foeName = isAttacker ? `[${war.defender_tag}] ${war.defender_name}` : `[${war.attacker_tag}] ${war.attacker_name}`;
+    const isAttacker = war.attacker_clan_id == myClanId;
+    const myDmg  = parseInt(isAttacker ? war.attacker_total_damage : war.defender_total_damage) || 0;
+    const foeDmg = parseInt(isAttacker ? war.defender_total_damage : war.attacker_total_damage) || 0;
+    const foeName = isAttacker
+      ? `[${war.defender_tag}] ${war.defender_name}`
+      : `[${war.attacker_tag}] ${war.attacker_name}`;
     const totalDmg = (myDmg + foeDmg) || 1;
     const myPct  = Math.round(myDmg  / totalDmg * 100);
     const foePct = Math.round(foeDmg / totalDmg * 100);
     const secsLeft = Math.max(0, Math.floor((new Date(war.ends_at) - Date.now()) / 1000));
     warHtml = `
       <div class="clan-war-box">
-        <div style="font-weight:700;font-size:15px;margin-bottom:6px">${IC.battle(14)} Активна Кланова Війна!</div>
-        <div style="font-size:13px;margin-bottom:8px">Супротивник: <b>${foeName}</b></div>
-        <div style="font-size:12px;color:#888;margin-bottom:8px">Залишилось: ${fmtTime(secsLeft)}</div>
-        <div style="margin-bottom:4px;font-size:12px">Ваш урон: <b>${fmtNum(myDmg)}</b> vs ${fmtNum(foeDmg)}</div>
-        <div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;display:flex">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${IC.battle(14)} Активна Кланова Війна!</div>
+        <div style="font-size:13px;margin-bottom:6px">Суперник: <b>${foeName}</b></div>
+        <div style="font-size:12px;color:#888;margin-bottom:6px" id="war-timer-hdr">Залишилось: ${fmtTime(secsLeft)}</div>
+        <div style="margin-bottom:4px;font-size:12px">
+          <span style="color:#2e7d32">Ми: <b>${fmtNum(myDmg)}</b></span>
+          &nbsp;⚔️&nbsp;
+          <span style="color:#c62828">Вони: <b>${fmtNum(foeDmg)}</b></span>
+        </div>
+        <div style="background:#eee;border-radius:6px;height:10px;overflow:hidden;display:flex;margin-bottom:8px">
           <div style="background:#2e7d32;width:${myPct}%;transition:width .4s"></div>
           <div style="background:#c62828;width:${foePct}%;transition:width .4s"></div>
         </div>
-        <div style="font-size:11px;color:#888;margin-top:3px">Перемагає хто завдасть більше урону за 24 год</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-red btn-sm" onclick="openWarBattlePanel(${war.id})">${IC.battle(13)} Атакувати</button>
+          <button class="btn btn-gray btn-sm" onclick="loadWarLeaderboard(${war.id})">🏆 Рейтинг</button>
+        </div>
       </div>`;
   } else {
     warHtml = `
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0">
         <span class="text-muted" style="font-size:13px">Активних воєн немає</span>
-        ${isSenior ? `<button class="btn btn-red btn-sm" onclick="showDeclareWarModal()">${IC.swords(14)} Оголосити війну</button>` : ''}
+        ${isLeader ? `<button class="btn btn-red btn-sm" onclick="showDeclareWarModal()">${IC.swords(14)} Оголосити війну</button>` : ''}
         <button class="btn btn-gray btn-sm" onclick="loadWarHistory()">Історія воєн</button>
+        <button class="btn btn-blue btn-sm" onclick="loadClanWarRating()">🌍 Рейтинг кланів</button>
       </div>`;
   }
 
@@ -2465,8 +2475,9 @@ async function showDeclareWarModal() {
 
 async function declareWar(targetClanId, targetName) {
   closeClanModal();
+  if (!confirm(`Оголосити Кланову Війну проти "${targetName}"? 24 години бойових дій.`)) return;
   try {
-    await API.post('/api/clans/war/declare', { targetClanId });
+    await API.post(`/api/clan-war/declare/${targetClanId}`);
     toast(`${IC.battle(14)} Оголошено війну проти ${targetName}!`);
     loadClans();
   } catch (e) { toast(e.message, true); }
@@ -2476,21 +2487,172 @@ async function loadWarHistory() {
   const el = document.getElementById('war-history-section');
   if (!el) return;
   try {
-    const r = await API.get('/api/clans/war/history');
-    if (!r.history.length) { el.innerHTML = '<p class="text-muted" style="margin-top:8px">Воєн ще не було</p>'; return; }
+    const r = await API.get('/api/clan-war/history');
+    if (!r.wars.length) { el.innerHTML = '<p class="text-muted" style="margin-top:8px">Воєн ще не було</p>'; return; }
     el.innerHTML = `<div class="panel-header" style="margin-top:12px">${IC.battle(14)} Історія воєн</div>` +
-      r.history.map(w => {
-        const won = w.winner_id === r.myClanId;
-        const foe = w.attacker_id === r.myClanId
+      r.wars.map(w => {
+        const isMyWinner = w.winner_clan_id == r.myClanId;
+        const isDraw = w.status === 'draw';
+        const foe = w.attacker_clan_id == r.myClanId
           ? `[${w.defender_tag}] ${w.defender_name}`
           : `[${w.attacker_tag}] ${w.attacker_name}`;
-        const date = kyivDate(w.started_at);
+        const resultColor = isDraw ? '#888' : (isMyWinner ? '#2e7d32' : '#c62828');
+        const result = isDraw ? 'Нічия' : (isMyWinner ? 'Перемога' : 'Поразка');
         return `<div style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
           <span>${foe}</span>
-          <span style="color:${won?'#2e7d32':'#c62828'}">${won ? 'Перемога' : 'Поразка'}</span>
-          <span class="text-muted">${date}</span>
+          <span style="color:${resultColor}">${result}</span>
+          <span class="text-muted">${kyivDate(w.started_at)}</span>
         </div>`;
       }).join('');
+  } catch (e) { toast(e.message, true); }
+}
+
+// ─── CLAN WAR BATTLE PANEL ────────────────────────────────────────────────────
+let _warPanelId = null;
+let _warZones   = ['body', 'body', 'body'];
+
+async function openWarBattlePanel(warId) {
+  _warPanelId = warId;
+  const el = document.getElementById('war-history-section');
+  if (!el) return;
+  el.innerHTML = `<div class="panel-header" style="margin-top:12px">${IC.battle(14)} Список ворогів</div><p class="text-muted">Завантаження...</p>`;
+  try {
+    const r = await API.get(`/api/clan-war/${warId}/enemies`);
+    if (!r.enemies.length) {
+      el.innerHTML = `<div class="panel-header" style="margin-top:12px">${IC.battle(14)} Список ворогів</div><p class="text-muted">Ворогів немає</p>`;
+      return;
+    }
+    const rows = r.enemies.map(e => {
+      const used = parseInt(e.attacks_used) || 0;
+      const left = 2 - used;
+      const onVac = !!e.on_vacation;
+      const canAtk = left > 0 && !onVac;
+      const cntColor = left === 2 ? '#2e7d32' : left === 1 ? '#e65100' : '#aaa';
+      return `<div class="opponent-card" style="margin-bottom:4px">
+        <div class="opponent-info">
+          <div style="font-weight:600;font-size:13px">${e.username} <span class="text-muted">Рів.${e.level}</span></div>
+          <div style="font-size:11px;color:#888">⚡${e.power_level || 0} 🛡️${e.endurance_level || 0}
+            ${onVac ? ' 🏖️ Канікули' : ''}</div>
+        </div>
+        <span style="font-size:12px;font-weight:700;color:${cntColor}">${left}/2</span>
+        ${canAtk
+          ? `<button class="btn btn-red btn-sm" onclick="warAttackPrepare(${warId},${e.id},'${e.username}')">${IC.battle(13)}</button>`
+          : `<button class="btn btn-gray btn-sm" disabled>✕</button>`}
+      </div>`;
+    }).join('');
+    el.innerHTML = `
+      <div class="panel-header" style="margin-top:12px">${IC.battle(14)} Список ворогів</div>
+      ${rows}`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadWarLeaderboard(warId) {
+  const el = document.getElementById('war-history-section');
+  if (!el) return;
+  el.innerHTML = `<div class="panel-header" style="margin-top:12px">🏆 Рейтинг урону</div><p class="text-muted">Завантаження...</p>`;
+  try {
+    const r = await API.get(`/api/clan-war/${warId}/leaderboard`);
+    const renderSide = (label, list, color) => {
+      if (!list.length) return `<div style="font-size:12px;color:#aaa">Немає учасників</div>`;
+      return `<div style="font-weight:600;font-size:12px;color:${color};margin-bottom:4px">${label}</div>` +
+        list.map((p, i) => `
+          <div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f0f0f0">
+            <span>${i+1}. ${p.username}</span>
+            <span>${fmtNum(parseInt(p.damage_dealt)||0)} 💥 · ${p.battles_count}б · ${p.wins}п</span>
+          </div>`).join('');
+    };
+    el.innerHTML = `
+      <div class="panel-header" style="margin-top:12px">🏆 Рейтинг урону</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+        <div>${renderSide('МІЙ КЛАН', r.myTeam, '#2e7d32')}</div>
+        <div>${renderSide('ВОРОГ', r.enemies, '#c62828')}</div>
+      </div>
+      <button class="btn btn-gray btn-sm" style="margin-top:8px" onclick="openWarBattlePanel(${warId})">← Назад до атаки</button>`;
+  } catch (e) { toast(e.message, true); }
+}
+
+async function warAttackPrepare(warId, defenderId, defenderName) {
+  try {
+    await API.post('/api/clan-war/attack-prepare', { warId, defenderId });
+    // Open fight zone selector
+    _warZones = ['body', 'body', 'body'];
+    document.getElementById('clan-modal-body').innerHTML = `
+      <div style="padding:14px">
+        <div style="font-weight:700;margin-bottom:10px">${IC.battle(14)} Атакуєш: ${defenderName}</div>
+        <div style="font-size:13px;margin-bottom:12px">Обери зону удару для кожного раунду:</div>
+        ${[0,1,2].map(i => `
+          <div style="margin-bottom:10px">
+            <div style="font-size:12px;color:#888;margin-bottom:4px">Раунд ${i+1}</div>
+            <div style="display:flex;gap:6px">
+              ${['head','body','legs'].map(z => {
+                const label = {head:'Голова 🎯×1.3',body:'Тіло ×1.0',legs:'Ноги ×0.8'}[z];
+                return `<button class="btn btn-sm zone-btn-${i}" data-zone="${z}" data-round="${i}"
+                  onclick="warSetZone(${i},'${z}')"
+                  style="flex:1;font-size:11px">${label}</button>`;
+              }).join('')}
+            </div>
+          </div>`).join('')}
+        <button class="btn btn-red btn-full" style="margin-top:8px" onclick="warDoFight(${defenderId})">⚔️ Атакувати!</button>
+      </div>`;
+    document.getElementById('clan-modal').style.display = 'flex';
+    // Highlight default zones
+    [0,1,2].forEach(i => warSetZone(i, 'body'));
+  } catch (e) { toast(e.message, true); }
+}
+
+function warSetZone(round, zone) {
+  _warZones[round] = zone;
+  document.querySelectorAll(`.zone-btn-${round}`).forEach(b => {
+    b.classList.toggle('btn-orange', b.dataset.zone === zone);
+    b.classList.toggle('btn-gray',   b.dataset.zone !== zone);
+  });
+}
+
+async function warDoFight(defenderId) {
+  closeClanModal();
+  try {
+    const r = await API.post('/api/battle/fight', { defenderId, zones: _warZones });
+    const resultColor = r.attackerWon ? '#2e7d32' : '#c62828';
+    const resultText  = r.attackerWon ? '⚔️ Перемога!' : '🛡️ Поразка';
+    document.getElementById('clan-modal-body').innerHTML = `
+      <div style="padding:14px">
+        <div style="font-weight:700;font-size:16px;color:${resultColor};margin-bottom:10px">${resultText}</div>
+        <div style="font-size:13px;margin-bottom:6px">
+          Ти завдав: <b>${fmtNum(r.attackerDamageDealt)}</b> урону
+        </div>
+        <div style="font-size:13px;margin-bottom:6px">
+          Суперник завдав: <b>${fmtNum(r.defenderDamageDealt)}</b> урону
+        </div>
+        <div style="border-top:1px solid #eee;padding-top:10px;margin-top:10px">
+          ${r.rounds.map((rnd, i) => `
+            <div style="font-size:12px;margin-bottom:4px">
+              Раунд ${i+1}: Ти ${rnd.attacker.type==='miss'?'<span style="color:#888">промах</span>':`<b>+${rnd.attacker.damage}</b>`}
+              · Суперник ${rnd.defender.type==='miss'?'<span style="color:#888">промах</span>':`<b>+${rnd.defender.damage}</b>`}
+            </div>`).join('')}
+        </div>
+        <button class="btn btn-gray btn-full" style="margin-top:12px" onclick="closeClanModal();openWarBattlePanel(${_warPanelId})">← Назад</button>
+      </div>`;
+    document.getElementById('clan-modal').style.display = 'flex';
+    loadClans();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function loadClanWarRating() {
+  const el = document.getElementById('war-history-section');
+  if (!el) return;
+  el.innerHTML = `<div class="panel-header" style="margin-top:12px">🌍 Рейтинг кланів</div><p class="text-muted">Завантаження...</p>`;
+  try {
+    const r = await API.get('/api/clan-war/rating');
+    el.innerHTML = `<div class="panel-header" style="margin-top:12px">🌍 Рейтинг кланів</div>` +
+      r.clans.map((c, i) => `
+        <div class="flex-between" style="padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:13px">
+          <span>${i+1}. <b>[${c.tag}]</b> ${c.name}
+            <span class="badge-faction ${c.faction}" style="font-size:10px;margin-left:4px">${factionLabel(c.faction)}</span>
+          </span>
+          <span class="text-muted">${IC.glory(12)}${fmtNum(c.total_glory)} · ${c.wars_won}П/${c.wars_lost}П</span>
+        </div>`).join('') || '<p class="text-muted">Немає даних</p>';
   } catch (e) { toast(e.message, true); }
 }
 
@@ -2999,6 +3161,38 @@ function initSocket() {
 
   socket.on('events:count', ({ unread_count }) => {
     updateEventsBadge(unread_count);
+  });
+
+  socket.on('clan_war:started', ({ warId, attackerClan, defenderClan, endsAt }) => {
+    toast(`⚔️ Кланова Війна! ${attackerClan.name} vs ${defenderClan.name}`);
+    const sec = document.getElementById('section-clans');
+    if (sec && !sec.classList.contains('hidden')) renderMyClan();
+  });
+
+  socket.on('clan_war:damage', ({ warId, attackerTotal, defenderTotal }) => {
+    if (_warPanelId !== warId) return;
+    const ab = document.getElementById('war-bar-attacker');
+    const db = document.getElementById('war-bar-defender');
+    const at = document.getElementById('war-dmg-attacker');
+    const dt = document.getElementById('war-dmg-defender');
+    const total = (attackerTotal || 0) + (defenderTotal || 0) || 1;
+    if (ab) ab.style.width = Math.round((attackerTotal || 0) / total * 100) + '%';
+    if (db) db.style.width = Math.round((defenderTotal || 0) / total * 100) + '%';
+    if (at) at.textContent = attackerTotal || 0;
+    if (dt) dt.textContent = defenderTotal || 0;
+  });
+
+  socket.on('clan_war:ended', ({ warId, isWinner, isDraw, glory, greenTaken, goldTaken }) => {
+    _warPanelId = null;
+    if (isDraw) {
+      toast('⚔️ Кланова війна завершилась нічиєю');
+    } else if (isWinner) {
+      toast(`🏆 Клан переміг у кланові війні! +${glory} слави`);
+    } else {
+      toast(`💀 Клан програв у кланові війні. -${glory} слави`);
+    }
+    const sec = document.getElementById('section-clans');
+    if (sec && !sec.classList.contains('hidden')) renderMyClan();
   });
 
   initChatHistory();

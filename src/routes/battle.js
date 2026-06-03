@@ -236,35 +236,92 @@ function fetchPlayerWithStats(playerId) {
   );
 }
 
-async function addClanWarDamage(attackerId, defenderId, attackerDmg, defenderDmg) {
+async function recordWarBattle(cw, attackerId, defenderId, attackerDmg, defenderDmg, battleId, attackerWon, io) {
   try {
-    const { rows } = await pool.query(
+    const { warId, attackerClanId, defenderClanId } = cw;
+
+    // Determine which side of the war each player is on
+    const { rows: memberships } = await pool.query(
       'SELECT player_id, clan_id FROM clan_members WHERE player_id IN ($1,$2)',
       [attackerId, defenderId]
     );
-    if (rows.length < 2) return;
-    const aClanId = rows.find(r => r.player_id == attackerId)?.clan_id;
-    const dClanId = rows.find(r => r.player_id == defenderId)?.clan_id;
-    if (!aClanId || !dClanId || aClanId === dClanId) return;
-    const { rows: [war] } = await pool.query(
-      `SELECT id, attacker_id FROM clan_wars
-       WHERE status='active' AND ends_at > NOW()
-         AND ((attacker_id=$1 AND defender_id=$2) OR (attacker_id=$2 AND defender_id=$1))`,
-      [aClanId, dClanId]
+    const aClanId = memberships.find(r => r.player_id == attackerId)?.clan_id;
+    const dClanId = memberships.find(r => r.player_id == defenderId)?.clan_id;
+
+    // Record battle log
+    await pool.query(
+      `INSERT INTO clan_war_battles (war_id, battle_id, attacker_id, defender_id, damage, is_win)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [warId, battleId, attackerId, defenderId, attackerDmg, attackerWon]
     );
-    if (!war) return;
-    if (war.attacker_id === aClanId) {
+
+    // Update clan_war_participants for attacker
+    await pool.query(
+      `INSERT INTO clan_war_participants (war_id, player_id, clan_id, damage_dealt, damage_received, battles_count, wins)
+       VALUES ($1,$2,$3,$4,$5,1,$6)
+       ON CONFLICT (war_id, player_id) DO UPDATE SET
+         damage_dealt   = clan_war_participants.damage_dealt   + $4,
+         damage_received= clan_war_participants.damage_received+ $5,
+         battles_count  = clan_war_participants.battles_count  + 1,
+         wins           = clan_war_participants.wins           + $6`,
+      [warId, attackerId, aClanId, attackerDmg, defenderDmg, attackerWon ? 1 : 0]
+    );
+    // Update for defender
+    await pool.query(
+      `INSERT INTO clan_war_participants (war_id, player_id, clan_id, damage_dealt, damage_received, battles_count, wins)
+       VALUES ($1,$2,$3,$4,$5,1,$6)
+       ON CONFLICT (war_id, player_id) DO UPDATE SET
+         damage_dealt   = clan_war_participants.damage_dealt   + $4,
+         damage_received= clan_war_participants.damage_received+ $5,
+         battles_count  = clan_war_participants.battles_count  + 1,
+         wins           = clan_war_participants.wins           + $6`,
+      [warId, defenderId, dClanId, defenderDmg, attackerDmg, attackerWon ? 0 : 1]
+    );
+
+    // Update total damage in clan_wars
+    // aClanId side damage goes to the correct attacker/defender column
+    const aIsWarAttacker = aClanId == attackerClanId;
+    if (aIsWarAttacker) {
       await pool.query(
-        'UPDATE clan_wars SET attacker_dmg=attacker_dmg+$1, defender_dmg=defender_dmg+$2 WHERE id=$3',
-        [attackerDmg, defenderDmg, war.id]
+        `UPDATE clan_wars SET attacker_total_damage=attacker_total_damage+$1,
+                              defender_total_damage=defender_total_damage+$2 WHERE id=$3`,
+        [attackerDmg, defenderDmg, warId]
       );
     } else {
       await pool.query(
-        'UPDATE clan_wars SET attacker_dmg=attacker_dmg+$1, defender_dmg=defender_dmg+$2 WHERE id=$3',
-        [defenderDmg, attackerDmg, war.id]
+        `UPDATE clan_wars SET attacker_total_damage=attacker_total_damage+$1,
+                              defender_total_damage=defender_total_damage+$2 WHERE id=$3`,
+        [defenderDmg, attackerDmg, warId]
       );
     }
-  } catch (err) { console.error('addClanWarDamage:', err.message); }
+
+    // Update/insert attack limit
+    await pool.query(
+      `INSERT INTO clan_war_attack_limits (war_id, attacker_id, defender_id, attacks_used)
+       VALUES ($1,$2,$3,1)
+       ON CONFLICT (war_id, attacker_id, defender_id) DO UPDATE
+         SET attacks_used = clan_war_attack_limits.attacks_used + 1`,
+      [warId, attackerId, defenderId]
+    );
+
+    // Fetch updated totals and notify all members
+    const { rows: [war] } = await pool.query(
+      'SELECT attacker_total_damage, defender_total_damage FROM clan_wars WHERE id=$1', [warId]
+    );
+    const { rows: allMembers } = await pool.query(
+      'SELECT player_id FROM clan_members WHERE clan_id IN ($1,$2)',
+      [attackerClanId, defenderClanId]
+    );
+    if (io) {
+      for (const m of allMembers) {
+        io.to(`player:${m.player_id}`).emit('clan_war:damage', {
+          warId, attackerId, damage: attackerDmg,
+          totalAttacker: parseInt(war.attacker_total_damage),
+          totalDefender: parseInt(war.defender_total_damage),
+        });
+      }
+    }
+  } catch (err) { console.error('[recordWarBattle]', err.message); }
 }
 
 // Get opponents
@@ -735,10 +792,16 @@ router.post('/fight', async (req, res) => {
     : ['body', 'body', 'body'];
 
   try {
+    // Check for clan war context
+    const cw = req.session.clanWarFight;
+    const isWarBattle = !!(cw && cw.warId && cw.defenderId === parseInt(defenderId));
+
     const { rows: [attacker] } = await fetchPlayerWithStats(req.session.playerId);
     if (!attacker) return res.status(404).json({ error: 'Гравця не знайдено' });
-    if (!attacker.is_admin && attacker.battles_today >= attacker.battles_max)
-      return res.status(400).json({ error: 'Ліміт боїв вичерпано на сьогодні' });
+    if (!isWarBattle) {
+      if (!attacker.is_admin && attacker.battles_today >= attacker.battles_max)
+        return res.status(400).json({ error: 'Ліміт боїв вичерпано на сьогодні' });
+    }
     if (attacker.on_vacation)
       return res.status(400).json({ error: 'Ви на канікулах' });
 
@@ -766,10 +829,18 @@ router.post('/fight', async (req, res) => {
     const dStats = calcStats(defender, defender, defenderGiftRows, dRuneB);
 
     // Clan building bonuses: Кузня +5 міць/рів, Вежа +5 стійкість/рів
-    aStats.power     += (aBonuses.smithy || 0) * 5;
-    aStats.endurance += (aBonuses.tower  || 0) * 5;
-    dStats.power     += (dBonuses.smithy || 0) * 5;
-    dStats.endurance += (dBonuses.tower  || 0) * 5;
+    // In war battles use pre-calculated bonuses from attack-prepare (both clans applied)
+    if (isWarBattle) {
+      aStats.power     += (cw.extraAttackerPower     || 0);
+      aStats.endurance += (cw.extraAttackerEndurance || 0);
+      dStats.power     += (cw.extraDefenderPower     || 0);
+      dStats.endurance += (cw.extraDefenderEndurance || 0);
+    } else {
+      aStats.power     += (aBonuses.smithy || 0) * 5;
+      aStats.endurance += (aBonuses.tower  || 0) * 5;
+      dStats.power     += (dBonuses.smithy || 0) * 5;
+      dStats.endurance += (dBonuses.tower  || 0) * 5;
+    }
 
     // Potion stat bonuses + talisman stat bonuses
     aStats.power     += aPotions.power     + aRingTali.taliPower;
@@ -862,27 +933,29 @@ router.post('/fight', async (req, res) => {
     );
 
     // Attacker: wins/losses/glory/rating + greens/gold change
+    // In war battles: no battles_today increment, no per-battle glory/rating change
     await pool.query(
       `UPDATE players SET
-         battles_today       = battles_today + 1,
-         wins                = wins    + $1,
-         losses              = losses  + $2,
-         glory               = glory   + $3,
-         greens              = GREATEST(0, greens + $4),
-         gold                = GREATEST(0, gold   + $5),
-         gold_earned_battle  = gold_earned_battle + $6,
-         gold_lost_battle    = gold_lost_battle   + $7,
-         rating_points       = GREATEST(0, rating_points + $8)
-       WHERE id = $9`,
+         battles_today       = battles_today + $1,
+         wins                = wins    + $2,
+         losses              = losses  + $3,
+         glory               = glory   + $4,
+         greens              = GREATEST(0, greens + $5),
+         gold                = GREATEST(0, gold   + $6),
+         gold_earned_battle  = gold_earned_battle + $7,
+         gold_lost_battle    = gold_lost_battle   + $8,
+         rating_points       = GREATEST(0, rating_points + $9)
+       WHERE id = $10`,
       [
+        isWarBattle ? 0 : 1,
         attackerWon ? 1 : 0,
         attackerWon ? 0 : 1,
-        attackerWon ? 1 : 0,
-        attackerWon ? greensReward : -greensReward,
-        attackerWon ? goldReward : -goldReward,
-        attackerWon ? goldReward : 0,
-        attackerWon ? 0 : goldReward,
-        attackerWon ? 10 : -5,
+        (isWarBattle || !attackerWon) ? 0 : 1,
+        isWarBattle ? 0 : (attackerWon ? greensReward : -greensReward),
+        isWarBattle ? 0 : (attackerWon ? goldReward : -goldReward),
+        isWarBattle ? 0 : (attackerWon ? goldReward : 0),
+        isWarBattle ? 0 : (attackerWon ? 0 : goldReward),
+        isWarBattle ? 0 : (attackerWon ? 10 : -5),
         attacker.id
       ]
     );
@@ -924,11 +997,14 @@ router.post('/fight', async (req, res) => {
       ringEffect = await checkRingEffect(attacker.id, defender.id, lastBattle2?.id || null, req.app.locals.io);
     }
 
-    // Кланові завдання та кланова війна
-    await Promise.all([
-      attackerWon ? updateClanTask(attacker.id, 'win_battles', 1) : Promise.resolve(),
-      addClanWarDamage(attacker.id, defender.id, attackerDamageDealt, defenderDamageDealt),
-    ]);
+    // Кланові завдання + clan war recording
+    if (!isWarBattle && attackerWon) updateClanTask(attacker.id, 'win_battles', 1);
+    if (isWarBattle) {
+      delete req.session.clanWarFight;
+      await recordWarBattle(cw, attacker.id, defender.id,
+        attackerDamageDealt, defenderDamageDealt,
+        lastBattle2?.id || null, attackerWon, req.app.locals.io);
+    }
     if (attackerWon) {
       const { updateDailyQuestProgress } = require('./daily');
       await updateDailyQuestProgress(attacker.id, 'battles', 1);
