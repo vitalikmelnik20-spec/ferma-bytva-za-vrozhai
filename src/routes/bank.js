@@ -57,16 +57,29 @@ router.post('/open', async (req, res) => {
       return res.status(400).json({ error: `Недостатньо ${currency === 'gold' ? 'золота' : 'зелені'}` });
 
     const rate = TERMS[termNum].rate;
-    await pool.query(`UPDATE players SET ${col}=${col}-$1 WHERE id=$2`, [amountNum, req.session.playerId]);
-    const { rows: [dep] } = await pool.query(
-      `INSERT INTO bank_deposits
-         (player_id, currency, amount, interest_rate, term_days, status, matures_at)
-       VALUES ($1,$2,$3,$4,$5,'active', NOW() + ($5 * INTERVAL '1 day'))
-       RETURNING *`,
-      [req.session.playerId, currency, amountNum, rate, termNum]
-    );
-
-    res.json({ success: true, deposit: dep });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE players SET ${col}=${col}-$1 WHERE id=$2`,
+        [amountNum, req.session.playerId]
+      );
+      const { rows: [dep] } = await client.query(
+        `INSERT INTO bank_deposits
+           (player_id, currency, amount, interest_rate, term_days, status, matures_at)
+         VALUES ($1,$2,$3,$4,$5,'active', NOW() + ($5::text || ' days')::interval)
+         RETURNING *`,
+        [req.session.playerId, currency, amountNum, rate, termNum]
+      );
+      await client.query('COMMIT');
+      res.json({ success: true, deposit: dep });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      console.error('[bank/open]', err);
+      res.status(500).json({ error: 'Помилка сервера' });
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
