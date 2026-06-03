@@ -374,22 +374,42 @@ router.get('/:warId/leaderboard', async (req, res) => {
     const { rows: [war] } = await pool.query('SELECT * FROM clan_wars WHERE id=$1', [warId]);
     if (!war) return res.status(404).json({ error: 'Війну не знайдено' });
 
-    const { rows: participants } = await pool.query(
-      `SELECT cwp.*, p.username, p.level
-       FROM clan_war_participants cwp
-       JOIN players p ON p.id = cwp.player_id
-       WHERE cwp.war_id=$1
-       ORDER BY cwp.damage_dealt DESC`,
-      [warId]
-    );
+    const myClanId    = m?.clan_id;
+    const enemyClanId = war.attacker_clan_id == myClanId
+      ? war.defender_clan_id : war.attacker_clan_id;
 
-    const myClanId = m?.clan_id;
-    res.json({
-      war,
-      myTeam:  participants.filter(p => p.clan_id == myClanId),
-      enemies: participants.filter(p => p.clan_id != myClanId),
-      myClanId,
-    });
+    const [{ rows: myTeam }, { rows: enemies }] = await Promise.all([
+      pool.query(
+        `SELECT cwp.*, p.username, p.level
+         FROM clan_war_participants cwp
+         JOIN players p ON p.id = cwp.player_id
+         WHERE cwp.war_id=$1 AND cwp.clan_id=$2
+         ORDER BY cwp.damage_dealt DESC`,
+        [warId, myClanId]
+      ),
+      // ALL enemy clan members + participation stats + my attack limits for each
+      pool.query(
+        `SELECT p.id AS player_id, p.username, p.level, p.on_vacation,
+                t.power_level, t.endurance_level,
+                COALESCE(al.attacks_used,     0)         AS attacks_used,
+                COALESCE(cwp.damage_dealt,    0)::BIGINT AS damage_dealt,
+                COALESCE(cwp.damage_received, 0)::BIGINT AS damage_received,
+                COALESCE(cwp.battles_count,   0)         AS battles_count,
+                COALESCE(cwp.wins,            0)         AS wins
+         FROM clan_members cm
+         JOIN players p ON p.id = cm.player_id
+         LEFT JOIN training t ON t.player_id = p.id
+         LEFT JOIN clan_war_participants cwp
+           ON cwp.war_id=$1 AND cwp.player_id=p.id
+         LEFT JOIN clan_war_attack_limits al
+           ON al.war_id=$1 AND al.attacker_id=$2 AND al.defender_id=p.id
+         WHERE cm.clan_id=$3
+         ORDER BY cwp.damage_received DESC NULLS LAST, p.level DESC`,
+        [warId, req.session.playerId, enemyClanId]
+      ),
+    ]);
+
+    res.json({ war, myTeam, enemies, myClanId, enemyClanId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
