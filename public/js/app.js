@@ -1274,6 +1274,104 @@ async function loadVillage() {
         ${npc.id === 'smith'    ? `<button class="btn btn-orange btn-sm" onclick="openEnchantPage()">${IC.levelup(14)} Зачарувати</button>` : ''}
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
+  loadGreenhouse();
+}
+
+// ─── GREENHOUSE ───────────────────────────────────────────────────────────────
+let _ghTimerInterval = null;
+
+async function loadGreenhouse() {
+  try {
+    const r = await API.get('/api/greenhouse');
+    const el = document.getElementById('village-greenhouse');
+    if (!el) return;
+
+    if (!r.greenhouse) {
+      el.innerHTML = `
+        <div style="text-align:center;padding:12px 0">
+          <div style="font-size:40px;margin-bottom:6px">🌿</div>
+          <div style="font-weight:700;margin-bottom:4px">Теплиця</div>
+          <div class="text-muted" style="font-size:13px;margin-bottom:12px">Щодня генерує зелень — просто зайди і забери</div>
+          <button class="btn btn-green btn-full" onclick="buyGreenhouse()">
+            ${IC.gold(14)} Купити теплицю — 500 золота
+          </button>
+        </div>`;
+      return;
+    }
+
+    const g = r.greenhouse;
+    const lvlPct = (g.level / 10 * 100).toFixed(0);
+    const hasGreens = g.green_available > 0;
+    const overflowing = g.green_available >= g.daily_green * 2;
+
+    el.innerHTML = `
+      <div style="text-align:center;font-size:36px;margin-bottom:2px">🌿</div>
+      <div class="ring-progress-wrap" style="margin:6px 0 8px">
+        <div class="ring-progress-bar" style="width:${lvlPct}%"></div>
+      </div>
+      <div class="flex-between" style="margin-bottom:6px">
+        <span style="font-weight:700">Рів. ${g.level} / 10</span>
+        <span style="color:#388e3c;font-weight:700">${IC.greens(13)} ${fmtNum(g.daily_green)} / день</span>
+      </div>
+      ${overflowing ? `<div style="color:#e65100;font-size:12px;text-align:center;margin-bottom:6px">⚠️ Теплиця переповнена! Забери врожай</div>` : ''}
+      <div class="flex-between" style="margin-bottom:10px">
+        <span class="text-muted" style="font-size:13px">Доступно: <b style="color:#388e3c">${fmtNum(g.green_available)} 🌿</b></span>
+        <button class="btn ${hasGreens ? 'btn-green' : 'btn-gray'} btn-sm" onclick="collectGreenhouse()" ${hasGreens ? '' : 'disabled'}>
+          Забрати
+        </button>
+      </div>
+      <div class="text-muted" style="font-size:12px;margin-bottom:8px">
+        Наступне поповнення: <span id="gh-timer">—</span>
+      </div>
+      ${g.level < 10
+        ? `<button class="btn btn-orange btn-full" onclick="upgradeGreenhouse()">
+             ${IC.levelup(14)} Покращити до рів.${g.level + 1} — ${IC.gold(13)} ${fmtNum(g.next_cost)}
+           </button>`
+        : `<div style="text-align:center;color:#e65100;font-weight:700;font-size:14px">${IC.star(14)} Максимальний рівень!</div>`}`;
+
+    // countdown timer
+    if (_ghTimerInterval) clearInterval(_ghTimerInterval);
+    let msLeft = g.timer_ms;
+    const updateTimer = () => {
+      const el2 = document.getElementById('gh-timer');
+      if (!el2) { clearInterval(_ghTimerInterval); return; }
+      if (msLeft <= 0) { el2.textContent = 'зараз...'; clearInterval(_ghTimerInterval); loadGreenhouse(); return; }
+      const h = Math.floor(msLeft / 3600000);
+      const m = Math.floor((msLeft % 3600000) / 60000);
+      const s = Math.floor((msLeft % 60000) / 1000);
+      el2.textContent = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      msLeft -= 1000;
+    };
+    updateTimer();
+    _ghTimerInterval = setInterval(updateTimer, 1000);
+  } catch (e) { toast(e.message, true); }
+}
+
+async function buyGreenhouse() {
+  try {
+    await API.post('/api/greenhouse/buy');
+    toast('🌿 Теплиця куплена!');
+    await refreshPlayer();
+    loadGreenhouse();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function collectGreenhouse() {
+  try {
+    const r = await API.post('/api/greenhouse/collect');
+    toast(`🌿 Зібрано ${IC.greens(13)} ${fmtNum(r.collected)} зелені з теплиці!`);
+    await refreshPlayer();
+    loadGreenhouse();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function upgradeGreenhouse() {
+  try {
+    const r = await API.post('/api/greenhouse/upgrade');
+    toast(`🌿 Теплицю покращено до рівня ${r.newLevel}! Тепер: ${fmtNum(r.dailyGreen)}/день`);
+    await refreshPlayer();
+    loadGreenhouse();
+  } catch (e) { toast(e.message, true); }
 }
 
 async function healPlayer() {

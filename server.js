@@ -55,6 +55,7 @@ app.use('/api/insects',   require('./src/routes/insects'));
 app.use('/api/daily',        require('./src/routes/daily'));
 app.use('/api/clan-defense', require('./src/routes/clanDefense'));
 app.use('/api/pets',         require('./src/routes/pets'));
+app.use('/api/greenhouse',   require('./src/routes/greenhouse'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -88,6 +89,19 @@ const scheduleDailyReset = (io) => {
     // Notify online players that caves are open
     if (io) io.emit('caves:open');
     console.log('[Reset] caves:open розіслано');
+    // Greenhouse accrual — add daily greens (max 2 days worth)
+    try {
+      const { DAILY_GREEN } = require('./src/routes/greenhouse');
+      const CASE = DAILY_GREEN.map((v, i) => i === 0 ? '' : `WHEN ${i} THEN ${v}`).slice(1).join(' ');
+      await pool.query(`
+        UPDATE greenhouses
+        SET green_available = LEAST(
+          green_available + CASE level ${CASE} ELSE 0 END,
+          CASE level ${CASE} ELSE 0 END * 2
+        )
+      `);
+      console.log('[Reset] greenhouse accrual виконано');
+    } catch (err) { console.error('[Reset] greenhouse помилка:', err.message); }
   };
 
   setTimeout(async () => {
@@ -204,6 +218,22 @@ setInterval(async () => {
       for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
       if (expired.length) console.log(`[Dragon] Завершено ${expired.length} протерміновані події при запуску`);
     } catch (err) { console.error('[Dragon startup]', err.message); }
+  })();
+
+  // v4: ensure greenhouses table exists
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS greenhouses (
+          id                SERIAL PRIMARY KEY,
+          player_id         INTEGER NOT NULL UNIQUE REFERENCES players(id) ON DELETE CASCADE,
+          level             INTEGER NOT NULL DEFAULT 1,
+          green_available   INTEGER NOT NULL DEFAULT 0,
+          last_collected_at TIMESTAMP,
+          created_at        TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+    } catch (err) { console.error('[v4 greenhouses table]', err.message); }
   })();
 
   // v4 migration: rebalance Кільце злодія for existing owners
