@@ -1275,6 +1275,7 @@ async function loadVillage() {
       </div>`).join('');
   } catch (e) { toast(e.message, true); }
   loadGreenhouse();
+  loadBank();
 }
 
 // ─── GREENHOUSE ───────────────────────────────────────────────────────────────
@@ -1371,6 +1372,156 @@ async function upgradeGreenhouse() {
     toast(`🌿 Теплицю покращено до рівня ${r.newLevel}! Тепер: ${fmtNum(r.dailyGreen)}/день`);
     await refreshPlayer();
     loadGreenhouse();
+  } catch (e) { toast(e.message, true); }
+}
+
+// ─── BANK ─────────────────────────────────────────────────────────────────────
+let _bankTab = 'green';
+
+async function loadBank() {
+  try {
+    const el = document.getElementById('village-bank');
+    if (!el) return;
+    const r = await API.get('/api/bank/deposits');
+    renderBank(r.deposits);
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderBank(deposits) {
+  const el = document.getElementById('village-bank');
+  if (!el) return;
+
+  const tabDeposits = deposits.filter(d => d.currency === _bankTab);
+  const activeCnt   = tabDeposits.filter(d => d.status === 'active').length;
+
+  const statusBadge = (s) => s === 'active'
+    ? `<span style="color:#1976d2;font-size:12px">⏳ Активний</span>`
+    : s === 'ready'
+    ? `<span style="color:#388e3c;font-weight:700;font-size:12px">✅ Готово</span>`
+    : `<span style="color:#aaa;font-size:12px">🔒 Завершено</span>`;
+
+  const daysLeft = (matures) => {
+    const ms = new Date(matures) - Date.now();
+    if (ms <= 0) return 'дозрів';
+    const d = Math.floor(ms / 86400000);
+    const h = Math.floor((ms % 86400000) / 3600000);
+    return d > 0 ? `${d}д ${h}г` : `${h}г`;
+  };
+
+  const currIcon = _bankTab === 'green' ? IC.greens(13) : IC.gold(13);
+  const minAmt   = _bankTab === 'green' ? 1000 : 100;
+
+  el.innerHTML = `
+    <div style="display:flex;gap:6px;margin-bottom:12px">
+      <button class="btn ${_bankTab==='green'?'btn-green':'btn-gray'} btn-sm" style="flex:1" onclick="bankTab('green')">${IC.greens(13)} Зелень</button>
+      <button class="btn ${_bankTab==='gold'?'btn-orange':'btn-gray'} btn-sm" style="flex:1" onclick="bankTab('gold')">${IC.gold(13)} Золото</button>
+    </div>
+
+    ${tabDeposits.length ? `
+      <div style="margin-bottom:10px">
+        ${tabDeposits.map(d => {
+          const interest = Math.floor(d.amount * d.interest_rate / 100);
+          return `
+          <div style="border:1px solid #e0e0e0;border-radius:10px;padding:10px;margin-bottom:8px">
+            <div class="flex-between" style="margin-bottom:4px">
+              <span style="font-weight:700">${currIcon} ${fmtNum(d.amount)}</span>
+              ${statusBadge(d.status)}
+            </div>
+            <div class="text-muted" style="font-size:12px;margin-bottom:6px">
+              ${d.term_days}д · +${d.interest_rate}% · +${fmtNum(interest)} ${_bankTab==='green'?'🌿':'🏅'}
+              ${d.status==='active' ? ` · залишилось: ${daysLeft(d.matures_at)}` : ''}
+            </div>
+            <div style="display:flex;gap:6px">
+              ${d.status==='ready'
+                ? `<button class="btn btn-green btn-sm" style="flex:1" onclick="bankCollect(${d.id})">Забрати ${fmtNum(d.amount+interest)}</button>`
+                : `<button class="btn btn-gray btn-sm" style="flex:1" disabled>Забрати</button>`}
+              ${d.status!=='withdrawn'
+                ? `<button class="btn btn-gray btn-sm" onclick="bankWithdraw(${d.id})" title="Отримаєш лише основну суму без відсотків">Достроково</button>`
+                : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>` : `<p class="text-muted" style="text-align:center;margin-bottom:12px">Немає активних депозитів</p>`}
+
+    ${activeCnt < 3 ? `
+      <div style="border-top:1px solid #eee;padding-top:12px">
+        <div style="font-weight:700;margin-bottom:8px;font-size:13px">Новий депозит</div>
+        <div style="display:flex;gap:6px;margin-bottom:8px" id="bank-term-btns">
+          <button class="btn btn-sm bank-term-btn" data-term="7"  onclick="bankSelectTerm(7)"  style="flex:1">7 днів +5%</button>
+          <button class="btn btn-sm bank-term-btn" data-term="14" onclick="bankSelectTerm(14)" style="flex:1">14 днів +10%</button>
+          <button class="btn btn-sm bank-term-btn" data-term="30" onclick="bankSelectTerm(30)" style="flex:1">30 днів +20%</button>
+        </div>
+        <div style="display:flex;gap:6px">
+          <input id="bank-amount-input" type="number" min="${minAmt}" placeholder="Сума (мін. ${minAmt})"
+            oninput="updateBankPreview()"
+            style="flex:1;padding:8px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+          <button class="btn btn-orange btn-sm" onclick="bankOpen()">Відкрити</button>
+        </div>
+        <div id="bank-preview" style="font-size:12px;color:#388e3c;margin-top:4px;min-height:16px"></div>
+      </div>` : `<div style="text-align:center;color:#e65100;font-size:13px">Максимум 3 активних депозити на валюту</div>`}`;
+
+  // auto-select first term button style
+  bankSelectTerm(7, true);
+}
+
+let _bankTerm = 7;
+function bankTab(tab) {
+  _bankTab = tab;
+  _bankTerm = 7;
+  loadBank();
+}
+
+function bankSelectTerm(days, silent) {
+  _bankTerm = days;
+  document.querySelectorAll('.bank-term-btn').forEach(b => {
+    b.classList.toggle('btn-orange', parseInt(b.dataset.term) === days);
+    b.classList.toggle('btn-gray',   parseInt(b.dataset.term) !== days);
+  });
+  if (!silent) updateBankPreview();
+}
+
+function updateBankPreview() {
+  const inp  = document.getElementById('bank-amount-input');
+  const prev = document.getElementById('bank-preview');
+  if (!inp || !prev) return;
+  const amt  = parseInt(inp.value);
+  const rates = { 7: 5, 14: 10, 30: 20 };
+  const rate  = rates[_bankTerm];
+  if (amt > 0 && rate) {
+    const interest = Math.floor(amt * rate / 100);
+    prev.textContent = `Отримаєш: ${fmtNum(amt + interest)} (основна + ${fmtNum(interest)} відсотків)`;
+  } else {
+    prev.textContent = '';
+  }
+}
+
+async function bankOpen() {
+  const amt = parseInt(document.getElementById('bank-amount-input')?.value);
+  if (!amt || amt <= 0) return toast('Введи суму', true);
+  try {
+    await API.post('/api/bank/open', { currency: _bankTab, amount: amt, termDays: _bankTerm });
+    toast(`🏦 Депозит відкрито на ${_bankTerm} днів!`);
+    await refreshPlayer();
+    loadBank();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function bankCollect(id) {
+  try {
+    const r = await API.post(`/api/bank/collect/${id}`);
+    toast(`🏦 Отримано ${fmtNum(r.total)} (+${fmtNum(r.interest)} відсотків)!`);
+    await refreshPlayer();
+    loadBank();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function bankWithdraw(id) {
+  if (!confirm('Дострокове зняття — відсотки не нараховуються. Отримаєш тільки основну суму. Продовжити?')) return;
+  try {
+    const r = await API.post(`/api/bank/withdraw/${id}`);
+    toast(`🏦 Знято ${fmtNum(r.returned)} (без відсотків)`);
+    await refreshPlayer();
+    loadBank();
   } catch (e) { toast(e.message, true); }
 }
 

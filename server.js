@@ -56,6 +56,7 @@ app.use('/api/daily',        require('./src/routes/daily'));
 app.use('/api/clan-defense', require('./src/routes/clanDefense'));
 app.use('/api/pets',         require('./src/routes/pets'));
 app.use('/api/greenhouse',   require('./src/routes/greenhouse'));
+app.use('/api/bank',         require('./src/routes/bank'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -131,6 +132,32 @@ setInterval(async () => {
   } catch (err) {
     console.error('[PetRegen]', err.message);
   }
+}, 60 * 60 * 1000);
+
+// Bank deposits — every hour, mark matured deposits as ready and notify players
+setInterval(async () => {
+  try {
+    const { rows: matured } = await pool.query(
+      `UPDATE bank_deposits SET status='ready'
+       WHERE status='active' AND matures_at <= NOW()
+       RETURNING id, player_id, currency, amount, interest_rate`
+    );
+    for (const dep of matured) {
+      const interest = Math.floor(dep.amount * dep.interest_rate / 100);
+      const total    = dep.amount + interest;
+      const label    = dep.currency === 'gold' ? `${total} золота` : `${total} зелені`;
+      await pool.query(
+        `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+        [dep.player_id, 'Депозит готовий до отримання',
+         `Ваш депозит ${dep.currency === 'gold' ? '🏅' : '🌿'} ${dep.amount} дозрів. Отримайте ${label} у розділі Банк.`]
+      );
+      io.to(`player:${dep.player_id}`).emit('notification', {
+        type: 'bank',
+        message: `🏦 Депозит готовий! Забери ${label} у Банку`,
+      });
+    }
+    if (matured.length) console.log(`[Bank] ${matured.length} депозитів позначено готовими`);
+  } catch (err) { console.error('[Bank cron]', err.message); }
 }, 60 * 60 * 1000);
 
 // Auction lot cleanup — every 6 hours, expire old lots and release inventory
@@ -218,6 +245,27 @@ setInterval(async () => {
       for (const ev of expired) await finalizeEvent(ev.id, false, null, io);
       if (expired.length) console.log(`[Dragon] Завершено ${expired.length} протерміновані події при запуску`);
     } catch (err) { console.error('[Dragon startup]', err.message); }
+  })();
+
+  // v4: ensure bank_deposits table exists
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS bank_deposits (
+          id            SERIAL PRIMARY KEY,
+          player_id     INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          currency      VARCHAR(10) NOT NULL CHECK (currency IN ('green','gold')),
+          amount        INTEGER NOT NULL,
+          interest_rate NUMERIC(5,2) NOT NULL,
+          term_days     INTEGER NOT NULL,
+          status        VARCHAR(20) NOT NULL DEFAULT 'active'
+                          CHECK (status IN ('active','ready','withdrawn')),
+          created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+          matures_at    TIMESTAMP NOT NULL,
+          collected_at  TIMESTAMP
+        )
+      `);
+    } catch (err) { console.error('[v4 bank_deposits table]', err.message); }
   })();
 
   // v4: ensure greenhouses table exists
