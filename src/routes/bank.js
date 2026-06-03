@@ -57,6 +57,8 @@ router.post('/open', async (req, res) => {
       return res.status(400).json({ error: `Недостатньо ${currency === 'gold' ? 'золота' : 'зелені'}` });
 
     const rate = TERMS[termNum].rate;
+    const maturesAt = new Date(Date.now() + termNum * 24 * 60 * 60 * 1000);
+
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -67,9 +69,9 @@ router.post('/open', async (req, res) => {
       const { rows: [dep] } = await client.query(
         `INSERT INTO bank_deposits
            (player_id, currency, amount, interest_rate, term_days, status, matures_at)
-         VALUES ($1,$2,$3,$4,$5,'active', NOW() + ($5::text || ' days')::interval)
+         VALUES ($1,$2,$3,$4,$5,'active',$6)
          RETURNING *`,
-        [req.session.playerId, currency, amountNum, rate, termNum]
+        [req.session.playerId, currency, amountNum, rate, termNum, maturesAt]
       );
       await client.query('COMMIT');
       res.json({ success: true, deposit: dep });
