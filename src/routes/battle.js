@@ -315,9 +315,11 @@ async function recordWarBattle(cw, attackerId, defenderId, attackerDmg, defender
     if (io) {
       for (const m of allMembers) {
         io.to(`player:${m.player_id}`).emit('clan_war:damage', {
-          warId, attackerId, damage: attackerDmg,
-          totalAttacker: parseInt(war.attacker_total_damage),
-          totalDefender: parseInt(war.defender_total_damage),
+          warId,
+          playerId: attackerId,
+          damage:   attackerDmg,
+          totalA:   parseInt(war.attacker_total_damage),
+          totalB:   parseInt(war.defender_total_damage),
         });
       }
     }
