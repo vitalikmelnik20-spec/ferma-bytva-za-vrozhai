@@ -445,6 +445,57 @@ router.get('/rating', async (req, res) => {
   }
 });
 
+// ─── GET /api/clan-war/:warId/results ────────────────────────────────────────
+router.get('/:warId/results', async (req, res) => {
+  try {
+    const warId = parseInt(req.params.warId);
+    const m = await getMembership(req.session.playerId);
+
+    const { rows: [war] } = await pool.query(
+      `SELECT cw.*,
+              ac.name AS attacker_name, ac.tag AS attacker_tag,
+              dc.name AS defender_name, dc.tag AS defender_tag,
+              wc.name AS winner_name
+       FROM clan_wars cw
+       JOIN clans ac ON ac.id = cw.attacker_clan_id
+       JOIN clans dc ON dc.id = cw.defender_clan_id
+       LEFT JOIN clans wc ON wc.id = cw.winner_clan_id
+       WHERE cw.id=$1`,
+      [warId]
+    );
+    if (!war) return res.status(404).json({ error: 'Війну не знайдено' });
+
+    const myClanId = m?.clan_id || null;
+
+    const { rows: participants } = await pool.query(
+      `SELECT cwp.*, p.username, p.level
+       FROM clan_war_participants cwp
+       JOIN players p ON p.id = cwp.player_id
+       WHERE cwp.war_id=$1
+       ORDER BY cwp.damage_dealt DESC`,
+      [warId]
+    );
+
+    // Cooldown: 24h from finished_at for same pair of clans
+    let cooldownSecs = 0;
+    if (war.finished_at) {
+      const elapsed = Date.now() - new Date(war.finished_at).getTime();
+      cooldownSecs = Math.max(0, Math.floor((24 * 60 * 60 * 1000 - elapsed) / 1000));
+    }
+
+    res.json({
+      war,
+      myTeam:  participants.filter(p => p.clan_id == myClanId),
+      enemies: participants.filter(p => p.clan_id != myClanId),
+      myClanId,
+      cooldownSecs,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 // ─── GET /api/clan-war/clan-stats ────────────────────────────────────────────
 router.get('/clan-stats', async (req, res) => {
   try {

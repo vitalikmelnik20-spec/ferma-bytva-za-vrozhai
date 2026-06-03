@@ -2539,13 +2539,90 @@ async function loadWarHistory() {
           ? `[${w.defender_tag}] ${w.defender_name}`
           : `[${w.attacker_tag}] ${w.attacker_name}`;
         const resultColor = isDraw ? '#888' : (isMyWinner ? '#2e7d32' : '#c62828');
-        const result = isDraw ? 'Нічия' : (isMyWinner ? 'Перемога' : 'Поразка');
-        return `<div style="display:flex;justify-content:space-between;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
-          <span>${foe}</span>
-          <span style="color:${resultColor}">${result}</span>
-          <span class="text-muted">${kyivDate(w.started_at)}</span>
+        const resultIcon  = isDraw ? '🤝' : (isMyWinner ? '🏆' : '💀');
+        return `<div style="display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
+          <span style="flex:1">${foe}</span>
+          <span style="color:${resultColor}">${resultIcon}</span>
+          <span class="text-muted" style="font-size:11px">${kyivDate(w.started_at)}</span>
+          <button class="btn btn-gray" style="font-size:11px;padding:2px 6px" onclick="loadWarResults(${w.id})">Детально</button>
         </div>`;
       }).join('');
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadWarResults(warId) {
+  const el = document.getElementById('war-history-section');
+  if (!el) return;
+  el.innerHTML = `<div class="panel-header" style="margin-top:12px">📋 Результати війни</div><p class="text-muted">Завантаження...</p>`;
+  try {
+    const r = await API.get(`/api/clan-war/${warId}/results`);
+    const w = r.war;
+    const isAttacker = w.attacker_clan_id == r.myClanId;
+    const myDmg  = parseInt(isAttacker ? w.attacker_total_damage : w.defender_total_damage) || 0;
+    const foeDmg = parseInt(isAttacker ? w.defender_total_damage : w.attacker_total_damage) || 0;
+    const foeName = isAttacker
+      ? `[${w.defender_tag}] ${w.defender_name}`
+      : `[${w.attacker_tag}] ${w.attacker_name}`;
+    const isWinner = w.winner_clan_id == r.myClanId;
+    const isDraw   = w.status === 'draw';
+
+    const resultIcon  = isDraw ? '🤝' : isWinner ? '🏆' : '💀';
+    const resultText  = isDraw ? 'Нічия' : isWinner ? 'Перемога!' : 'Поразка';
+    const resultColor = isDraw ? '#888' : isWinner ? '#2e7d32' : '#c62828';
+
+    const treasuryLine = !isDraw && (w.treasury_taken_green > 0 || w.treasury_taken_gold > 0)
+      ? `<div style="font-size:13px;margin-bottom:4px;color:${isWinner ? '#2e7d32' : '#c62828'}">
+           ${isWinner ? 'Здобуто' : 'Втрачено'}: ${IC.greens(13)}${fmtNum(w.treasury_taken_green)} ${IC.gold(13)}${fmtNum(w.treasury_taken_gold)}
+         </div>` : '';
+
+    const pRow = (p, isMyTeam) => {
+      const dmg = fmtNum(parseInt(p.damage_dealt) || 0);
+      const gloryPart = isMyTeam
+        ? (parseInt(p.glory_gained) > 0 ? ` <span style="color:#2e7d32">+${p.glory_gained}⭐</span>` : '')
+        : (parseInt(p.glory_lost)   > 0 ? ` <span style="color:#c62828">-${p.glory_lost}⭐</span>` : '');
+      return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">
+        <span>${p.username} <span class="text-muted">Рів.${p.level}</span></span>
+        <span>${dmg}💥 ${p.battles_count || 0}б${gloryPart}</span>
+      </div>`;
+    };
+
+    el.innerHTML = `
+      <div class="panel-header" style="margin-top:12px">📋 Результати vs ${foeName}</div>
+      <div style="margin-top:8px;padding:10px;background:#fafafa;border-radius:8px;margin-bottom:10px">
+        <div style="font-size:17px;font-weight:700;color:${resultColor};margin-bottom:6px">${resultIcon} ${resultText}</div>
+        <div style="font-size:13px;margin-bottom:4px">
+          <span style="color:#2e7d32">Ми: <b>${fmtNum(myDmg)}</b></span>
+          &nbsp;⚔️&nbsp;
+          <span style="color:#c62828">Вони: <b>${fmtNum(foeDmg)}</b></span>
+        </div>
+        ${treasuryLine}
+        ${r.cooldownSecs > 0
+          ? `<div id="war-result-cooldown" style="font-size:12px;color:#888;margin-top:4px">⏳ Кулдаун: ${fmtTime(r.cooldownSecs)}</div>`
+          : `<div style="font-size:12px;color:#2e7d32;margin-top:4px">✅ Кулдаун минув</div>`}
+      </div>
+      <div style="font-weight:600;font-size:12px;margin-bottom:4px">МІЙ КЛАН</div>
+      ${r.myTeam.length ? r.myTeam.map(p => pRow(p, true)).join('') : '<p class="text-muted" style="font-size:12px">Ніхто не брав участь</p>'}
+      <div style="font-weight:600;font-size:12px;margin:8px 0 4px">ВОРОГ</div>
+      ${r.enemies.length ? r.enemies.map(p => pRow(p, false)).join('') : '<p class="text-muted" style="font-size:12px">—</p>'}
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-gray btn-sm" onclick="loadWarHistory()">← Назад до історії</button>
+      </div>`;
+
+    // Live cooldown countdown
+    if (r.cooldownSecs > 0) {
+      let secs = r.cooldownSecs;
+      const cdIv = setInterval(() => {
+        const cdEl = document.getElementById('war-result-cooldown');
+        if (!cdEl) { clearInterval(cdIv); return; }
+        if (--secs <= 0) {
+          cdEl.textContent = '✅ Кулдаун минув';
+          cdEl.style.color = '#2e7d32';
+          clearInterval(cdIv);
+        } else {
+          cdEl.textContent = `⏳ Кулдаун: ${fmtTime(secs)}`;
+        }
+      }, 1000);
+    }
   } catch (e) { toast(e.message, true); }
 }
 
@@ -3336,16 +3413,28 @@ function initSocket() {
   });
 
   socket.on('clan_war:ended', ({ warId, isWinner, isDraw, glory, greenTaken, goldTaken }) => {
-    _warPanelId = null;
+    _warPanelId  = null;
+    _activeWarId = null;
+    if (_warTimerInterval) { clearInterval(_warTimerInterval); _warTimerInterval = null; }
+
     if (isDraw) {
-      toast('⚔️ Кланова війна завершилась нічиєю');
+      toast('🤝 Кланова війна завершилась нічиєю');
     } else if (isWinner) {
-      toast(`🏆 Клан переміг у кланові війні! +${glory} слави`);
+      const treasuryPart = (greenTaken || goldTaken)
+        ? ` · ${IC.greens(13)}${fmtNum(greenTaken)} ${IC.gold(13)}${fmtNum(goldTaken)}`
+        : '';
+      toast(`🏆 Клан переміг! +${glory} слави${treasuryPart}`);
     } else {
-      toast(`💀 Клан програв у кланові війні. -${glory} слави`);
+      toast(`💀 Клан програв. -${glory} слави`);
     }
+
     const sec = document.getElementById('section-clans');
-    if (sec && !sec.classList.contains('hidden')) renderMyClan();
+    if (sec && !sec.classList.contains('hidden')) {
+      renderMyClan().then(() => {
+        // After re-render, show results in war-history-section
+        loadWarResults(warId);
+      });
+    }
   });
 
   initChatHistory();
