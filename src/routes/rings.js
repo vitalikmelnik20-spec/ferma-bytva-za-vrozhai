@@ -4,10 +4,12 @@ const { pool } = require('../db');
 
 router.use(requireAuth);
 
+const RING_COSTS = [0, 0, 800, 1000, 1000, 1000, 1200, 1400, 1600, 2000, 2000];
+
 const RING_CONFIG = {
   'Кільце злодія': {
     currency: 'gold',
-    costs: [0, 0, 600, 800, 1200, 1400, 1600, 1800, 2000, 2200, 2400],
+    costs: RING_COSTS,
     effects: (lv) => {
       const STEAL_CHANCE = [0, 5, 9, 14, 19, 25, 31, 37, 43, 47, 50];
       const sc = STEAL_CHANCE[lv];
@@ -18,36 +20,36 @@ const RING_CONFIG = {
     subLabel:  (v, ru) => `Вкрасти до: ${ru ? ru.max_steal_pct : (v * 0.3).toFixed(1)}% золота`,
   },
   'Кільце Жнеця': {
-    currency: 'greens',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    currency: 'gold',
+    costs: RING_COSTS,
     effects: (lv) => ({ bonus_value: lv * 10 }),
     statLabel: (v) => `+${v}% до врожаю`,
     subLabel:  ()  => 'Бонус до збору з огороду',
   },
   'Кільце Берсерка': {
     currency: 'gold',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    costs: RING_COSTS,
     effects: (lv) => ({ bonus_value: [0, 5, 10, 14, 19, 24, 29, 34, 36, 38, 40][lv] }),
     statLabel: (v) => `${v}% шанс подвійного удару`,
     subLabel:  ()  => 'Подвоює шкоду при спрацюванні',
   },
   'Кільце Цілителя': {
-    currency: 'greens',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    currency: 'gold',
+    costs: RING_COSTS,
     effects: (lv) => ({ bonus_value: lv * 5 }),
     statLabel: (v) => `+${v}% регенерації HP/год`,
     subLabel:  ()  => 'Пасивне відновлення здоров\'я',
   },
   'Кільце Удачі': {
     currency: 'gold',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    costs: RING_COSTS,
     effects: (lv) => ({ bonus_value: [0, 5, 9, 13, 17, 21, 25, 28, 30, 33, 35][lv] }),
     statLabel: (v) => `+${v}% шанс критичного удару`,
     subLabel:  ()  => 'Критичний удар: ×1.5 шкоди',
   },
   'Кільце Мудреця': {
-    currency: 'greens',
-    costs: [0, 0, 400, 600, 800, 1000, 1200, 1400, 1600, 1800, 2000],
+    currency: 'gold',
+    costs: RING_COSTS,
     effects: (lv) => ({ bonus_value: [0, 10, 20, 30, 40, 50, 58, 65, 70, 75, 80][lv] }),
     statLabel: (v) => `+${v}% до досвіду`,
     subLabel:  ()  => 'Бонус до всього отриманого досвіду',

@@ -416,7 +416,7 @@ function renderPlots() {
         ${soilSVG}
         <div class="plot-name">${plot.plant_name}</div>
         <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>
-        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.exp(13)}${plot.exp_reward}</div>`;
+        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.exp(13)}${Math.floor(plot.exp_reward * 0.1)}</div>`;
       div.onclick = () => harvestPlot(plot.id);
     }
 
@@ -462,7 +462,7 @@ function openPlantModal(plotId) {
       <img src="/icons/plants/${(() => { const m={'Пшениця':'wheat','Морква':'carrot','Капуста':'cabbage','Соняшник':'sunflower','Гарбуз':'pumpkin','Диня':'melon','Виноград':'grapes','Зілля сили':'herb','Зілля спритності':'herb','Чарівний гриб':'mushroom'}; return m[p.name]||'herb'; })()}.svg" width="40" height="40" class="plant-emoji-big">
       <div class="plant-info">
         <div class="plant-info-name">${p.name}</div>
-        <div class="plant-info-stats">⏱ ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.exp(13)} +${p.exp_reward}</div>
+        <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.exp(13)} +${Math.floor(p.exp_reward * 0.1)}</div>
       </div>
       <div class="plant-price">${IC.greens(13)} ${p.seed_price}</div>
     </div>`).join('');
@@ -921,19 +921,20 @@ const ITEM_ICONS = {
   'Зілля врожаю':      'potion-base',
   'Велике зілля сили': 'potion-power',
   'Зілля невразливості':'potion-endurance',
-  // Special
-  'Кільце злодія':     'ring',
-  'Кільце Жнеця':      'ring',
-  'Кільце Берсерка':   'ring',
-  'Кільце Цілителя':   'ring',
-  'Кільце Удачі':      'ring',
-  'Кільце Мудреця':    'ring',
+  // Rings — unique gem colors
+  'Кільце злодія':     'ring-thief',
+  'Кільце Жнеця':      'ring-harvester',
+  'Кільце Берсерка':   'ring-berserker',
+  'Кільце Цілителя':   'ring-healer',
+  'Кільце Удачі':      'ring-luck',
+  'Кільце Мудреця':    'ring-sage',
+  // Talismans — unique body colors
   'Талісман золотошукача': 'talisman',
-  'Талісман Воїна':    'talisman',
-  'Талісман Фермера':  'talisman',
-  'Талісман Захисника':'talisman',
-  'Талісман Тіні':     'talisman',
-  'Талісман Полководця':'talisman',
+  'Талісман Воїна':    'talisman-warrior',
+  'Талісман Фермера':  'talisman-farmer',
+  'Талісман Захисника':'talisman-defender',
+  'Талісман Тіні':     'talisman-shadow',
+  'Талісман Полководця':'talisman-commander',
 };
 function itemIcon(name, size=36) {
   const file = ITEM_ICONS[name];
@@ -1298,7 +1299,7 @@ async function loadGreenhouse() {
     if (!r.greenhouse) {
       el.innerHTML = `
         <div style="text-align:center;padding:12px 0">
-          <div style="font-size:40px;margin-bottom:6px">🌿</div>
+          <div style="font-size:40px;margin-bottom:6px">${IC.greens(40)}</div>
           <div style="font-weight:700;margin-bottom:4px">Теплиця</div>
           <div class="text-muted" style="font-size:13px;margin-bottom:12px">Щодня генерує зелень — просто зайди і забери</div>
           <button class="btn btn-green btn-full" onclick="buyGreenhouse()">
@@ -1314,7 +1315,7 @@ async function loadGreenhouse() {
     const overflowing = g.green_available >= g.daily_green * 2;
 
     el.innerHTML = `
-      <div style="text-align:center;font-size:36px;margin-bottom:2px">🌿</div>
+      <div style="text-align:center;font-size:36px;margin-bottom:2px">${IC.greens(36)}</div>
       <div class="ring-progress-wrap" style="margin:6px 0 8px">
         <div class="ring-progress-bar" style="width:${lvlPct}%"></div>
       </div>
@@ -1322,9 +1323,9 @@ async function loadGreenhouse() {
         <span style="font-weight:700">Рів. ${g.level} / 10</span>
         <span style="color:#388e3c;font-weight:700">${IC.greens(13)} ${fmtNum(g.daily_green)} / день</span>
       </div>
-      ${overflowing ? `<div style="color:#e65100;font-size:12px;text-align:center;margin-bottom:6px">⚠️ Теплиця переповнена! Забери врожай</div>` : ''}
+      ${overflowing ? `<div style="color:#e65100;font-size:12px;text-align:center;margin-bottom:6px">${IC.warn(14)} Теплиця переповнена! Забери врожай</div>` : ''}
       <div class="flex-between" style="margin-bottom:6px">
-        <span class="text-muted" style="font-size:13px">Доступно: <b style="color:#388e3c">${fmtNum(g.green_available)} 🌿</b></span>
+        <span class="text-muted" style="font-size:13px">Доступно: <b style="color:#388e3c">${fmtNum(g.green_available)} ${IC.greens(13)}</b></span>
         <button class="btn ${hasGreens ? 'btn-green' : 'btn-gray'} btn-sm" onclick="collectGreenhouse()" ${hasGreens ? '' : 'disabled'}>
           Забрати
         </button>
@@ -1364,7 +1365,7 @@ async function loadGreenhouse() {
       const accEl = document.getElementById('gh-acc');
       const barEl = document.getElementById('gh-acc-bar');
       const pctEl = document.getElementById('gh-acc-pct');
-      if (accEl) accEl.textContent = `${fmtNum(acc)} 🌿`;
+      if (accEl) accEl.innerHTML = `${fmtNum(acc)} ${IC.greens(13)}`;
       if (barEl) barEl.style.width = `${pct.toFixed(1)}%`;
       if (pctEl) pctEl.textContent = `${pct.toFixed(1)}%`;
       msLeft -= 1000;
@@ -1377,7 +1378,7 @@ async function loadGreenhouse() {
 async function buyGreenhouse() {
   try {
     await API.post('/api/greenhouse/buy');
-    toast('🌿 Теплиця куплена!');
+    toast(`${IC.greens(14)} Теплиця куплена!`);
     await refreshPlayer();
     loadGreenhouse();
   } catch (e) { toast(e.message, true); }
@@ -1386,7 +1387,7 @@ async function buyGreenhouse() {
 async function collectGreenhouse() {
   try {
     const r = await API.post('/api/greenhouse/collect');
-    toast(`🌿 Зібрано ${IC.greens(13)} ${fmtNum(r.collected)} зелені з теплиці!`);
+    toast(`${IC.greens(14)} Зібрано ${fmtNum(r.collected)} зелені з теплиці!`);
     await refreshPlayer();
     loadGreenhouse();
   } catch (e) { toast(e.message, true); }
@@ -1395,7 +1396,7 @@ async function collectGreenhouse() {
 async function upgradeGreenhouse() {
   try {
     const r = await API.post('/api/greenhouse/upgrade');
-    toast(`🌿 Теплицю покращено до рівня ${r.newLevel}! Тепер: ${fmtNum(r.dailyGreen)}/день`);
+    toast(`${IC.greens(14)} Теплицю покращено до рівня ${r.newLevel}! Тепер: ${fmtNum(r.dailyGreen)}/день`);
     await refreshPlayer();
     loadGreenhouse();
   } catch (e) { toast(e.message, true); }
@@ -1456,7 +1457,7 @@ function renderBank(deposits) {
               ${statusBadge(d.status)}
             </div>
             <div class="text-muted" style="font-size:12px;margin-bottom:4px">
-              ${d.term_days}д · +${d.interest_rate}% · +${fmtNum(interest)} ${_bankTab==='green'?'🌿':'🏅'}
+              ${d.term_days}д · +${d.interest_rate}% · +${fmtNum(interest)} ${_bankTab==='green'?IC.greens(12):IC.gold(12)}
               ${d.status==='active' ? ` · залишилось: ${daysLeft(d.matures_at)}` : ''}
             </div>
             ${d.status==='active' ? `
@@ -1464,7 +1465,7 @@ function renderBank(deposits) {
               <div style="height:5px;background:#e8f5e9;border-radius:3px;margin-bottom:3px">
                 <div id="bank-bar-${d.id}" style="height:5px;background:#1976d2;border-radius:3px;width:0%"></div>
               </div>
-              <div style="font-size:11px;color:#1976d2">Нараховано: <span id="bank-acc-${d.id}">0</span> ${_bankTab==='green'?'🌿':'🏅'}</div>
+              <div style="font-size:11px;color:#1976d2">Нараховано: <span id="bank-acc-${d.id}">0</span> ${_bankTab==='green'?IC.greens(11):IC.gold(11)}</div>
             </div>` : ''}
             <div style="display:flex;gap:6px">
               ${d.status==='ready'
@@ -1755,7 +1756,7 @@ function renderActiveGifts(gifts) {
         <div style="font-size:12px;color:#aaa">від ${plink(g.giver_id, g.giver_username || g.giver_name)}</div>
         <div style="font-size:12px;margin-top:2px">${bonusText(g)}</div>
       </div>
-      <div style="font-size:11px;color:#888;white-space:nowrap">⏱ ${timeLeft(g.expires_at)}</div>
+      <div style="font-size:11px;color:#888;white-space:nowrap">${IC.timer(11)} ${timeLeft(g.expires_at)}</div>
     </div>`).join('');
 }
 
@@ -2304,7 +2305,7 @@ async function renderMyClan(el) {
         <div style="font-size:12px;color:#888;margin-bottom:6px" id="war-timer-hdr">Залишилось: ${fmtTime(secsLeft)}</div>
         <div style="margin-bottom:4px;font-size:12px;display:flex;align-items:center;gap:8px">
           <span style="color:#2e7d32">Ми: <b id="war-dmg-my">${fmtNum(myDmg)}</b></span>
-          &nbsp;⚔️&nbsp;
+          &nbsp;${IC.swords(13)}&nbsp;
           <span style="color:#c62828">Вони: <b id="war-dmg-foe">${fmtNum(foeDmg)}</b></span>
           ${aheadLabel ? `<span style="font-size:11px;color:#888" id="war-ahead-label">${aheadLabel}</span>` : `<span id="war-ahead-label"></span>`}
         </div>
@@ -2587,7 +2588,7 @@ async function loadWarHistory() {
           ? `[${w.defender_tag}] ${w.defender_name}`
           : `[${w.attacker_tag}] ${w.attacker_name}`;
         const resultColor = isDraw ? '#888' : (isMyWinner ? '#2e7d32' : '#c62828');
-        const resultIcon  = isDraw ? '🤝' : (isMyWinner ? '🏆' : '💀');
+        const resultIcon  = isDraw ? IC.balance(13) : (isMyWinner ? IC.trophy(13) : IC.skull(13));
         return `<div style="display:flex;align-items:center;gap:6px;padding:6px 4px;border-bottom:1px solid #eee;font-size:13px">
           <span style="flex:1">${foe}</span>
           <span style="color:${resultColor}">${resultIcon}</span>
@@ -2614,7 +2615,7 @@ async function loadWarResults(warId) {
     const isWinner = w.winner_clan_id == r.myClanId;
     const isDraw   = w.status === 'draw';
 
-    const resultIcon  = isDraw ? '🤝' : isWinner ? '🏆' : '💀';
+    const resultIcon  = isDraw ? IC.balance(13) : isWinner ? IC.trophy(13) : IC.skull(13);
     const resultText  = isDraw ? 'Нічия' : isWinner ? 'Перемога!' : 'Поразка';
     const resultColor = isDraw ? '#888' : isWinner ? '#2e7d32' : '#c62828';
 
@@ -2626,11 +2627,11 @@ async function loadWarResults(warId) {
     const pRow = (p, isMyTeam) => {
       const dmg = fmtNum(parseInt(p.damage_dealt) || 0);
       const gloryPart = isMyTeam
-        ? (parseInt(p.glory_gained) > 0 ? ` <span style="color:#2e7d32">+${p.glory_gained}⭐</span>` : '')
-        : (parseInt(p.glory_lost)   > 0 ? ` <span style="color:#c62828">-${p.glory_lost}⭐</span>` : '');
+        ? (parseInt(p.glory_gained) > 0 ? ` <span style="color:#2e7d32">+${p.glory_gained}${IC.glory(11)}</span>` : '')
+        : (parseInt(p.glory_lost)   > 0 ? ` <span style="color:#c62828">-${p.glory_lost}${IC.glory(11)}</span>` : '');
       return `<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0;border-bottom:1px solid #f5f5f5">
         <span>${p.username} <span class="text-muted">Рів.${p.level}</span></span>
-        <span>${dmg}💥 ${p.battles_count || 0}б${gloryPart}</span>
+        <span>${dmg}${IC.hit(11)} ${p.battles_count || 0}б${gloryPart}</span>
       </div>`;
     };
 
@@ -2640,7 +2641,7 @@ async function loadWarResults(warId) {
         <div style="font-size:17px;font-weight:700;color:${resultColor};margin-bottom:6px">${resultIcon} ${resultText}</div>
         <div style="font-size:13px;margin-bottom:4px">
           <span style="color:#2e7d32">Ми: <b>${fmtNum(myDmg)}</b></span>
-          &nbsp;⚔️&nbsp;
+          &nbsp;${IC.swords(13)}&nbsp;
           <span style="color:#c62828">Вони: <b>${fmtNum(foeDmg)}</b></span>
         </div>
         ${treasuryLine}
@@ -2705,7 +2706,7 @@ async function loadWarMainPanel(warId) {
         <div style="font-size:11px;padding:4px 0;border-bottom:1px solid #f0f0f0">
           <div style="display:flex;justify-content:space-between">
             <span>${i+1}. <b>${p.username}</b></span>
-            <span style="color:#2e7d32;font-weight:600">${fmtNum(parseInt(p.damage_dealt)||0)}💥</span>
+            <span style="color:#2e7d32;font-weight:600">${fmtNum(parseInt(p.damage_dealt)||0)}${IC.hit(11)}</span>
           </div>
           <div style="color:#888;font-size:10px">${p.battles_count}б · ${p.wins}п</div>
         </div>`).join('');
@@ -2723,11 +2724,11 @@ async function loadWarMainPanel(warId) {
         return `
         <div style="font-size:11px;padding:4px 0;border-bottom:1px solid #f0f0f0">
           <div style="display:flex;justify-content:space-between;align-items:center">
-            <span><b>${e.username}</b> <span style="color:#888">Рів.${e.level}</span>${onVac ? ' 🏖️' : ''}</span>
+            <span><b>${e.username}</b> <span style="color:#888">Рів.${e.level}</span>${onVac ? ' '+IC.vacation(11) : ''}</span>
             <span style="color:${cntColor};font-weight:700;font-size:12px">${left}/2</span>
           </div>
           <div style="display:flex;justify-content:space-between;align-items:center;margin-top:2px">
-            <span style="color:#888;font-size:10px">⚡${e.power_level||0} 🛡️${e.endurance_level||0}${dmgRec>0?' · '+fmtNum(dmgRec)+'🛡️':''}</span>
+            <span style="color:#888;font-size:10px">${IC.power(10)}${e.power_level||0} ${IC.endurance(10)}${e.endurance_level||0}${dmgRec>0?' · '+fmtNum(dmgRec)+IC.shield(10):''}</span>
             ${canAtk
               ? `<button class="btn btn-red" style="font-size:10px;padding:2px 6px;min-height:0;line-height:1.5" onclick="warAttackPrepare(${warId},${e.player_id},'${e.username}')">${IC.battle(11)}</button>`
               : `<span style="font-size:10px;color:#aaa">${left===0?'✕':''}</span>`}
@@ -2740,7 +2741,7 @@ async function loadWarMainPanel(warId) {
       <div class="panel-header" style="margin-top:12px">${IC.battle(14)} Бойова панель</div>
       <div style="display:flex;align-items:center;gap:8px;margin:6px 0 8px;font-size:12px">
         <span style="color:#2e7d32"><b>${fmtNum(myTotalDmg)}</b> ми</span>
-        <span>⚔️</span>
+        <span>${IC.swords(13)}</span>
         <span style="color:#c62828"><b>${fmtNum(foeTotalDmg)}</b> вони</span>
         ${aheadBadge}
       </div>
@@ -2761,7 +2762,7 @@ async function loadWarLeaderboard(warId) {
   const el = document.getElementById('war-history-section');
   if (!el) return;
   if (!document.getElementById('war-leaderboard-table'))
-    el.innerHTML = `<div class="panel-header" style="margin-top:12px">🏆 Рейтинг урону</div><p class="text-muted">Завантаження...</p>`;
+    el.innerHTML = `<div class="panel-header" style="margin-top:12px">${IC.trophy(13)} Рейтинг урону</div><p class="text-muted">Завантаження...</p>`;
   try {
     const r = await API.get(`/api/clan-war/${warId}/leaderboard`);
     const myTotalDmg  = r.myTeam.reduce((s, p)  => s + (parseInt(p.damage_dealt)   || 0), 0);
@@ -2775,7 +2776,7 @@ async function loadWarLeaderboard(warId) {
       return list.map((p, i) => `
         <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0">
           <span>${i+1}. <b>${p.username}</b></span>
-          <span style="color:#2e7d32">${fmtNum(parseInt(p.damage_dealt)||0)}💥 ${p.battles_count}б ${p.wins}п</span>
+          <span style="color:#2e7d32">${fmtNum(parseInt(p.damage_dealt)||0)}${IC.hit(11)} ${p.battles_count}б ${p.wins}п</span>
         </div>`).join('');
     };
     // Enemy team: nickname | damage received from us (= their damage_received)
@@ -2784,7 +2785,7 @@ async function loadWarLeaderboard(warId) {
       return list.map((p, i) => `
         <div style="display:flex;justify-content:space-between;font-size:11px;padding:3px 0;border-bottom:1px solid #f0f0f0">
           <span>${i+1}. <b>${p.username}</b></span>
-          <span style="color:#c62828">${fmtNum(parseInt(p.damage_received)||0)}🛡️</span>
+          <span style="color:#c62828">${fmtNum(parseInt(p.damage_received)||0)}${IC.shield(10)}</span>
         </div>`).join('');
     };
 
@@ -2793,10 +2794,10 @@ async function loadWarLeaderboard(warId) {
       : `<span style="color:#c62828;font-size:12px;font-weight:700">↑ Вони попереду</span>`;
 
     el.innerHTML = `
-      <div class="panel-header" style="margin-top:12px">🏆 Рейтинг урону</div>
+      <div class="panel-header" style="margin-top:12px">${IC.trophy(13)} Рейтинг урону</div>
       <div style="display:flex;align-items:center;gap:10px;margin:6px 0;font-size:13px">
         <span style="color:#2e7d32"><b>${fmtNum(myTotalDmg)}</b> ми</span>
-        <span>⚔️</span>
+        <span>${IC.swords(13)}</span>
         <span style="color:#c62828"><b>${fmtNum(foeTotalDmg)}</b> вони</span>
         ${aheadBadge}
       </div>
@@ -2828,14 +2829,14 @@ async function warAttackPrepare(warId, defenderId, defenderName) {
             <div style="font-size:12px;color:#888;margin-bottom:4px">Раунд ${i+1}</div>
             <div style="display:flex;gap:6px">
               ${['head','body','legs'].map(z => {
-                const label = {head:'Голова 🎯×1.3',body:'Тіло ×1.0',legs:'Ноги ×0.8'}[z];
+                const label = {head:`Голова ${IC.accuracy(10)}×1.3`,body:'Тіло ×1.0',legs:'Ноги ×0.8'}[z];
                 return `<button class="btn btn-sm zone-btn-${i}" data-zone="${z}" data-round="${i}"
                   onclick="warSetZone(${i},'${z}')"
                   style="flex:1;font-size:11px">${label}</button>`;
               }).join('')}
             </div>
           </div>`).join('')}
-        <button class="btn btn-red btn-full" style="margin-top:8px" onclick="warDoFight(${defenderId})">⚔️ Атакувати!</button>
+        <button class="btn btn-red btn-full" style="margin-top:8px" onclick="warDoFight(${defenderId})">${IC.swords(14)} Атакувати!</button>
       </div>`;
     document.getElementById('clan-modal').style.display = 'flex';
     // Highlight default zones
@@ -2856,15 +2857,15 @@ async function warDoFight(defenderId) {
   try {
     const r = await API.post('/api/battle/fight', { defenderId, zones: _warZones });
     const resultColor = r.attackerWon ? '#2e7d32' : '#c62828';
-    const resultText  = r.attackerWon ? '⚔️ Перемога!' : '🛡️ Поразка';
+    const resultText  = r.attackerWon ? `${IC.swords(14)} Перемога!` : `${IC.shield(14)} Поразка`;
     const petLine = r.petResult
       ? `<div style="font-size:12px;color:#7b5ea7;margin-bottom:4px">
-           🐾 Тваринка: +${fmtNum(r.petResult.attackerPetDamage)} урону твоя
+           ${IC.paw(13)} Тваринка: +${fmtNum(r.petResult.attackerPetDamage)} урону твоя
            · +${fmtNum(r.petResult.defenderPetDamage)} ворожа
          </div>` : '';
     const roundHit = (side) => side.type === 'miss'
       ? '<span style="color:#888">промах</span>'
-      : `<b>+${side.damage}</b>${side.type==='crit'?' 💥':side.type==='double'?' ×2':''}`;
+      : `<b>+${side.damage}</b>${side.type==='crit'?' '+IC.hit(11):side.type==='double'?' ×2':''}`;
     document.getElementById('clan-modal-body').innerHTML = `
       <div style="padding:14px">
         <div style="font-weight:700;font-size:16px;color:${resultColor};margin-bottom:10px">${resultText}</div>
@@ -2878,7 +2879,7 @@ async function warDoFight(defenderId) {
         <div style="border-top:1px solid #eee;padding-top:10px;margin-top:8px">
           ${r.rounds.map((rnd, i) => {
             const petPart = (rnd.aPetAction && rnd.aPetAction.damage > 0)
-              ? ` <span style="color:#7b5ea7;font-size:11px">🐾+${rnd.aPetAction.damage}</span>` : '';
+              ? ` <span style="color:#7b5ea7;font-size:11px">${IC.paw(11)}+${rnd.aPetAction.damage}</span>` : '';
             return `<div style="font-size:12px;margin-bottom:4px">
               Раунд ${i+1}: Ти ${roundHit(rnd.attacker)}${petPart}
               · Суперник ${roundHit(rnd.defender)}
@@ -2924,8 +2925,8 @@ async function loadClanWarStats() {
   try {
     const r = await API.get('/api/clan-war/clan-stats');
     const t = r.totals || {};
-    const streakLabel = r.streakType === 'win'  ? `🏆 ${r.streak} перемог поспіль`
-                      : r.streakType === 'loss' ? `💀 ${r.streak} поразок поспіль`
+    const streakLabel = r.streakType === 'win'  ? `${IC.trophy(13)} ${r.streak} перемог поспіль`
+                      : r.streakType === 'loss' ? `${IC.skull(13)} ${r.streak} поразок поспіль`
                       : '—';
 
     const statLine = (label, value) =>
@@ -2942,7 +2943,7 @@ async function loadClanWarStats() {
         const foeDmg  = parseInt(isMine ? w.defender_total_damage : w.attacker_total_damage) || 0;
         const isWin   = w.winner_clan_id == r.myClanId;
         const isDraw  = w.status === 'draw';
-        const icon    = isDraw ? '🤝' : isWin ? '🏆' : '💀';
+        const icon    = isDraw ? IC.balance(13) : isWin ? IC.trophy(13) : IC.skull(13);
         const date    = w.finished_at ? new Date(w.finished_at).toLocaleDateString('uk-UA') : '—';
         return `<div style="padding:6px 4px;border-bottom:1px solid #f0f0f0;font-size:12px">
           ${icon} <b>${foeTag}</b>
@@ -3032,7 +3033,7 @@ async function viewProfile(id) {
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
+        ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${p.city_name ? infoRow(IC.village(14), 'Місто', p.city_name) : ''}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
@@ -3504,7 +3505,7 @@ function initSocket() {
   });
 
   socket.on('clan_war:started', ({ warId, attackerClan, defenderClan, endsAt }) => {
-    toast(`⚔️ Кланова Війна! ${attackerClan.name} vs ${defenderClan.name}`);
+    toast(`${IC.swords(14)} Кланова Війна! ${attackerClan.name} vs ${defenderClan.name}`);
     const page = document.getElementById('page-clans');
     if (page && page.classList.contains('active')) renderMyClan();
   });
@@ -3542,14 +3543,14 @@ function initSocket() {
 
     const t = treasuryTaken || {};
     if (isDraw) {
-      toast('🤝 Кланова війна завершилась нічиєю');
+      toast(`${IC.balance(13)} Кланова війна завершилась нічиєю`);
     } else if (isWinner) {
       const tPart = (t.green || t.gold)
         ? ` · ${IC.greens(13)}${fmtNum(t.green)} ${IC.gold(13)}${fmtNum(t.gold)}`
         : '';
-      toast(`🏆 Клан "${winner?.name}" переміг! +${gloryChanges} слави${tPart}`);
+      toast(`${IC.trophy(13)} Клан "${winner?.name}" переміг! +${gloryChanges} слави${tPart}`);
     } else {
-      toast(`💀 Клан програв. ${gloryChanges} слави`);
+      toast(`${IC.skull(13)} Клан програв. ${gloryChanges} слави`);
     }
 
     const page = document.getElementById('page-clans');
@@ -3647,10 +3648,10 @@ async function loadEvents() {
     };
 
     const html = [
-      renderBlock('⚔️ Бойовий журнал', battle),
-      renderBlock('🔔 Системні події', sys),
-      renderBlock('👥 Соціальні події', social),
-      renderBlock('🏆 Нагороди', rewards),
+      renderBlock(`${IC.swords(13)} Бойовий журнал`, battle),
+      renderBlock(`${IC.bell(13)} Системні події`, sys),
+      renderBlock(`${IC.friends(13)} Соціальні події`, social),
+      renderBlock(`${IC.trophy(13)} Нагороди`, rewards),
     ].join('');
 
     contentEl.innerHTML = html || `<div class="panel"><div class="panel-body"><p class="text-muted" style="text-align:center">Подій ще немає</p></div></div>`;
