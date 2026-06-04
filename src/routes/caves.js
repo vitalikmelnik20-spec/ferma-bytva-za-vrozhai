@@ -246,4 +246,18 @@ router.post('/mine', async (req, res) => {
   }
 });
 
+// POST /api/caves/reset — delete today's session (admin/debug use)
+router.post('/reset', async (req, res) => {
+  try {
+    await pool.query(
+      `DELETE FROM caves WHERE player_id=$1 AND created_at::date = NOW()::date`,
+      [req.session.playerId]
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 module.exports = router;
