@@ -92,6 +92,22 @@ router.get('/status', async (req, res) => {
 
     const now = new Date();
 
+    // Auto-fix corrupted timestamps (old Node.js Date bug stored local time as UTC → +3h offset).
+    // Normal wait is 60-180s max; anything over 300s is stale — reset immediately.
+    if (!session.is_active && !session.session_done) {
+      const waitMs = new Date(session.mine_appears_at) - now;
+      if (waitMs > 300 * 1000) {
+        const fix = Math.floor(Math.random() * 121) + 60;
+        const { rows: [u] } = await pool.query(
+          `UPDATE caves SET mine_appears_at=NOW() + ($2 * INTERVAL '1 second'),
+           mine_expires_at=NOW() + ($2 * INTERVAL '1 second') + INTERVAL '120 seconds'
+           WHERE id=$1 RETURNING *`,
+          [session.id, fix]
+        );
+        session = u;
+      }
+    }
+
     // Waiting → Active: mine appeared
     if (!session.is_active && new Date(session.mine_appears_at) <= now) {
       const { rows: [u] } = await pool.query(
