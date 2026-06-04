@@ -373,6 +373,14 @@ setInterval(async () => {
     } catch (err) { console.error('[v4 migration ring]', err.message); }
   })();
 
+  // migration: add per-player cooldown columns to dragon_participants
+  (async () => {
+    try {
+      await pool.query(`ALTER TABLE dragon_participants ADD COLUMN IF NOT EXISTS last_attack_at TIMESTAMP`);
+      await pool.query(`ALTER TABLE dragon_participants ADD COLUMN IF NOT EXISTS attack_cooldown_secs INTEGER`);
+    } catch (err) { console.error('[dragon cooldown migration]', err.message); }
+  })();
+
   setInterval(async () => {
     try {
       const now = new Date();

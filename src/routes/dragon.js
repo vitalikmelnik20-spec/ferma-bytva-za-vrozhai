@@ -91,7 +91,7 @@ router.get('/current', async (req, res) => {
       return res.json({ event: null, lastEvent: last || null });
     }
     const { rows: [myPart] } = await pool.query(
-      `SELECT damage_dealt, hits_count FROM dragon_participants WHERE event_id=$1 AND player_id=$2`,
+      `SELECT damage_dealt, hits_count, last_attack_at, attack_cooldown_secs FROM dragon_participants WHERE event_id=$1 AND player_id=$2`,
       [ev.id, req.session.playerId]
     );
     const { rows: [{ count }] } = await pool.query(
@@ -102,7 +102,12 @@ router.get('/current', async (req, res) => {
        JOIN players p ON p.id=dp.player_id WHERE dp.event_id=$1 ORDER BY dp.damage_dealt DESC LIMIT 5`,
       [ev.id]
     );
-    res.json({ event: ev, myDamage: myPart?.damage_dealt || 0, myHits: myPart?.hits_count || 0, participants: parseInt(count), top5 });
+    let attackCooldownSecs = 0;
+    if (myPart?.last_attack_at && myPart?.attack_cooldown_secs) {
+      const elapsed = (Date.now() - new Date(myPart.last_attack_at).getTime()) / 1000;
+      attackCooldownSecs = Math.max(0, Math.ceil(myPart.attack_cooldown_secs - elapsed));
+    }
+    res.json({ event: ev, myDamage: myPart?.damage_dealt || 0, myHits: myPart?.hits_count || 0, participants: parseInt(count), top5, attackCooldownSecs });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Помилка сервера' }); }
 });
 
@@ -112,6 +117,18 @@ router.post('/attack', async (req, res) => {
     const ev = await getActiveEvent();
     if (!ev)               return res.status(404).json({ error: 'Активної події немає' });
     if (ev.hp_current <= 0) return res.status(400).json({ error: 'Дракон вже переможений' });
+
+    // Check per-player cooldown
+    const { rows: [cdRow] } = await pool.query(
+      `SELECT last_attack_at, attack_cooldown_secs FROM dragon_participants WHERE event_id=$1 AND player_id=$2`,
+      [ev.id, req.session.playerId]
+    );
+    if (cdRow?.last_attack_at && cdRow?.attack_cooldown_secs) {
+      const elapsed = (Date.now() - new Date(cdRow.last_attack_at).getTime()) / 1000;
+      const remaining = Math.ceil(cdRow.attack_cooldown_secs - elapsed);
+      if (remaining > 0)
+        return res.status(429).json({ error: `Зачекайте ${remaining}с перед наступним ударом`, cooldownSecs: remaining });
+    }
 
     const { rows: [player] } = await pool.query(
       `SELECT p.hp, p.max_hp, t.power_level,
@@ -141,18 +158,21 @@ router.post('/attack', async (req, res) => {
       [newDragonHp, damage, ev.id]
     );
     await pool.query(`UPDATE players SET hp=GREATEST(0,hp-$1) WHERE id=$2`, [counterDmg, req.session.playerId]);
+    const cooldownSecs = 30 + Math.floor(Math.random() * 91); // 30–120s
     await pool.query(
-      `INSERT INTO dragon_participants (event_id, player_id, damage_dealt, hits_count) VALUES ($1,$2,$3,1)
+      `INSERT INTO dragon_participants (event_id, player_id, damage_dealt, hits_count, last_attack_at, attack_cooldown_secs) VALUES ($1,$2,$3,1,NOW(),$4)
        ON CONFLICT (event_id, player_id) DO UPDATE SET
          damage_dealt=dragon_participants.damage_dealt+$3,
-         hits_count=dragon_participants.hits_count+1`,
-      [ev.id, req.session.playerId, damage]
+         hits_count=dragon_participants.hits_count+1,
+         last_attack_at=NOW(),
+         attack_cooldown_secs=$4`,
+      [ev.id, req.session.playerId, damage, cooldownSecs]
     );
 
     const io = req.app.locals.io;
     if (isKilled) await finalizeEvent(ev.id, true, req.session.playerId, io);
 
-    res.json({ damage, isCrit, counterDmg, newPlayerHp, newDragonHp, hpMax: ev.hp_max, isKilled });
+    res.json({ damage, isCrit, counterDmg, newPlayerHp, newDragonHp, hpMax: ev.hp_max, isKilled, cooldownSecs });
   } catch (err) { console.error(err); res.status(500).json({ error: 'Помилка сервера' }); }
 });
 

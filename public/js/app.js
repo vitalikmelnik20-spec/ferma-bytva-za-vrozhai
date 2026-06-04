@@ -4728,8 +4728,13 @@ async function loadDragon() {
 
 function renderDragonActive(r) {
   const ev = r.event;
+  const cdSecs = r.attackCooldownSecs || 0;
   const hpPct = Math.max(0, (ev.hp_current / ev.hp_max) * 100).toFixed(1);
   const hpColor = hpPct > 60 ? '#e53935' : hpPct > 30 ? '#ff8f00' : '#7b1fa2';
+  const btnDisabled = cdSecs > 0 ? 'disabled' : '';
+  const btnStyle = cdSecs > 0 ? 'background:#9e9e9e;color:#fff' : 'background:#c62828;color:#fff';
+  const btnLabel = cdSecs > 0 ? 'Перезаряджання...' : `${IC.swords(14)} АТАКУВАТИ!`;
+  const timerHtml = cdSecs > 0 ? `${IC.timer(14)} Наступний удар через: ${cdSecs}с` : '';
 
   const el = document.getElementById('dragon-battle');
   el.innerHTML = `
@@ -4747,15 +4752,19 @@ function renderDragonActive(r) {
         <span>Ударів: <strong>${r.myHits}</strong></span>
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
-      <div class="dragon-timer" id="dragon-timer" style="font-size:14px;margin:6px 0"></div>
-      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" style="background:#c62828;color:#fff">${IC.swords(14)} АТАКУВАТИ!</button>
-      <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${new Date(ev.ends_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</strong></div>
+      <div class="dragon-timer" id="dragon-timer" style="font-size:14px;margin:6px 0">${timerHtml}</div>
+      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" ${btnDisabled} style="${btnStyle}">${btnLabel}</button>
+      <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${kyivTime(ev.ends_at)}</strong></div>
       <div class="dragon-top5" id="dragon-top5">
         ${(r.top5 || []).map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${plink(p.player_id, p.username)}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
     </div>`;
 
-  _dragonAttackState = 'ready';
+  if (cdSecs > 0) {
+    startDragonAttackTimer(cdSecs);
+  } else {
+    _dragonAttackState = 'ready';
+  }
 
   const msLeft = new Date(ev.ends_at).getTime() - Date.now();
   if (msLeft <= 0) { loadDragon(); return; }
@@ -4810,11 +4819,11 @@ function _enableDragonAttack() {
   btn.style.animation = '';
 }
 
-function startDragonAttackTimer() {
+function startDragonAttackTimer(secs) {
   if (_dragonAttackCdInterval)  { clearInterval(_dragonAttackCdInterval);  _dragonAttackCdInterval  = null; }
   if (_dragonAttackWinInterval) { clearInterval(_dragonAttackWinInterval); _dragonAttackWinInterval = null; }
   _dragonAttackState = 'waiting';
-  _dragonAttackCd    = 30 + Math.floor(Math.random() * 91); // 30–120s
+  _dragonAttackCd    = secs || (30 + Math.floor(Math.random() * 91));
   const btn = document.getElementById('dragon-attack-btn');
   if (btn) {
     btn.disabled = true;
@@ -4860,8 +4869,11 @@ async function attackDragon() {
   } catch(e) {
     toast(e.message, true);
     if (e.message.includes('вже переможений') || e.message.includes('Активної')) { loadDragon(); return; }
+    if (e.cooldownSecs > 0) { startDragonAttackTimer(e.cooldownSecs); return; }
+    _enableDragonAttack();
+    return;
   }
-  startDragonAttackTimer();
+  startDragonAttackTimer(r.cooldownSecs);
 }
 
 async function loadDragonLeaderboard() {

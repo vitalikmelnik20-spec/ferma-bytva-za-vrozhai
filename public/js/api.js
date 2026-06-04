@@ -7,7 +7,7 @@ async function api(method, url, body) {
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch(url, opts);
   const data = await r.json();
-  if (!r.ok) throw new Error(data.error || 'Помилка запиту');
+  if (!r.ok) { const err = new Error(data.error || 'Помилка запиту'); Object.assign(err, data); throw err; }
   return data;
 }
 
