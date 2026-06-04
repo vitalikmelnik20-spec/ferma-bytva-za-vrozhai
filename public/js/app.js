@@ -4748,14 +4748,15 @@ function renderDragonActive(r) {
         <span>Учасників: <strong>${r.participants}</strong></span>
       </div>
       <div class="dragon-timer" id="dragon-timer" style="font-size:14px;margin:6px 0"></div>
-      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" disabled>${IC.timer(14)} Зачекай...</button>
+      <button class="btn btn-full dragon-attack-btn" id="dragon-attack-btn" onclick="attackDragon()" style="background:#c62828;color:#fff">${IC.swords(14)} АТАКУВАТИ!</button>
       <div style="text-align:center;font-size:12px;color:#aaa;margin-top:4px">Подія закінчується о <strong>${new Date(ev.ends_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'})}</strong></div>
       <div class="dragon-top5" id="dragon-top5">
-        ${r.top5.map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${plink(p.player_id, p.username)}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
+        ${(r.top5 || []).map((p,i) => `<div class="dragon-top-row"><span>#${i+1} ${plink(p.player_id, p.username)}</span><span>${fmtNum(p.damage_dealt)}</span></div>`).join('')}
       </div>
     </div>`;
 
-  // Schedule loadDragon once when event ends (single timeout, no repeating interval)
+  _dragonAttackState = 'ready';
+
   const msLeft = new Date(ev.ends_at).getTime() - Date.now();
   if (msLeft <= 0) { loadDragon(); return; }
   _dragonTimerInterval = setTimeout(() => {
@@ -4763,8 +4764,6 @@ function renderDragonActive(r) {
     _dragonClearTimers();
     loadDragon();
   }, msLeft);
-
-  _enableDragonAttack();
 }
 
 function renderDragonInactive(lastEvent) {
