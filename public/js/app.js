@@ -4854,9 +4854,8 @@ async function attackDragon() {
   if (btn) { btn.disabled = true; btn.innerHTML = `${IC.swords(14)} Атакую...`; btn.style.background = '#e53935'; }
   try {
     const r = await API.post('/api/dragon/attack');
-    const critTxt = r.isCrit ? ' ${IC.hit(14)} КРИТ!' : '';
+    const critTxt = r.isCrit ? ` ${IC.hit(14)} КРИТ!` : '';
     toast(`${IC.swords(14)} Урон: ${fmtNum(r.damage)}${critTxt} | Контратака: -${fmtNum(r.counterDmg)} HP`);
-    // Update HP bar immediately from REST response (no need to wait for 5-sec broadcast)
     const bar = document.getElementById('dragon-hp-bar');
     const lbl = document.getElementById('dragon-hp-label');
     if (bar) bar.style.width = `${Math.max(0, (r.newDragonHp / r.hpMax) * 100)}%`;
@@ -4866,14 +4865,13 @@ async function attackDragon() {
     if (r.isKilled) { toast(`${IC.dragon(28)} Ти вбив дракона! Фінальний удар твій!`); }
     await refreshPlayer();
     if (r.isKilled) { loadDragon(); return; }
+    startDragonAttackTimer(r.cooldownSecs);
   } catch(e) {
     toast(e.message, true);
     if (e.message.includes('вже переможений') || e.message.includes('Активної')) { loadDragon(); return; }
     if (e.cooldownSecs > 0) { startDragonAttackTimer(e.cooldownSecs); return; }
     _enableDragonAttack();
-    return;
   }
-  startDragonAttackTimer(r.cooldownSecs);
 }
 
 async function loadDragonLeaderboard() {
