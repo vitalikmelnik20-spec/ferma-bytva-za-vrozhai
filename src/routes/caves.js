@@ -67,13 +67,11 @@ router.post('/start', async (req, res) => {
     if (existing) return res.json({ session: existing });
 
     const total_mines = Math.floor(Math.random() * 31) + 10; // 10–40
-    const now = new Date();
-    const mine_expires_at = new Date(now.getTime() + 120 * 1000);
 
     const { rows: [session] } = await pool.query(
       `INSERT INTO caves (player_id, total_mines, current_mine, mine_appears_at, mine_expires_at, is_active)
-       VALUES ($1, $2, 1, $3, $4, true) RETURNING *`,
-      [req.session.playerId, total_mines, now, mine_expires_at]
+       VALUES ($1, $2, 1, NOW(), NOW() + INTERVAL '120 seconds', true) RETURNING *`,
+      [req.session.playerId, total_mines]
     );
     res.json({ session });
   } catch (err) {
@@ -114,13 +112,13 @@ router.get('/status', async (req, res) => {
         await finalizeCavesSession(session);
       } else {
         const nextInterval = Math.floor(Math.random() * 121) + 60;
-        const nextAppears  = new Date(now.getTime() + nextInterval * 1000);
-        const nextExpires  = new Date(nextAppears.getTime() + 120 * 1000);
         const { rows: [u] } = await pool.query(
           `UPDATE caves SET mines_missed=mines_missed+1, is_active=false,
-           current_mine=current_mine+1, mine_appears_at=$2, mine_expires_at=$3
+           current_mine=current_mine+1,
+           mine_appears_at=NOW() + ($2 * INTERVAL '1 second'),
+           mine_expires_at=NOW() + ($2 * INTERVAL '1 second') + INTERVAL '120 seconds'
            WHERE id=$1 RETURNING *`,
-          [session.id, nextAppears, nextExpires]
+          [session.id, nextInterval]
         );
         session = u;
       }
@@ -144,8 +142,7 @@ router.post('/mine', async (req, res) => {
     if (session.session_done) return res.status(400).json({ error: 'Сесія завершена' });
     if (!session.is_active)   return res.status(400).json({ error: 'Шахта не активна' });
 
-    const now = new Date();
-    if (now > new Date(session.mine_expires_at))
+    if (new Date() > new Date(session.mine_expires_at))
       return res.status(400).json({ error: 'Шахта вже зникла' });
 
     const baseGold = randomGold();
@@ -212,13 +209,13 @@ router.post('/mine', async (req, res) => {
       await finalizeCavesSession(updatedSession);
     } else {
       const nextInterval = Math.floor(Math.random() * 121) + 60;
-      const nextAppears  = new Date(now.getTime() + nextInterval * 1000);
-      const nextExpires  = new Date(nextAppears.getTime() + 120 * 1000);
       const { rows: [u] } = await pool.query(
         `UPDATE caves SET mines_done=mines_done+1, gold_earned=gold_earned+$1, exp_earned=exp_earned+$2,
-         is_active=false, current_mine=current_mine+1, mine_appears_at=$3, mine_expires_at=$4
-         WHERE id=$5 RETURNING *`,
-        [gold, exp, nextAppears, nextExpires, session.id]
+         is_active=false, current_mine=current_mine+1,
+         mine_appears_at=NOW() + ($3 * INTERVAL '1 second'),
+         mine_expires_at=NOW() + ($3 * INTERVAL '1 second') + INTERVAL '120 seconds'
+         WHERE id=$4 RETURNING *`,
+        [gold, exp, nextInterval, session.id]
       );
       updatedSession = u;
     }
