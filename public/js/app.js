@@ -454,7 +454,7 @@ function openPlanterConfig() {
         <span class="plant-emoji-big">${p.emoji||'🌱'}</span>
         <div class="plant-info">
           <div class="plant-info-name">${p.name}</div>
-          <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes*60)} | ${IC.greens(13)} ${fmtNum(p.seed_price)}</div>
+          <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes*60)} | Ціна: ${IC.greens(13)} ${fmtNum(p.seed_price)} | Прибуток: ${IC.greens(13)} +${fmtNum(p.greens_reward)}</div>
         </div>
       </div>`).join('');
   }
