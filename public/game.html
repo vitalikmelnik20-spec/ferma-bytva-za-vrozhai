@@ -345,10 +345,30 @@
 
     <!-- RATING -->
     <section class="page" id="page-rating">
-      <div class="panel">
-        <div class="panel-header"><img src="/icons/menu/rating.png" width="16" height="16" style="vertical-align:middle" alt="rating"> Рейтинг гравців</div>
-        <div class="panel-body" id="rating-list"></div>
+      <!-- Tab bar (horizontal scroll) -->
+      <div class="rating-tabs-wrap">
+        <div class="rating-tabs" id="rating-tabs">
+          <button class="rtab active" data-tab="glory"   onclick="ratingTab('glory',this)"><img src="/icons/res/glory.png" width="14" height="14" style="vertical-align:middle"> Слава</button>
+          <button class="rtab"       data-tab="level"   onclick="ratingTab('level',this)"><img src="/icons/stats/level.svg" width="14" height="14" style="vertical-align:middle"> Рівень</button>
+          <button class="rtab"       data-tab="battles" onclick="ratingTab('battles',this)"><img src="/icons/ui/crossed-swords.svg" width="14" height="14" style="vertical-align:middle"> Бої</button>
+          <button class="rtab"       data-tab="garden"  onclick="ratingTab('garden',this)"><img src="/icons/ui/plant.svg" width="14" height="14" style="vertical-align:middle"> Огород</button>
+          <button class="rtab"       data-tab="caves"   onclick="ratingTab('caves',this)"><img src="/icons/ui/pickaxe.svg" width="14" height="14" style="vertical-align:middle"> Печери</button>
+          <button class="rtab"       data-tab="dragon"  onclick="ratingTab('dragon',this)"><img src="/icons/pets/dragon.svg" width="14" height="14" style="vertical-align:middle"> Дракон</button>
+          <button class="rtab"       data-tab="clans"   onclick="ratingTab('clans',this)"><img src="/icons/ui/village.svg" width="14" height="14" style="vertical-align:middle"> Клани</button>
+        </div>
       </div>
+      <!-- Period filter -->
+      <div class="rating-periods" id="rating-periods">
+        <button class="rperiod active" data-period="all"  onclick="ratingPeriod('all',this)"><img src="/icons/ui/stats.svg" width="12" height="12" style="vertical-align:middle"> Всі часи</button>
+        <button class="rperiod"        data-period="week" onclick="ratingPeriod('week',this)"><img src="/icons/ui/calendar.svg" width="12" height="12" style="vertical-align:middle"> Тиждень</button>
+        <button class="rperiod"        data-period="day"  onclick="ratingPeriod('day',this)"><img src="/icons/ui/timer.svg" width="12" height="12" style="vertical-align:middle"> День</button>
+      </div>
+      <!-- Top-3 podium -->
+      <div id="rating-top3"></div>
+      <!-- List 4-100 -->
+      <div id="rating-list" class="rating-list-wrap"></div>
+      <!-- My position sticky -->
+      <div id="rating-mypos" class="rating-mypos" style="display:none"></div>
     </section>
 
     <!-- CLANS -->
@@ -791,6 +811,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/api.js?v=6"></script>
-<script src="/js/app.js?v=7"></script>
+<script src="/js/app.js?v=8"></script>
 </body>
 </html>

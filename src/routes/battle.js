@@ -641,23 +641,34 @@ router.post('/round', async (req, res) => {
         `UPDATE players SET wins=wins+$1, losses=losses+$2, glory=glory+$3,
            greens=GREATEST(0,greens+$4), gold=GREATEST(0,gold+$5),
            gold_earned_battle=gold_earned_battle+$6, gold_lost_battle=gold_lost_battle+$7,
-           rating_points=GREATEST(0,rating_points+$8) WHERE id=$9`,
+           rating_points=GREATEST(0,rating_points+$8),
+           wins_day=COALESCE(wins_day,0)+$9, wins_week=COALESCE(wins_week,0)+$9,
+           glory_day=COALESCE(glory_day,0)+$10, glory_week=COALESCE(glory_week,0)+$10
+         WHERE id=$11`,
         [attackerWon?1:0, attackerWon?0:1, attackerGlory,
          attackerWon?greensReward:-greensReward,
          attackerWon?goldReward:-goldReward,
          attackerWon?goldReward:0, attackerWon?0:goldReward,
-         attackerWon?10:-5, attacker.id]
+         attackerWon?10:-5,
+         attackerWon?1:0, attackerGlory > 0 ? attackerGlory : 0,
+         attacker.id]
       );
+      const defenderGlory = attackerWon ? 0 : Math.abs(attackerGlory);
       await pool.query(
         `UPDATE players SET wins=wins+$1, losses=losses+$2,
            greens=GREATEST(0,greens+$3), gold=GREATEST(0,gold+$4),
            gold_earned_battle=gold_earned_battle+$5, gold_lost_battle=gold_lost_battle+$6,
-           rating_points=GREATEST(0,rating_points+$7) WHERE id=$8`,
+           rating_points=GREATEST(0,rating_points+$7),
+           wins_day=COALESCE(wins_day,0)+$8, wins_week=COALESCE(wins_week,0)+$8,
+           glory_day=COALESCE(glory_day,0)+$9, glory_week=COALESCE(glory_week,0)+$9
+         WHERE id=$10`,
         [attackerWon?0:1, attackerWon?1:0,
          attackerWon?-greensReward:greensReward,
          attackerWon?-goldReward:goldReward,
          attackerWon?0:goldReward, attackerWon?goldReward:0,
-         attackerWon?-5:10, defender.id]
+         attackerWon?-5:10,
+         attackerWon?0:1, defenderGlory,
+         defender.id]
       );
 
       // Get the inserted battle id for theft log

@@ -2322,22 +2322,125 @@ async function addFriend(targetId) {
 }
 
 // ─── RATING ──────────────────────────────────────────────────────────────────
+let _ratingTab    = 'glory';
+let _ratingPeriod = 'all';
+
+function ratingTab(tab, btn) {
+  _ratingTab = tab;
+  document.querySelectorAll('.rtab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  // hide period filter for clans
+  const periodBar = document.getElementById('rating-periods');
+  if (periodBar) periodBar.style.display = tab === 'clans' ? 'none' : 'flex';
+  loadRating();
+}
+
+function ratingPeriod(period, btn) {
+  _ratingPeriod = period;
+  document.querySelectorAll('.rperiod').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadRating();
+}
+
+function _ratingValueLabel(tab, value) {
+  if (tab === 'glory')   return `${IC.glory(13)} ${fmtNum(value)}`;
+  if (tab === 'level')   return `Рів. ${value}`;
+  if (tab === 'battles') return `${IC.wins(13)} ${fmtNum(value)}`;
+  if (tab === 'garden')  return `${IC.greens(13)} ${fmtNum(value)}`;
+  if (tab === 'caves')   return `${IC.gold(13)} ${fmtNum(value)}`;
+  if (tab === 'dragon')  return `${IC.hit(13)} ${fmtNum(value)}`;
+  if (tab === 'clans')   return `${IC.glory(13)} ${fmtNum(value)}`;
+  return fmtNum(value);
+}
+
 async function loadRating() {
+  document.getElementById('rating-top3').innerHTML = '<p class="text-muted" style="text-align:center;padding:12px">Завантаження...</p>';
+  document.getElementById('rating-list').innerHTML  = '';
+  document.getElementById('rating-mypos').style.display = 'none';
   try {
-    const r = await API.get('/api/rating');
-    document.getElementById('rating-list').innerHTML = r.players.map((p, i) => {
-      const pos = i + 1;
-      const cls = pos === 1 ? 'gold' : pos === 2 ? 'silver' : pos === 3 ? 'bronze' : '';
-      return `<div class="rating-row">
-        <span class="rating-pos ${cls}">${pos}</span>
-        <div class="rating-info">
-          <div class="rating-name">${plink(p.id, p.username, p.faction)} <span class="text-muted">Рів.${p.level}</span></div>
-          <div class="rating-sub">${p.clan_name ? `[${p.clan_tag}] ${p.clan_name} | ` : ''}${IC.glory(14)}${p.wins}W</div>
-        </div>
-        <span class="rating-pts">${fmtNum(p.rating_points)} pts</span>
-      </div>`;
-    }).join('') || '<p class="text-muted">Ще немає даних</p>';
+    if (_ratingTab === 'clans') {
+      const r = await API.get('/api/rating/clans');
+      _renderRatingClans(r);
+    } else {
+      const r = await API.get(`/api/rating?tab=${_ratingTab}&period=${_ratingPeriod}`);
+      _renderRatingTop3(r.top3, _ratingTab);
+      _renderRatingList(r.list, _ratingTab);
+      _renderRatingMyPos(r.myRank, r.myValue, _ratingTab);
+    }
   } catch (e) { toast(e.message, true); }
+}
+
+function _renderRatingTop3(top3, tab) {
+  if (!top3?.length) { document.getElementById('rating-top3').innerHTML = ''; return; }
+  const medals = [
+    { icon: IC.crown(20), bg: 'rating-top-gold',   label: '1' },
+    { icon: IC.medal2(18), bg: 'rating-top-silver', label: '2' },
+    { icon: `<img src="/icons/ui/medal-bronze.svg" width="18" height="18" style="vertical-align:middle">`, bg: 'rating-top-bronze', label: '3' },
+  ];
+  // Reorder: [1st=center, 2nd=left, 3rd=right]
+  const order = [top3[1], top3[0], top3[2]].filter(Boolean);
+  const html = `<div class="rating-podium">${order.map((p, i) => {
+    const orig = top3.indexOf(p);
+    const m = medals[orig] || medals[2];
+    const isCenter = orig === 0;
+    return `<div class="rating-top-card ${m.bg}${isCenter ? ' center' : ''}" onclick="viewProfile(${p.playerId})">
+      ${m.icon}
+      <div class="rating-top-rank">#${p.rank}</div>
+      <div class="rating-top-nick ${p.faction}">${p.nick}</div>
+      <div class="rating-top-val">${_ratingValueLabel(tab, p.value)}</div>
+      ${p.title ? `<div class="rating-title-badge">${p.title}</div>` : ''}
+    </div>`;
+  }).join('')}</div>`;
+  document.getElementById('rating-top3').innerHTML = html;
+}
+
+function _renderRatingList(list, tab) {
+  if (!list?.length) { document.getElementById('rating-list').innerHTML = '<p class="text-muted" style="padding:12px">Немає даних</p>'; return; }
+  document.getElementById('rating-list').innerHTML = list.map(p => `
+    <div class="rating-row" onclick="viewProfile(${p.playerId})">
+      <span class="rating-pos">#${p.rank}</span>
+      <div class="rating-info">
+        <div class="rating-name ${p.faction}">${p.nick}
+          ${p.title ? `<span class="rating-title-inline">${p.title}</span>` : ''}
+          <span class="text-muted" style="font-size:11px"> Рів.${p.level}</span>
+        </div>
+      </div>
+      <span class="rating-pts">${_ratingValueLabel(tab, p.value)}</span>
+    </div>`).join('');
+}
+
+function _renderRatingMyPos(myRank, myValue, tab) {
+  const el = document.getElementById('rating-mypos');
+  if (!myRank) { el.style.display = 'none'; return; }
+  el.style.display = 'flex';
+  el.innerHTML = `<span class="rating-pos" style="color:var(--orange)">#${myRank}</span>
+    <div class="rating-info" style="flex:1"><div class="rating-name">Ти</div></div>
+    <span class="rating-pts">${_ratingValueLabel(tab, myValue)}</span>`;
+}
+
+function _renderRatingClans(r) {
+  document.getElementById('rating-top3').innerHTML = '';
+  if (!r.list?.length) {
+    document.getElementById('rating-list').innerHTML = '<p class="text-muted" style="padding:12px">Немає кланів</p>';
+    return;
+  }
+  document.getElementById('rating-list').innerHTML = r.list.map(c => `
+    <div class="rating-row${c.clanId === r.myClanId ? ' my-clan' : ''}">
+      <span class="rating-pos">#${c.rank}</span>
+      <div class="rating-info">
+        <div class="rating-name"><b>[${c.tag}]</b> ${c.name}
+          <span class="${c.faction}" style="font-size:11px"> ${c.faction === 'elves' ? '🧝 Ельфи' : '👹 Орки'}</span>
+        </div>
+        <div style="font-size:11px;color:var(--text-light)">${IC.friends(11)} ${c.memberCount} членів</div>
+      </div>
+      <span class="rating-pts">${IC.glory(13)} ${fmtNum(c.rating)}</span>
+    </div>`).join('');
+  const myPos = document.getElementById('rating-mypos');
+  if (r.myRank) {
+    myPos.style.display = 'flex';
+    myPos.innerHTML = `<span class="rating-pos" style="color:var(--orange)">#${r.myRank}</span>
+      <div style="flex:1;font-size:13px">Твій клан</div>`;
+  } else { myPos.style.display = 'none'; }
 }
 
 // ─── CLANS ───────────────────────────────────────────────────────────────────

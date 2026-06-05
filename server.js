@@ -97,6 +97,113 @@ const scheduleDailyReset = (io) => {
     try {
       await pool.query(`DELETE FROM events WHERE created_at < NOW() - INTERVAL '7 days'`);
     } catch (err) { console.error('[Reset] events cleanup помилка:', err.message); }
+
+    // Rating: award top-3 per daily tab + reset day counters
+    try {
+      const writeEvent = require('./src/helpers/writeEvent');
+      const DAILY_TABS = [
+        { key: 'glory',   field: 'glory_day',          label: 'Слава' },
+        { key: 'battles', field: 'wins_day',            label: 'Бої' },
+        { key: 'garden',  field: 'green_day',           label: 'Огород' },
+        { key: 'caves',   field: 'gold_mined_day',      label: 'Печери' },
+        { key: 'dragon',  field: 'dragon_damage_day',   label: 'Дракон' },
+      ];
+      const DAILY_REWARDS = [
+        { rank: 1, gold: 100, green: 5000 },
+        { rank: 2, gold: 50,  green: 2500 },
+        { rank: 3, gold: 25,  green: 1250 },
+      ];
+      const WEEKLY_TITLES = {
+        glory:   'Легенда Слави', battles: 'Легенда Боїв', garden: 'Легенда Огорода',
+        caves:   'Легенда Печер', dragon: 'Драконоборець',
+      };
+      const now = new Date();
+      const isMonday = now.getDay() === 1;
+
+      for (const tab of DAILY_TABS) {
+        const { rows: top } = await pool.query(
+          `SELECT id, username, ${tab.field} as val FROM players WHERE is_banned=false AND ${tab.field} > 0
+           ORDER BY ${tab.field} DESC LIMIT 100`
+        );
+        for (let i = 0; i < Math.min(top.length, 100); i++) {
+          const p = top[i];
+          const rank = i + 1;
+          const rew = DAILY_REWARDS.find(r => r.rank === rank);
+          if (rew) {
+            await pool.query(
+              `UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`,
+              [rew.gold, rew.green, p.id]
+            );
+            await writeEvent(p.id, {
+              event_type: 'daily_rating_result',
+              title: rank === 1 ? `👑 №1 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                                : rank === 2 ? `🥈 №2 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                                : `🥉 №3 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
+              body: `Денний рейтинг [${tab.label}]. Нагорода: ${rew.gold} 🏅 та ${rew.green} 🌿 зараховано.`,
+              icon: rank===1?'👑':rank===2?'🥈':'🥉', color: rank===1?'gold':'blue',
+            }, io);
+            io.to(`player:${p.id}`).emit('notification', {
+              type: 'rating',
+              message: rank===1?`👑 Ти №1 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`:`🏅 Топ-${rank} в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
+            });
+            // Assign title to top-1
+            if (rank === 1 && WEEKLY_TITLES[tab.key]) {
+              const titleExpires = new Date(now.getTime() + 7*24*60*60*1000);
+              await pool.query(
+                `UPDATE players SET active_title=$1, title_expires_at=$2 WHERE id=$3`,
+                [WEEKLY_TITLES[tab.key], titleExpires, p.id]
+              );
+            }
+          } else {
+            await writeEvent(p.id, {
+              event_type: 'daily_rating_result',
+              title: `🏅 Ти на #${rank} місці в ${tab.label} за день!`,
+              body: `Ти зайняв #${rank} місце. Продовжуй у тому ж дусі!`,
+              icon: '🏅', color: 'blue',
+            }, io);
+          }
+          await pool.query(
+            `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,period_date)
+             VALUES ($1,$2,'day',$3,$4,$5,$6,CURRENT_DATE-1)`,
+            [p.id, tab.key, rank, p.val, rew?.gold||0, rew?.green||0]
+          );
+        }
+      }
+      // Reset daily counters
+      await pool.query(`UPDATE players SET glory_day=0, wins_day=0, green_day=0, gold_mined_day=0, dragon_damage_day=0`);
+      console.log('[Rating] Daily reset + awards done');
+
+      // Weekly awards (Monday only)
+      if (isMonday) {
+        const WEEKLY_REWARDS = [
+          { rank: 1, gold: 200, green: 10000 },
+          { rank: 2, gold: 100, green: 5000  },
+          { rank: 3, gold: 50,  green: 2500  },
+        ];
+        for (const tab of DAILY_TABS) {
+          const { rows: top } = await pool.query(
+            `SELECT id, ${tab.field.replace('_day','_week')} as val FROM players WHERE is_banned=false AND ${tab.field.replace('_day','_week')} > 0
+             ORDER BY ${tab.field.replace('_day','_week')} DESC LIMIT 3`
+          );
+          for (let i = 0; i < top.length; i++) {
+            const p = top[i];
+            const rank = i + 1;
+            const rew = WEEKLY_REWARDS[i];
+            await pool.query(`UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`, [rew.gold, rew.green, p.id]);
+            await writeEvent(p.id, {
+              event_type: 'weekly_rating_result',
+              title: rank===1?`👑 №1 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                             :rank===2?`🥈 №2 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                             :`🥉 №3 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
+              body: `Тижневий рейтинг [${tab.label}]. Нагорода: ${rew.gold} 🏅 та ${rew.green} 🌿.`,
+              icon: rank===1?'👑':rank===2?'🥈':'🥉', color: 'gold',
+            }, io);
+          }
+        }
+        await pool.query(`UPDATE players SET glory_week=0, wins_week=0, green_week=0, gold_mined_week=0, dragon_damage_week=0`);
+        console.log('[Rating] Weekly reset + awards done');
+      }
+    } catch (err) { console.error('[Rating cron]', err.message); }
     // Greenhouse accrual — add daily greens (max 2 days worth)
     try {
       const { DAILY_GREEN } = require('./src/routes/greenhouse');
@@ -754,6 +861,56 @@ setInterval(async () => {
     } catch (err) { console.error('[ClanWar cleanup]', err.message); }
   }, 7 * 24 * 60 * 60 * 1000);
 }
+
+// Rating system migration
+(async () => {
+  try {
+    const cols = [
+      'glory_day INTEGER DEFAULT 0',
+      'glory_week INTEGER DEFAULT 0',
+      'wins_day INTEGER DEFAULT 0',
+      'wins_week INTEGER DEFAULT 0',
+      'green_day BIGINT DEFAULT 0',
+      'green_week BIGINT DEFAULT 0',
+      'green_total BIGINT DEFAULT 0',
+      'gold_mined_day INTEGER DEFAULT 0',
+      'gold_mined_week INTEGER DEFAULT 0',
+      'gold_mined_total INTEGER DEFAULT 0',
+      'dragon_damage_day BIGINT DEFAULT 0',
+      'dragon_damage_week BIGINT DEFAULT 0',
+      'dragon_damage_total BIGINT DEFAULT 0',
+      'active_title VARCHAR(100)',
+      'title_expires_at TIMESTAMP',
+    ];
+    for (const col of cols) {
+      const name = col.split(' ')[0];
+      try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
+    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS rating_snapshots (
+        id          SERIAL PRIMARY KEY,
+        player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        rating_type VARCHAR(30) NOT NULL,
+        period_type VARCHAR(10) NOT NULL,
+        rank        INTEGER NOT NULL,
+        value       BIGINT NOT NULL,
+        reward_gold INTEGER DEFAULT 0,
+        reward_green BIGINT DEFAULT 0,
+        title_given VARCHAR(100),
+        period_date DATE NOT NULL DEFAULT CURRENT_DATE
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_day ON players(glory_day DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_week ON players(glory_week DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_wins_day ON players(wins_day DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_wins_week ON players(wins_week DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_green_day ON players(green_day DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_green_total ON players(green_total DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_gold_mined_day ON players(gold_mined_day DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_dragon_day ON players(dragon_damage_day DESC)`);
+    console.log('[Rating] Migration done');
+  } catch (err) { console.error('[Rating migration]', err.message); }
+})();
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

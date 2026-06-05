@@ -339,7 +339,10 @@ router.post('/:plotId/harvest', async (req, res) => {
            exp_to_next   = $4,
            level         = $5,
            max_hp        = max_hp + $6,
-           total_harvest = total_harvest + $7
+           total_harvest = total_harvest + $7,
+           green_day     = COALESCE(green_day,0)   + $7,
+           green_week    = COALESCE(green_week,0)  + $7,
+           green_total   = COALESCE(green_total,0) + $7
        WHERE id = $8`,
       [greensEarned + levelReward, goldReward, newExp, newExpToNext, newLevel,
        hpBonus, greensEarned, req.session.playerId]
