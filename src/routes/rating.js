@@ -24,7 +24,7 @@ router.get('/', requireAuth, async (req, res) => {
     const extra  = TABS[tab].extra ? `, ${TABS[tab].extra}` : '';
 
     const { rows } = await pool.query(
-      `SELECT id, username, level, faction, experience, wins, losses,
+      `SELECT id, username, level, faction, gender, experience, wins, losses,
               glory, glory_day, glory_week,
               wins_day, wins_week,
               green_total, green_day, green_week,
@@ -40,15 +40,38 @@ router.get('/', requireAuth, async (req, res) => {
     const myIdx = rows.findIndex(r => r.id === req.session.playerId);
     let myRank = myIdx >= 0 ? myIdx + 1 : null;
     let myValue = myIdx >= 0 ? Number(rows[myIdx][field]) : 0;
+    let myNick = '', myLevel = 1, myFaction = '', myGender = 'male';
 
-    if (myIdx < 0) {
+    if (myIdx >= 0) {
+      myNick    = rows[myIdx].username;
+      myLevel   = rows[myIdx].level;
+      myFaction = rows[myIdx].faction;
+      myGender  = rows[myIdx].gender;
+    } else {
       const { rows: [me] } = await pool.query(
-        `SELECT ${field},
+        `SELECT username, level, faction, gender, ${field},
            (SELECT COUNT(*)+1 FROM players WHERE ${field} > p.${field} AND is_banned=false) AS my_rank
          FROM players p WHERE id=$1`, [req.session.playerId]
       );
-      if (me) { myRank = Number(me.my_rank); myValue = Number(me[field]); }
+      if (me) {
+        myRank    = Number(me.my_rank);
+        myValue   = Number(me[field]);
+        myNick    = me.username;
+        myLevel   = me.level;
+        myFaction = me.faction;
+        myGender  = me.gender;
+      }
     }
+
+    // Previous rank from snapshots (for ▲▼ arrow)
+    const snapshotPeriod = period === 'week' ? 'week' : 'day';
+    const { rows: [snap] } = await pool.query(
+      `SELECT rank FROM rating_snapshots
+       WHERE player_id=$1 AND rating_type=$2 AND period_type=$3
+       ORDER BY period_date DESC LIMIT 1`,
+      [req.session.playerId, tab, snapshotPeriod]
+    );
+    const myPrevRank = snap ? snap.rank : null;
 
     const list = rows.map((r, i) => ({
       rank:       i + 1,
@@ -56,6 +79,7 @@ router.get('/', requireAuth, async (req, res) => {
       nick:       r.username,
       level:      r.level,
       faction:    r.faction,
+      gender:     r.gender,
       experience: r.experience,
       wins:       r.wins,
       losses:     r.losses,
@@ -64,7 +88,13 @@ router.get('/', requireAuth, async (req, res) => {
                     ? r.active_title : null,
     }));
 
-    res.json({ tab, period, myRank, myValue, top3: list.slice(0, 3), list: list.slice(3) });
+    res.json({
+      tab, period,
+      myRank, myValue, myPrevRank,
+      myNick, myLevel, myFaction, myGender,
+      top3: list.slice(0, 3),
+      list: list.slice(3),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

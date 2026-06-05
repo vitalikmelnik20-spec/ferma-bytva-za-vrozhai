@@ -2365,28 +2365,49 @@ async function loadRating() {
       const r = await API.get(`/api/rating?tab=${_ratingTab}&period=${_ratingPeriod}`);
       _renderRatingTop3(r.top3, _ratingTab);
       _renderRatingList(r.list, _ratingTab);
-      _renderRatingMyPos(r.myRank, r.myValue, _ratingTab);
+      _renderRatingMyPos(r, _ratingTab);
     }
   } catch (e) { toast(e.message, true); }
 }
 
+function _factionLabel(faction) {
+  return faction === 'elves'
+    ? `<span class="elves" style="font-size:11px">🧝 Ельфи</span>`
+    : `<span class="orcs"  style="font-size:11px">👹 Орки</span>`;
+}
+
+function _avatarIcon(faction, gender, size = 28) {
+  const emoji = faction === 'elves'
+    ? (gender === 'female' ? '🧝‍♀️' : '🧝‍♂️')
+    : (gender === 'female' ? '👺' : '👹');
+  return `<span style="font-size:${size}px;line-height:1">${emoji}</span>`;
+}
+
+function _rankArrow(myRank, prevRank) {
+  if (!prevRank || prevRank === myRank) return '';
+  if (myRank < prevRank) return `<span class="rank-arrow up">▲${prevRank - myRank}</span>`;
+  return `<span class="rank-arrow down">▼${myRank - prevRank}</span>`;
+}
+
 function _renderRatingTop3(top3, tab) {
   if (!top3?.length) { document.getElementById('rating-top3').innerHTML = ''; return; }
-  const medals = [
-    { icon: IC.crown(20), bg: 'rating-top-gold',   label: '1' },
-    { icon: IC.medal2(18), bg: 'rating-top-silver', label: '2' },
-    { icon: `<img src="/icons/ui/medal-bronze.svg" width="18" height="18" style="vertical-align:middle">`, bg: 'rating-top-bronze', label: '3' },
+  const META = [
+    { medalIcon: IC.crown(22),  bg: 'rating-top-gold',   podiumH: 'h-gold'   },
+    { medalIcon: IC.medal2(20), bg: 'rating-top-silver', podiumH: 'h-silver' },
+    { medalIcon: `<img src="/icons/ui/medal-bronze.svg" width="20" height="20" style="vertical-align:middle">`, bg: 'rating-top-bronze', podiumH: 'h-bronze' },
   ];
-  // Reorder: [1st=center, 2nd=left, 3rd=right]
+  // Layout: 2nd left, 1st center (bigger), 3rd right
   const order = [top3[1], top3[0], top3[2]].filter(Boolean);
-  const html = `<div class="rating-podium">${order.map((p, i) => {
+  const html = `<div class="rating-podium">${order.map(p => {
     const orig = top3.indexOf(p);
-    const m = medals[orig] || medals[2];
-    const isCenter = orig === 0;
-    return `<div class="rating-top-card ${m.bg}${isCenter ? ' center' : ''}" onclick="viewProfile(${p.playerId})">
-      ${m.icon}
-      <div class="rating-top-rank">#${p.rank}</div>
+    const m = META[orig] || META[2];
+    const isFirst = orig === 0;
+    return `<div class="rating-top-card ${m.bg} ${m.podiumH}${isFirst ? ' center' : ''}" onclick="viewProfile(${p.playerId})">
+      <div class="rating-top-medal">${m.medalIcon}</div>
+      <div class="rating-top-avatar">${_avatarIcon(p.faction, p.gender, isFirst ? 32 : 26)}</div>
       <div class="rating-top-nick ${p.faction}">${p.nick}</div>
+      <div class="rating-top-lvl">Рів.${p.level}</div>
+      ${_factionLabel(p.faction)}
       <div class="rating-top-val">${_ratingValueLabel(tab, p.value)}</div>
       ${p.title ? `<div class="rating-title-badge">${p.title}</div>` : ''}
     </div>`;
@@ -2399,23 +2420,29 @@ function _renderRatingList(list, tab) {
   document.getElementById('rating-list').innerHTML = list.map(p => `
     <div class="rating-row" onclick="viewProfile(${p.playerId})">
       <span class="rating-pos">#${p.rank}</span>
+      <span class="rating-avatar">${_avatarIcon(p.faction, p.gender, 22)}</span>
       <div class="rating-info">
-        <div class="rating-name ${p.faction}">${p.nick}
-          ${p.title ? `<span class="rating-title-inline">${p.title}</span>` : ''}
-          <span class="text-muted" style="font-size:11px"> Рів.${p.level}</span>
-        </div>
+        <div class="rating-name ${p.faction}">${p.nick}${p.title ? ` <span class="rating-title-inline">${p.title}</span>` : ''}</div>
+        <div class="rating-sub">Рів.${p.level} · ${_factionLabel(p.faction)}</div>
       </div>
       <span class="rating-pts">${_ratingValueLabel(tab, p.value)}</span>
     </div>`).join('');
 }
 
-function _renderRatingMyPos(myRank, myValue, tab) {
+function _renderRatingMyPos(r, tab) {
   const el = document.getElementById('rating-mypos');
-  if (!myRank) { el.style.display = 'none'; return; }
+  if (!r.myRank) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
-  el.innerHTML = `<span class="rating-pos" style="color:var(--orange)">#${myRank}</span>
-    <div class="rating-info" style="flex:1"><div class="rating-name">Ти</div></div>
-    <span class="rating-pts">${_ratingValueLabel(tab, myValue)}</span>`;
+  const arrow = _rankArrow(r.myRank, r.myPrevRank);
+  el.innerHTML = `
+    <span class="rating-pos" style="color:var(--orange)">#${r.myRank}</span>
+    <span class="rating-avatar">${_avatarIcon(r.myFaction, r.myGender, 22)}</span>
+    <div class="rating-info" style="flex:1">
+      <div class="rating-name ${r.myFaction}">${r.myNick}</div>
+      <div class="rating-sub">Рів.${r.myLevel} · ${_factionLabel(r.myFaction)}</div>
+    </div>
+    ${arrow}
+    <span class="rating-pts">${_ratingValueLabel(tab, r.myValue)}</span>`;
 }
 
 function _renderRatingClans(r) {
@@ -2427,11 +2454,10 @@ function _renderRatingClans(r) {
   document.getElementById('rating-list').innerHTML = r.list.map(c => `
     <div class="rating-row${c.clanId === r.myClanId ? ' my-clan' : ''}">
       <span class="rating-pos">#${c.rank}</span>
+      <span class="rating-avatar" style="font-size:22px">${c.faction === 'elves' ? '🧝' : '👹'}</span>
       <div class="rating-info">
-        <div class="rating-name"><b>[${c.tag}]</b> ${c.name}
-          <span class="${c.faction}" style="font-size:11px"> ${c.faction === 'elves' ? '🧝 Ельфи' : '👹 Орки'}</span>
-        </div>
-        <div style="font-size:11px;color:var(--text-light)">${IC.friends(11)} ${c.memberCount} членів</div>
+        <div class="rating-name"><b>[${c.tag}]</b> ${c.name}</div>
+        <div class="rating-sub">${_factionLabel(c.faction)} · ${IC.friends(11)} ${c.memberCount} членів</div>
       </div>
       <span class="rating-pts">${IC.glory(13)} ${fmtNum(c.rating)}</span>
     </div>`).join('');
@@ -2439,7 +2465,7 @@ function _renderRatingClans(r) {
   if (r.myRank) {
     myPos.style.display = 'flex';
     myPos.innerHTML = `<span class="rating-pos" style="color:var(--orange)">#${r.myRank}</span>
-      <div style="flex:1;font-size:13px">Твій клан</div>`;
+      <div style="flex:1;font-size:13px;font-weight:600">Твій клан</div>`;
   } else { myPos.style.display = 'none'; }
 }
 
