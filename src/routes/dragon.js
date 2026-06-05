@@ -152,7 +152,7 @@ router.post('/attack', async (req, res) => {
     const hpPct = ev.hp_current / ev.hp_max;
     const [lo, hi] = hpPct > 0.75 ? [1,5] : hpPct > 0.5 ? [5,10] : hpPct > 0.25 ? [10,15] : [15,20];
     const counterDmg = Math.max(1, Math.floor(player.max_hp * (lo + Math.random() * (hi - lo)) / 100));
-    const newPlayerHp = Math.max(0, player.hp - counterDmg);
+    const newPlayerHp = Math.max(1, player.hp - counterDmg);
     const newDragonHp = Math.max(0, ev.hp_current - damage);
     const isKilled    = newDragonHp === 0;
 
@@ -160,7 +160,7 @@ router.post('/attack', async (req, res) => {
       `UPDATE dragon_events SET hp_current=$1, total_damage=total_damage+$2 WHERE id=$3`,
       [newDragonHp, damage, ev.id]
     );
-    await pool.query(`UPDATE players SET hp=GREATEST(0,hp-$1) WHERE id=$2`, [counterDmg, req.session.playerId]);
+    await pool.query(`UPDATE players SET hp=GREATEST(1,hp-$1) WHERE id=$2`, [counterDmg, req.session.playerId]);
     const cooldownSecs = 30 + Math.floor(Math.random() * 91); // 30–120s
     await pool.query(
       `INSERT INTO dragon_participants (event_id, player_id, damage_dealt, hits_count, last_attack_at, attack_cooldown_secs) VALUES ($1,$2,$3,1,NOW(),$4)

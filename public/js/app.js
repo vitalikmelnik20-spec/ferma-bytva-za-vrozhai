@@ -2022,9 +2022,8 @@ async function loadStats() {
         ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0, r.taliEndurance || 0)}
         ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0)}
         ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0)}
-        ${row(IC.hp(14), "Здоров'я",        `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${row(IC.hp(14), "Макс. здоров'я",  fmtNum(p.max_hp))}
-        ${row(IC.hp(14), 'Регенерація',     `${p.hp_regen} в хв`)}
+        ${row(IC.hp(14), "Здоров'я",    `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${row(IC.hp(14), 'Регенерація', `+${fmtNum((p.hp_regen||0)*60)}/год · повне за 10год`)}
         ${r.harvestGiftPct > 0 ? row(`${IC.wheat(14)}`, 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
         ${(r.potionHarvestPct || 0) > 0 ? row(`${IC.pill(14)}`, 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
         ${r.luckAmulets > 0 ? row(IC.star(14), 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}

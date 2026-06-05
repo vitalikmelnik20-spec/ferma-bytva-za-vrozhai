@@ -8,6 +8,7 @@ const pgSession = require('connect-pg-simple')(session);
 const path = require('path');
 const { pool } = require('./src/db');
 const setupSocket = require('./src/socket');
+const { calcMaxHp, calcHpRegen } = require('./src/helpers/calcMaxHp');
 
 const app = express();
 const server = http.createServer(app);
@@ -778,16 +779,22 @@ setInterval(async () => {
             [player_id, plot.pname]
           );
         }
+        const newMaxHp   = calcMaxHp(newLevel);
+        const hpDiff     = newLevel > ply.level ? newMaxHp - calcMaxHp(ply.level) : 0;
+        const newHpRegen = calcHpRegen(newMaxHp);
         await pool.query(
           `UPDATE players SET greens=greens+$1, total_harvest=total_harvest+$1,
-             experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5,
+             experience=$2, exp_to_next=$3, level=$4,
+             max_hp   = max_hp + $5,
+             hp       = LEAST(max_hp + $5, hp + $5),
+             hp_regen = $9,
              exp_day   = COALESCE(exp_day,0)   + $6,
              exp_week  = COALESCE(exp_week,0)  + $6,
              green_day   = COALESCE(green_day,0)   + $8,
              green_week  = COALESCE(green_week,0)  + $8,
              green_total = COALESCE(green_total,0) + $8
            WHERE id=$7`,
-          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, totalExp, player_id, totalGreens]
+          [totalGreens, newExp, newExpToNext, newLevel, hpDiff, totalExp, player_id, totalGreens, newHpRegen]
         );
         await pool.query(
           `UPDATE player_tools SET total_actions=total_actions+$1, total_greens=total_greens+$2
@@ -1026,6 +1033,7 @@ setInterval(async () => {
       'exp_day BIGINT DEFAULT 0',          'exp_week BIGINT DEFAULT 0',
       'active_title VARCHAR(100)',          'title_expires_at TIMESTAMP',
       'insects_defeated INTEGER DEFAULT 0', 'insects_greens_saved BIGINT DEFAULT 0',
+      'last_hp_update TIMESTAMP DEFAULT NOW()',
     ];
     for (const col of playerCols) {
       try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
@@ -1099,6 +1107,29 @@ setInterval(async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_exp_day ON players(exp_day DESC)`);
     console.log('[Rating] Migration done');
   } catch (err) { console.error('[Rating migration]', err.message); }
+})();
+
+// HP system migration — recalculate max_hp / hp / hp_regen for all players using formula
+(async () => {
+  try {
+    // Recalculate every player's max_hp based on their current level
+    // hp is scaled proportionally; hp_regen = floor(max_hp * 0.1 / 60)
+    await pool.query(`
+      UPDATE players
+      SET
+        max_hp   = ROUND(2000 + 2980.8 * (level - 1)),
+        hp       = GREATEST(1, LEAST(
+                     ROUND(2000 + 2980.8 * (level - 1)),
+                     CASE WHEN max_hp > 0
+                       THEN ROUND(hp::numeric / max_hp * ROUND(2000 + 2980.8 * (level - 1)))
+                       ELSE ROUND(2000 + 2980.8 * (level - 1))
+                     END
+                   )),
+        hp_regen = GREATEST(1, FLOOR(ROUND(2000 + 2980.8 * (level - 1)) * 0.1 / 60))
+      WHERE level >= 1
+    `);
+    console.log('[HP migration] max_hp/hp/hp_regen recalculated');
+  } catch (err) { console.error('[HP migration]', err.message); }
 })();
 
 const PORT = process.env.PORT || 3000;

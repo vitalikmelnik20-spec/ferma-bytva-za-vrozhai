@@ -99,7 +99,7 @@ router.get('/me', async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT p.id, p.username, p.faction, p.gender, p.level, p.experience, p.exp_to_next,
-              p.greens, p.gold, p.diamonds, p.glory, p.hp, p.max_hp,
+              p.greens, p.gold, p.diamonds, p.glory, p.hp, p.max_hp, p.hp_regen,
               p.rating_points, p.wins, p.losses, p.battles_today, p.battles_max,
               p.city_name, p.status_text, p.medals, p.is_online, p.is_admin,
               p.on_vacation, p.created_at,

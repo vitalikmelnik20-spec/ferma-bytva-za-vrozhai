@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
+const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 router.use(requireAuth);
 
@@ -330,7 +331,9 @@ router.post('/:plotId/harvest', async (req, res) => {
       goldReward  += newLevel * 5;
     }
 
-    const hpBonus = levelUp ? (newLevel - player.level) * 100 : 0;
+    const newMaxHp  = calcMaxHp(newLevel);
+    const hpDiff    = levelUp ? newMaxHp - calcMaxHp(player.level) : 0;
+    const newHpRegen = calcHpRegen(newMaxHp);
     await pool.query(
       `UPDATE players
        SET greens        = greens + $1,
@@ -339,6 +342,8 @@ router.post('/:plotId/harvest', async (req, res) => {
            exp_to_next   = $4,
            level         = $5,
            max_hp        = max_hp + $6,
+           hp            = LEAST(max_hp + $6, hp + $6),
+           hp_regen      = $10,
            total_harvest = total_harvest + $7,
            green_day     = COALESCE(green_day,0)   + $7,
            green_week    = COALESCE(green_week,0)  + $7,
@@ -347,7 +352,7 @@ router.post('/:plotId/harvest', async (req, res) => {
            exp_week      = COALESCE(exp_week,0)    + $9
        WHERE id = $8`,
       [greensEarned + levelReward, goldReward, newExp, newExpToNext, newLevel,
-       hpBonus, greensEarned, req.session.playerId, expEarned]
+       hpDiff, greensEarned, req.session.playerId, expEarned, newHpRegen]
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
     const { updateDailyQuestProgress } = require('./daily');

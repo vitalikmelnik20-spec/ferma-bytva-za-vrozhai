@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
+const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 router.use(requireAuth);
 
@@ -208,15 +209,21 @@ router.post('/mine', async (req, res) => {
       goldBonus += newLevel * 5;
     }
 
+    const newMaxHp   = calcMaxHp(newLevel);
+    const hpDiff     = levelUp ? newMaxHp - calcMaxHp(player.level) : 0;
+    const newHpRegen = calcHpRegen(newMaxHp);
     await pool.query(
-      `UPDATE players SET gold=gold+$1, experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5,
+      `UPDATE players SET gold=gold+$1, experience=$2, exp_to_next=$3, level=$4,
+         max_hp   = max_hp + $5,
+         hp       = LEAST(max_hp + $5, hp + $5),
+         hp_regen = $9,
          gold_mined_day   = COALESCE(gold_mined_day,0)   + $6,
          gold_mined_week  = COALESCE(gold_mined_week,0)  + $6,
          gold_mined_total = COALESCE(gold_mined_total,0) + $6,
          exp_day          = COALESCE(exp_day,0)          + $7,
          exp_week         = COALESCE(exp_week,0)         + $7
        WHERE id=$8`,
-      [gold + goldBonus, newExp, newExpToNext, newLevel, levelUp ? 100 : 0, gold, exp, req.session.playerId]
+      [gold + goldBonus, newExp, newExpToNext, newLevel, hpDiff, gold, exp, req.session.playerId, newHpRegen]
     );
 
     let updatedSession;
