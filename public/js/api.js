@@ -42,6 +42,20 @@ function fmtNum(n) {
   return Number(n).toLocaleString('uk-UA');
 }
 
+// Abbreviates large numbers: 1500 → 1.5к, 1200000 → 1.2кк
+function fmtShort(n) {
+  n = Number(n) || 0;
+  if (n >= 1_000_000) {
+    const v = n / 1_000_000;
+    return (Number.isInteger(v) ? v : v.toFixed(1).replace('.0', '')) + 'кк';
+  }
+  if (n >= 1_000) {
+    const v = n / 1_000;
+    return (Number.isInteger(v) ? v : v.toFixed(1).replace('.0', '')) + 'к';
+  }
+  return String(n);
+}
+
 // Calculates cumulative XP: total earned and total needed for next level
 // Formula: each level requires floor(prev * 1.5), starting from 100
 function xpTotal(level, experience, expToNext) {

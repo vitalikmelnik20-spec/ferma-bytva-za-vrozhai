@@ -294,10 +294,10 @@ router.post('/:plotId/harvest', async (req, res) => {
     );
     const reaperRingPct = reaperRing ? reaperRing.bonus_value : 0;
 
-    // Insect attack penalty: check for expired (not defeated) attack today
+    // Insect attack penalty: active attack not yet defeated
     const { rows: [insectAttack] } = await pool.query(
       `SELECT damage_penalty_pct FROM insect_attacks
-       WHERE player_id=$1 AND is_defeated=false AND ends_at <= NOW() AND started_at >= CURRENT_DATE
+       WHERE player_id=$1 AND is_defeated=false AND ends_at > NOW()
        ORDER BY id DESC LIMIT 1`,
       [req.session.playerId]
     );

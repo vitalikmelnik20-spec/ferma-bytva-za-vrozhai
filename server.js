@@ -431,7 +431,7 @@ setInterval(async () => {
   } catch (err) { console.error('[Auction cleanup]', err.message); }
 }, 6 * 60 * 60 * 1000);
 
-// Insect attack scheduler — every 10 min, spawn for eligible players (~once/day random)
+// Insect attack scheduler — every 10 min, spawn for eligible players (max 3/day, random)
 setInterval(async () => {
   try {
     const { rows: eligible } = await pool.query(
@@ -440,8 +440,12 @@ setInterval(async () => {
          AND NOT EXISTS (
            SELECT 1 FROM insect_attacks ia
            WHERE ia.player_id=pl.player_id
-             AND ia.started_at >= CURRENT_DATE
-         )`
+             AND ia.is_defeated=false AND ia.ends_at > NOW()
+         )
+         AND (
+           SELECT COUNT(*) FROM insect_attacks ia
+           WHERE ia.player_id=pl.player_id AND ia.started_at >= CURRENT_DATE
+         ) < 3`
     );
     for (const { player_id } of eligible) {
       if (Math.random() >= 0.10) continue;
@@ -452,9 +456,10 @@ setInterval(async () => {
       if (plots === 0) continue;
       const swarmHp     = plots * 100;
       const penaltyPct  = 20 + Math.floor(Math.random() * 31);
+      // ends_at = end of current day in Kyiv time (midnight tonight)
       await pool.query(
         `INSERT INTO insect_attacks (player_id, ends_at, swarm_hp, swarm_max_hp, damage_penalty_pct)
-         VALUES ($1, NOW() + interval '30 minutes', $2, $2, $3)`,
+         VALUES ($1, (CURRENT_DATE + INTERVAL '1 day')::timestamp AT TIME ZONE 'Europe/Kiev' AT TIME ZONE 'UTC', $2, $2, $3)`,
         [player_id, swarmHp, penaltyPct]
       );
       io.to(`player:${player_id}`).emit('insects:started', { swarmHp, penaltyPct });
@@ -1020,6 +1025,7 @@ setInterval(async () => {
       'dragon_damage_total BIGINT DEFAULT 0',
       'exp_day BIGINT DEFAULT 0',          'exp_week BIGINT DEFAULT 0',
       'active_title VARCHAR(100)',          'title_expires_at TIMESTAMP',
+      'insects_defeated INTEGER DEFAULT 0', 'insects_greens_saved BIGINT DEFAULT 0',
     ];
     for (const col of playerCols) {
       try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
@@ -1068,6 +1074,20 @@ setInterval(async () => {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_player_titles ON player_titles(player_id, expires_at)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS insect_attacks (
+        id                 SERIAL PRIMARY KEY,
+        player_id          INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        started_at         TIMESTAMP NOT NULL DEFAULT NOW(),
+        ends_at            TIMESTAMP NOT NULL,
+        swarm_hp           INTEGER NOT NULL,
+        swarm_max_hp       INTEGER NOT NULL,
+        damage_penalty_pct INTEGER NOT NULL DEFAULT 20,
+        is_defeated        BOOLEAN NOT NULL DEFAULT false,
+        reward_green       BIGINT NOT NULL DEFAULT 0
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_insect_attacks_player ON insect_attacks(player_id, started_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_day ON players(glory_day DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_week ON players(glory_week DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_wins_day ON players(wins_day DESC)`);

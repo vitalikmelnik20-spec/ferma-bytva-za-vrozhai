@@ -9,6 +9,15 @@ module.exports = (io) => {
     if (playerId) {
       socket.join(`player:${playerId}`);
       io.emit('player:online', { playerId });
+      // Notify about pending insect attack (player may have been offline when it spawned)
+      pool.query(
+        `SELECT swarm_hp, damage_penalty_pct FROM insect_attacks
+         WHERE player_id=$1 AND is_defeated=false AND ends_at > NOW()
+         ORDER BY id DESC LIMIT 1`,
+        [playerId]
+      ).then(({ rows: [a] }) => {
+        if (a) socket.emit('insects:started', { swarmHp: a.swarm_hp, penaltyPct: a.damage_penalty_pct });
+      }).catch(() => {});
     }
 
     // Global chat

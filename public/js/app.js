@@ -2353,12 +2353,12 @@ function _ratingValueLabel(tab, value, item) {
   if (tab === 'glory')   return `${IC.glory(13)} ${fmtNum(value)}`;
   if (tab === 'level') {
     if (_ratingPeriod === 'day' || _ratingPeriod === 'week') {
-      return `+${fmtNum(value)} XP`;
+      return `+${fmtShort(value)} XP`;
     }
     const base = `Рів. ${value}`;
     if (item?.expToNext) {
       const x = xpTotal(item.level || value, item.experience, item.expToNext);
-      return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtNum(x.total)} / ${fmtNum(x.needed)} XP</span>`;
+      return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtShort(x.total)} / ${fmtShort(x.needed)} XP</span>`;
     }
     return base;
   }
