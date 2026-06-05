@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { applyHpRegenNow } = require('../helpers/hpRegen');
 
 router.use(requireAuth);
 
@@ -133,6 +134,7 @@ router.post('/attack', async (req, res) => {
         return res.status(429).json({ error: `Зачекайте ${remaining}с перед наступним ударом`, cooldownSecs: remaining });
     }
 
+    await applyHpRegenNow(req.session.playerId);
     const { rows: [player] } = await pool.query(
       `SELECT p.hp, p.max_hp, t.power_level,
               COALESCE(SUM(CASE WHEN inv.is_equipped THEN it.power_bonus ELSE 0 END),0)::INTEGER AS equip_power

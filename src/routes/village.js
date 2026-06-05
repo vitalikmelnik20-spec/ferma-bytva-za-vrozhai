@@ -1,12 +1,14 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { applyHpRegenNow } = require('../helpers/hpRegen');
 
 router.use(requireAuth);
 
 // Heal player (Цілитель)
 router.post('/heal', async (req, res) => {
   try {
+    await applyHpRegenNow(req.session.playerId);
     const { rows: [player] } = await pool.query(
       'SELECT hp, max_hp, greens FROM players WHERE id=$1',
       [req.session.playerId]

@@ -2,6 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const { pool } = require('../db');
+const { applyHpRegen } = require('../helpers/hpRegen');
 
 router.post('/register', async (req, res) => {
   const { username, password, faction, gender } = req.body;
@@ -97,6 +98,7 @@ router.get('/me', async (req, res) => {
   if (!req.session.playerId) return res.json({ player: null });
 
   try {
+    await applyHpRegen(req.session.playerId);
     const { rows } = await pool.query(
       `SELECT p.id, p.username, p.faction, p.gender, p.level, p.experience, p.exp_to_next,
               p.greens, p.gold, p.diamonds, p.glory, p.hp, p.max_hp, p.hp_regen,

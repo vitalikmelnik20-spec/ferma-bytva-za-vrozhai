@@ -365,13 +365,19 @@ const scheduleDailyReset = (io) => {
 
 scheduleDailyReset(io);
 
-// HP regeneration — every 1 minute, add hp_regen HP (default 100), capped at max_hp
+// HP regen — every 1 minute, time-based lazy calc (10%/hr), keeps last_hp_update in sync
 setInterval(async () => {
   try {
-    await pool.query('UPDATE players SET hp = LEAST(max_hp, hp + hp_regen) WHERE hp < max_hp');
-  } catch (err) {
-    console.error('[Regen] помилка:', err.message);
-  }
+    await pool.query(`
+      UPDATE players
+      SET hp = LEAST(max_hp, hp + GREATEST(0, FLOOR(
+        EXTRACT(EPOCH FROM (NOW() - COALESCE(last_hp_update, NOW() - INTERVAL '1 hour'))) / 3600.0
+        * max_hp * 0.1
+      ))::INTEGER),
+      last_hp_update = NOW()
+      WHERE hp < max_hp
+    `);
+  } catch (err) { console.error('[HP regen]', err.message); }
 }, 60 * 1000);
 
 // Pet HP regeneration — every hour, add 10% of hp_max, capped at hp_max
