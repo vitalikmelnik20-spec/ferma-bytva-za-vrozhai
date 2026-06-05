@@ -42,6 +42,14 @@ function fmtNum(n) {
   return Number(n).toLocaleString('uk-UA');
 }
 
+// Calculates cumulative XP: total earned and total needed for next level
+// Formula: each level requires floor(prev * 1.5), starting from 100
+function xpTotal(level, experience, expToNext) {
+  let base = 0, t = 100;
+  for (let l = 1; l < (level || 1); l++) { base += t; t = Math.floor(t * 1.5); }
+  return { total: base + (experience || 0), needed: base + (expToNext || 100) };
+}
+
 // Kyiv timezone date/time formatters (formatToParts — no timezone label in output)
 const _KV_FMT = new Intl.DateTimeFormat('uk-UA', {
   timeZone: 'Europe/Kiev',

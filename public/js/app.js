@@ -320,8 +320,9 @@ function updateHomeProfile() {
 
   const pct = Math.min(100, Math.floor(player.experience / player.exp_to_next * 100));
   document.getElementById('exp-bar').style.width = pct + '%';
+  const _xp = xpTotal(player.level, player.experience, player.exp_to_next);
   document.getElementById('exp-label').textContent =
-    `${player.experience} / ${player.exp_to_next} досвіду`;
+    `${fmtNum(_xp.total)} / ${fmtNum(_xp.needed)} досвіду`;
 
   // Show admin menu btn if admin
   if (player.is_admin) {
@@ -1936,7 +1937,7 @@ async function loadProfile() {
         ${infoRow(IC.level(14), 'Рівень', p.level)}
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.exp(14), 'Досвід', (() => { const x=xpTotal(p.level,p.experience,p.exp_to_next); return `${fmtNum(x.total)} / ${fmtNum(x.needed)}`; })())}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
@@ -2031,8 +2032,7 @@ async function loadStats() {
       <div class="stats-section">
         <div class="stats-section-title">${IC.stats_ic(14)} Інше</div>
         ${row(IC.level(14), 'Рівень',         p.level)}
-        ${row(IC.exp(14), 'Досвід',          fmtNum(p.experience))}
-        ${row(IC.exp(14), 'Наст. рівень',    fmtNum(p.exp_to_next))}
+        ${row(IC.exp(14), 'Досвід', (() => { const x=xpTotal(p.level,p.experience,p.exp_to_next); return `${fmtNum(x.total)} / ${fmtNum(x.needed)}`; })())}
         ${row(IC.glory(14), 'Слава',           fmtNum(p.glory))}
         ${row(IC.clan(14), 'Клан',            p.clan_name ? `[${p.clan_tag}] ${p.clan_name}` : 'Не в клані')}
         ${row(IC.wins(14), 'Рейтинг',         `#${r.gloryRank}`)}
@@ -2356,7 +2356,10 @@ function _ratingValueLabel(tab, value, item) {
       return `+${fmtNum(value)} XP`;
     }
     const base = `Рів. ${value}`;
-    if (item?.expToNext) return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtNum(item.experience)} / ${fmtNum(item.expToNext)} XP</span>`;
+    if (item?.expToNext) {
+      const x = xpTotal(item.level || value, item.experience, item.expToNext);
+      return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtNum(x.total)} / ${fmtNum(x.needed)} XP</span>`;
+    }
     return base;
   }
   if (tab === 'battles') {
@@ -3313,7 +3316,7 @@ async function viewProfile(id) {
         ${infoRow(IC.level(14), 'Рівень', p.level)}
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
-        ${infoRow(IC.exp(14), 'Досвід', `${fmtNum(p.experience)} / ${fmtNum(p.exp_to_next)}`)}
+        ${infoRow(IC.exp(14), 'Досвід', (() => { const x=xpTotal(p.level,p.experience,p.exp_to_next); return `${fmtNum(x.total)} / ${fmtNum(x.needed)}`; })())}
         ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
@@ -3883,6 +3886,7 @@ async function loadEvents() {
     const mpEl = document.getElementById('events-miniprofile');
     if (mpEl && player) {
       const pct = player.exp_to_next > 0 ? Math.min(100, player.experience / player.exp_to_next * 100).toFixed(1) : 0;
+      const _mpXp = xpTotal(player.level, player.experience, player.exp_to_next);
       mpEl.innerHTML = `
         <div class="panel-body" style="display:flex;align-items:center;gap:12px">
           <div style="font-size:40px;flex-shrink:0">${playerAvatar(player.faction, player.gender)}</div>
@@ -3890,7 +3894,7 @@ async function loadEvents() {
             <div style="font-weight:700;font-size:15px">${player.username}</div>
             <div class="text-muted" style="font-size:12px">Рів. ${player.level} · ${factionLabel(player.faction)} · Слава: ${player.glory}</div>
             <div class="exp-bar-wrap" style="margin:4px 0"><div class="exp-bar" style="width:${pct}%"></div></div>
-            <div style="font-size:11px;color:#aaa">${fmtNum(player.experience)} / ${fmtNum(player.exp_to_next)} досвіду</div>
+            <div style="font-size:11px;color:#aaa">${fmtNum(_mpXp.total)} / ${fmtNum(_mpXp.needed)} досвіду</div>
           </div>
         </div>`;
     }
