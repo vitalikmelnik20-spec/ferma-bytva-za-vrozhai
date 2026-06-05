@@ -78,7 +78,9 @@ async function finalizeDefenseEvent(eventId, io) {
   for (const p of parts) {
     const exp = Math.max(50, Math.floor(p.damage_dealt / 100));
     await pool.query(
-      `UPDATE players SET greens=greens+$1, glory=glory+$2, experience=experience+$3 WHERE id=$4`,
+      `UPDATE players SET greens=greens+$1, glory=glory+$2, experience=experience+$3,
+         glory_day=COALESCE(glory_day,0)+$2, glory_week=COALESCE(glory_week,0)+$2
+       WHERE id=$4`,
       [playerGreens, playerGlory, exp, p.player_id]
     );
   }

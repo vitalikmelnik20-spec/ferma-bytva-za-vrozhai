@@ -23,6 +23,8 @@ router.get('/', requireAuth, async (req, res) => {
     const field  = getField(tab, period);
     const extra  = TABS[tab].extra ? `, ${TABS[tab].extra}` : '';
 
+    const periodFilter = (period !== 'all') ? `AND ${field} > 0` : '';
+
     const { rows } = await pool.query(
       `SELECT id, username, level, faction, gender, experience, exp_to_next, wins, losses,
               glory, glory_day, glory_week,
@@ -30,11 +32,12 @@ router.get('/', requireAuth, async (req, res) => {
               green_total, green_day, green_week,
               gold_mined_total, gold_mined_day, gold_mined_week,
               dragon_damage_total, dragon_damage_day, dragon_damage_week,
+              exp_day, exp_week,
               ARRAY(SELECT title_name FROM player_titles
                     WHERE player_id=players.id AND expires_at > NOW()
                     ORDER BY granted_at DESC LIMIT 3) AS active_titles
        FROM players
-       WHERE is_banned = false
+       WHERE is_banned = false ${periodFilter}
        ORDER BY ${field} DESC${extra}
        LIMIT 100`
     );
@@ -58,7 +61,7 @@ router.get('/', requireAuth, async (req, res) => {
     } else {
       const { rows: [me] } = await pool.query(
         `SELECT username, level, faction, gender, experience, exp_to_next, wins, losses, ${field},
-           (SELECT COUNT(*)+1 FROM players WHERE ${field} > p.${field} AND is_banned=false) AS my_rank
+           (SELECT COUNT(*)+1 FROM players WHERE ${field} > p.${field} AND is_banned=false${period !== 'all' ? ` AND ${field} > 0` : ''}) AS my_rank
          FROM players p WHERE id=$1`, [req.session.playerId]
       );
       if (me) {

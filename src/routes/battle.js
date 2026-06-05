@@ -1065,7 +1065,12 @@ router.post('/fight', async (req, res) => {
     // Зал Слави: +1 слава за рівень будівлі для переможця
     const gloryBonus = attackerWon ? (aBonuses.hall || 0) : (dBonuses.hall || 0);
     if (gloryBonus > 0) {
-      await pool.query('UPDATE players SET glory=glory+$1 WHERE id=$2', [gloryBonus, winnerId]);
+      await pool.query(
+        `UPDATE players SET glory=glory+$1,
+           glory_day=COALESCE(glory_day,0)+$1, glory_week=COALESCE(glory_week,0)+$1
+         WHERE id=$2`,
+        [gloryBonus, winnerId]
+      );
     }
 
     const { rows: [lastBattle2] } = await pool.query(

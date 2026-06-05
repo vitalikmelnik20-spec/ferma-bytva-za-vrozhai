@@ -209,8 +209,14 @@ router.post('/mine', async (req, res) => {
     }
 
     await pool.query(
-      `UPDATE players SET gold=gold+$1, experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5 WHERE id=$6`,
-      [gold + goldBonus, newExp, newExpToNext, newLevel, levelUp ? 100 : 0, req.session.playerId]
+      `UPDATE players SET gold=gold+$1, experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5,
+         gold_mined_day   = COALESCE(gold_mined_day,0)   + $6,
+         gold_mined_week  = COALESCE(gold_mined_week,0)  + $6,
+         gold_mined_total = COALESCE(gold_mined_total,0) + $6,
+         exp_day          = COALESCE(exp_day,0)          + $7,
+         exp_week         = COALESCE(exp_week,0)         + $7
+       WHERE id=$8`,
+      [gold + goldBonus, newExp, newExpToNext, newLevel, levelUp ? 100 : 0, gold, exp, req.session.playerId]
     );
 
     let updatedSession;

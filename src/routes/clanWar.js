@@ -87,7 +87,12 @@ async function finishWar(warId, io) {
       const rank = sorted.findIndex(s => s.player_id === p.player_id);
       if (rank >= 0 && rank < 3) glory += topBonus[rank];
       if (glory > 0) {
-        await pool.query('UPDATE players SET glory=glory+$1 WHERE id=$2', [glory, p.player_id]);
+        await pool.query(
+          `UPDATE players SET glory=glory+$1,
+             glory_day=COALESCE(glory_day,0)+$1, glory_week=COALESCE(glory_week,0)+$1
+           WHERE id=$2`,
+          [glory, p.player_id]
+        );
         await pool.query('UPDATE clan_war_participants SET glory_gained=$1 WHERE id=$2', [glory, p.id]);
       }
     }

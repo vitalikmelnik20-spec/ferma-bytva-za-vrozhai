@@ -39,7 +39,10 @@ async function finalizeEvent(eventId, isKilled, killerPlayerId, io) {
       `UPDATE players SET greens=greens+$1, experience=experience+$2, hp=max_hp,
          dragon_battles=COALESCE(dragon_battles,0)+1,
          dragon_total_damage=COALESCE(dragon_total_damage,0)+$3,
-         dragon_greens_earned=COALESCE(dragon_greens_earned,0)+$1
+         dragon_greens_earned=COALESCE(dragon_greens_earned,0)+$1,
+         dragon_damage_day   = COALESCE(dragon_damage_day,0)   + $3,
+         dragon_damage_week  = COALESCE(dragon_damage_week,0)  + $3,
+         dragon_damage_total = COALESCE(dragon_damage_total,0) + $3
        WHERE id=$4`,
       [greens, exp, p.damage_dealt, p.player_id]
     );

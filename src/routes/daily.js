@@ -202,7 +202,12 @@ router.post('/claim', async (req, res) => {
       [q.rewardGreen || 0, q.rewardExp || 0, q.rewardGold || 0, req.session.playerId]
     );
     if ((q.rewardGlory || 0) > 0) {
-      await pool.query(`UPDATE players SET glory=glory+$1 WHERE id=$2`, [q.rewardGlory, req.session.playerId]);
+      await pool.query(
+        `UPDATE players SET glory=glory+$1,
+           glory_day=COALESCE(glory_day,0)+$1, glory_week=COALESCE(glory_week,0)+$1
+         WHERE id=$2`,
+        [q.rewardGlory, req.session.playerId]
+      );
     }
     // Random item bonus
     const { rows: [rndItem] } = await pool.query(
@@ -298,7 +303,9 @@ router.post('/tournament/claim', async (req, res) => {
     else if (wins >= 3) { rewardGreen = 200; rank = '2–3 місце'; }
 
     await pool.query(
-      `UPDATE players SET greens=greens+$1, glory=glory+$2 WHERE id=$3`,
+      `UPDATE players SET greens=greens+$1, glory=glory+$2,
+         glory_day=COALESCE(glory_day,0)+$2, glory_week=COALESCE(glory_week,0)+$2
+       WHERE id=$3`,
       [rewardGreen, rewardGlory, req.session.playerId]
     );
     await pool.query(`UPDATE daily_event_progress SET reward_claimed=true WHERE id=$1`, [prog.id]);
