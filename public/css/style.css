@@ -583,6 +583,42 @@ h1,h2,h3,.logo-text { font-family: 'Russo One', sans-serif; }
 .plot-card.ready.frame-orange { border-color: #ff9800; }
 .plot-card.ready.frame-gold   { border-color: #ffc107; }
 
+/* ─── TOOLS TAB ─────────────────────────────────────────── */
+.tool-card {
+  background: linear-gradient(160deg, #fffde7, #fff8d0);
+  border: 2px solid #c8a04a;
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+}
+.tool-card.active {
+  border-color: #4caf50;
+  background: linear-gradient(160deg, #f1f8e9, #dcedc8);
+  box-shadow: 0 3px 10px rgba(76,175,80,0.2);
+}
+.tool-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+}
+.tool-name { font-weight: 700; font-size: 15px; }
+.tool-status { font-size: 12px; padding: 2px 8px; border-radius: 20px; }
+.tool-status.active   { background: rgba(76,175,80,0.15); color: #2e7d32; }
+.tool-status.inactive { background: rgba(158,158,158,0.15); color: #616161; }
+.tool-desc { font-size: 12px; color: var(--text-light); margin-bottom: 8px; }
+.tool-configure {
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.5); border-radius: 8px;
+  padding: 6px 10px; margin-bottom: 8px; gap: 8px;
+}
+.tool-stats {
+  font-size: 12px; color: var(--text-light);
+  margin-bottom: 8px; padding: 6px 0;
+  border-top: 1px solid rgba(200,160,74,0.25);
+}
+.tool-rent-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.tool-rent-btns .btn { font-size: 12px; padding: 6px 10px; }
+
 /* ─── BATTLE ─────────────────────────────────────────────── */
 .opponent-card {
   background: linear-gradient(160deg, #fffde7, #fff3c0);

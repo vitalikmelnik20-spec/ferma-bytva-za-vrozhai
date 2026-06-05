@@ -91,14 +91,27 @@
 
     <!-- GARDEN -->
     <section class="page" id="page-garden">
-      <div class="panel mb-12">
-        <div class="panel-header flex-between">
-          <img src="/icons/menu/garden.png" width="16" height="16" style="vertical-align:middle" alt="garden"> Город
-          <button class="btn btn-green btn-sm" onclick="buyPlot()">+ Грядка</button>
+      <div class="category-tabs mb-12">
+        <button class="cat-tab active" id="gtab-plots"   onclick="gardenTab('plots')">🌱 Грядки</button>
+        <button class="cat-tab"        id="gtab-tools"   onclick="gardenTab('tools')">🔧 Інструменти</button>
+      </div>
+
+      <!-- Грядки -->
+      <div id="garden-plots-tab">
+        <div class="panel mb-12">
+          <div class="panel-header flex-between">
+            <img src="/icons/menu/garden.png" width="16" height="16" style="vertical-align:middle" alt="garden"> Город
+            <button class="btn btn-green btn-sm" onclick="buyPlot()">+ Грядка</button>
+          </div>
+          <div class="panel-body">
+            <div class="plots-grid" id="plots-grid"></div>
+          </div>
         </div>
-        <div class="panel-body">
-          <div class="plots-grid" id="plots-grid"></div>
-        </div>
+      </div>
+
+      <!-- Інструменти -->
+      <div id="garden-tools-tab" style="display:none">
+        <div id="tools-list"></div>
       </div>
     </section>
 
@@ -778,6 +791,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/api.js?v=6"></script>
-<script src="/js/app.js?v=6"></script>
+<script src="/js/app.js?v=7"></script>
 </body>
 </html>

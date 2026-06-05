@@ -102,13 +102,18 @@ router.post('/:plotId/plant', async (req, res) => {
     if (!plant) return res.status(404).json({ error: 'Рослину не знайдено' });
 
     const { rows: [player] } = await pool.query(
-      'SELECT greens, level FROM players WHERE id=$1',
+      'SELECT greens, gold, level FROM players WHERE id=$1',
       [req.session.playerId]
     );
     if (player.level < plant.min_level)
       return res.status(400).json({ error: `Потрібен рівень ${plant.min_level}` });
-    if (player.greens < plant.seed_price)
-      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${plant.seed_price}` });
+    if (plant.is_boss && plant.gold_price) {
+      if (player.gold < plant.gold_price)
+        return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${plant.gold_price} 🥇` });
+    } else {
+      if (player.greens < plant.seed_price)
+        return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${plant.seed_price}` });
+    }
 
     const { rows: [farmerTali] } = await pool.query(
       `SELECT tu.bonus_pct FROM talisman_upgrades tu
@@ -119,7 +124,11 @@ router.post('/:plotId/plant', async (req, res) => {
     );
     const farmerReduction = Math.max(0, farmerTali ? farmerTali.bonus_pct : 0);
     const growthMinutes = Math.ceil(plant.growth_minutes * (1 - farmerReduction / 100));
-    await pool.query('UPDATE players SET greens = greens - $1, plants_planted = plants_planted + 1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
+    if (plant.is_boss && plant.gold_price) {
+      await pool.query('UPDATE players SET gold=gold-$1, plants_planted=plants_planted+1 WHERE id=$2', [plant.gold_price, req.session.playerId]);
+    } else {
+      await pool.query('UPDATE players SET greens=greens-$1, plants_planted=plants_planted+1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
+    }
     updateClanTask(req.session.playerId, 'plant_seeds', 1);
     const { rows: [updated] } = await pool.query(
       `UPDATE plots SET plant_id=$1, planted_at=NOW(),

@@ -59,6 +59,7 @@ app.use('/api/greenhouse',   require('./src/routes/greenhouse'));
 app.use('/api/bank',         require('./src/routes/bank'));
 app.use('/api/events',       require('./src/routes/events'));
 app.use('/api/clan-war',     require('./src/routes/clanWar'));
+app.use('/api/tools',        require('./src/routes/tools'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -391,6 +392,155 @@ setInterval(async () => {
       console.log('[v3 watering] Columns ready');
     } catch (err) { console.error('[v3 watering migration]', err.message); }
   })();
+
+  // boss plants gold_price
+  (async () => {
+    try {
+      const { rows: [col] } = await pool.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_name='plants' AND column_name='gold_price'`
+      );
+      if (col) return;
+      await pool.query(`ALTER TABLE plants ADD COLUMN IF NOT EXISTS gold_price INTEGER`);
+      await pool.query(`UPDATE plants SET gold_price = min_level * 2 WHERE is_boss = true`);
+      console.log('[v3 plants] Boss gold prices set');
+    } catch (err) { console.error('[boss gold_price migration]', err.message); }
+  })();
+
+  // player_tools table
+  (async () => {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS player_tools (
+          id             SERIAL PRIMARY KEY,
+          player_id      INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          tool_type      VARCHAR(20) NOT NULL CHECK (tool_type IN ('waterer','planter','harvester')),
+          expires_at     TIMESTAMP NOT NULL DEFAULT NOW(),
+          auto_plant_id  INTEGER REFERENCES plants(id) ON DELETE SET NULL,
+          total_actions  INTEGER NOT NULL DEFAULT 0,
+          total_greens   BIGINT  NOT NULL DEFAULT 0,
+          UNIQUE(player_id, tool_type)
+        )
+      `);
+      console.log('[tools] Table ready');
+    } catch (err) { console.error('[tools table]', err.message); }
+  })();
+
+  // Auto-tools cron (every 2 min)
+  setInterval(async () => {
+    try {
+      // ── Auto-waterer ──────────────────────────────────────
+      const { rows: watererPlayers } = await pool.query(
+        `SELECT DISTINCT player_id FROM player_tools WHERE tool_type='waterer' AND expires_at > NOW()`
+      );
+      for (const { player_id } of watererPlayers) {
+        const { rows: plots } = await pool.query(
+          `SELECT id FROM plots
+           WHERE player_id=$1 AND status='growing'
+             AND COALESCE(water_count,0) < 3 AND planted_seconds > 0
+             AND EXTRACT(EPOCH FROM (NOW()-planted_at)) >= planted_seconds*(COALESCE(water_count,0)+1)*0.3`,
+          [player_id]
+        );
+        for (const { id } of plots) {
+          await pool.query(
+            `UPDATE plots SET water_count=water_count+1, watered=true,
+               ready_at=NOW()+(ready_at-NOW())*0.85 WHERE id=$1`, [id]
+          );
+          await pool.query(
+            `UPDATE player_tools SET total_actions=total_actions+1
+             WHERE player_id=$1 AND tool_type='waterer'`, [player_id]
+          );
+        }
+      }
+
+      // ── Auto-planter ──────────────────────────────────────
+      const { rows: planterRows } = await pool.query(
+        `SELECT pt.player_id, pt.auto_plant_id, p.growth_minutes, p.seed_price, p.min_level, p.is_boss
+         FROM player_tools pt JOIN plants p ON p.id=pt.auto_plant_id
+         WHERE pt.tool_type='planter' AND pt.expires_at > NOW() AND pt.auto_plant_id IS NOT NULL`
+      );
+      for (const row of planterRows) {
+        const { rows: emptyPlots } = await pool.query(
+          `SELECT id FROM plots WHERE player_id=$1 AND status='empty'`, [row.player_id]
+        );
+        if (!emptyPlots.length) continue;
+        const { rows: [pl] } = await pool.query(
+          `SELECT greens, level FROM players WHERE id=$1`, [row.player_id]
+        );
+        if (pl.level < row.min_level || row.is_boss) continue;
+        for (const { id } of emptyPlots) {
+          const { rows: [cur] } = await pool.query(`SELECT greens FROM players WHERE id=$1`, [row.player_id]);
+          if (cur.greens < row.seed_price) break;
+          await pool.query(
+            `UPDATE players SET greens=greens-$1, plants_planted=plants_planted+1 WHERE id=$2`,
+            [row.seed_price, row.player_id]
+          );
+          await pool.query(
+            `UPDATE plots SET plant_id=$1, planted_at=NOW(),
+               ready_at=NOW()+($2*INTERVAL '1 minute'),
+               status='growing', water_count=0, planted_seconds=$3, watered=false, watered_by=NULL
+             WHERE id=$4`,
+            [row.auto_plant_id, row.growth_minutes, row.growth_minutes * 60, id]
+          );
+          await pool.query(
+            `UPDATE player_tools SET total_actions=total_actions+1
+             WHERE player_id=$1 AND tool_type='planter'`, [row.player_id]
+          );
+        }
+      }
+
+      // ── Auto-harvester ────────────────────────────────────
+      const { rows: harvesterPlayers } = await pool.query(
+        `SELECT DISTINCT player_id FROM player_tools WHERE tool_type='harvester' AND expires_at > NOW()`
+      );
+      for (const { player_id } of harvesterPlayers) {
+        await pool.query(
+          `UPDATE plots SET status='ready' WHERE player_id=$1 AND status='growing' AND ready_at<=NOW()`,
+          [player_id]
+        );
+        const { rows: readyPlots } = await pool.query(
+          `SELECT pl.id, p.greens_reward, p.exp_reward, p.name as pname
+           FROM plots pl JOIN plants p ON p.id=pl.plant_id
+           WHERE pl.player_id=$1 AND pl.status='ready'`,
+          [player_id]
+        );
+        if (!readyPlots.length) continue;
+        const { rows: [ply] } = await pool.query(
+          `SELECT level, experience, exp_to_next FROM players WHERE id=$1`, [player_id]
+        );
+        let totalGreens = 0, newExp = ply.experience, newLevel = ply.level, newExpToNext = ply.exp_to_next;
+        for (const plot of readyPlots) {
+          totalGreens += plot.greens_reward;
+          newExp += plot.exp_reward;
+          while (newExp >= newExpToNext) {
+            newExp -= newExpToNext;
+            newLevel++;
+            newExpToNext = Math.floor(newExpToNext * 1.5);
+          }
+          await pool.query(
+            `UPDATE plots SET plant_id=NULL, planted_at=NULL, ready_at=NULL,
+               status='empty', water_count=0, planted_seconds=NULL, watered=false, watered_by=NULL
+             WHERE id=$1`, [plot.id]
+          );
+          await pool.query(
+            `INSERT INTO player_ingredients (player_id, ingredient_name, quantity) VALUES ($1,$2,1)
+             ON CONFLICT (player_id, ingredient_name)
+             DO UPDATE SET quantity=player_ingredients.quantity+1`,
+            [player_id, plot.pname]
+          );
+        }
+        await pool.query(
+          `UPDATE players SET greens=greens+$1, total_harvest=total_harvest+$1,
+             experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5 WHERE id=$6`,
+          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, player_id]
+        );
+        await pool.query(
+          `UPDATE player_tools SET total_actions=total_actions+$1, total_greens=total_greens+$2
+           WHERE player_id=$3 AND tool_type='harvester'`,
+          [readyPlots.length, totalGreens, player_id]
+        );
+      }
+    } catch (err) { console.error('[AutoTools cron]', err.message); }
+  }, 2 * 60 * 1000);
 
   setInterval(async () => {
     try {

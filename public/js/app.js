@@ -265,7 +265,7 @@ function navigate(page) {
   if (el) el.classList.add('active');
 
   // Load data for page
-  if (page === 'garden')     loadGarden();
+  if (page === 'garden')     { gardenTab('plots'); loadGarden(); }
   if (page === 'battle')     loadOpponents();
   if (page === 'market')     loadMarket();
   if (page === 'village')    loadVillage();
@@ -364,6 +364,111 @@ async function loadGarden() {
   try {
     gardenData = await API.get('/api/garden');
     renderPlots();
+  } catch (e) { toast(e.message, true); }
+}
+
+function gardenTab(tab) {
+  document.getElementById('garden-plots-tab').style.display = tab === 'plots' ? '' : 'none';
+  document.getElementById('garden-tools-tab').style.display = tab === 'tools' ? '' : 'none';
+  document.getElementById('gtab-plots').classList.toggle('active', tab === 'plots');
+  document.getElementById('gtab-tools').classList.toggle('active', tab === 'tools');
+  if (tab === 'tools') loadTools();
+}
+
+async function loadTools() {
+  try {
+    const { tools } = await API.get('/api/tools');
+    renderTools(tools);
+  } catch (e) { toast(e.message, true); }
+}
+
+function renderTools(tools) {
+  const RENT_OPTS = [
+    { days: 1,  label: '1 день',   cost: 100  },
+    { days: 7,  label: '7 днів',   cost: 700  },
+    { days: 30, label: '30 днів',  cost: 3000 },
+  ];
+  const el = document.getElementById('tools-list');
+  el.innerHTML = tools.map(t => {
+    const expiryStr = t.active && t.expires_at
+      ? `до ${kyivTime(t.expires_at)}`
+      : 'Не активний';
+    const rentBtns = RENT_OPTS.map(o =>
+      `<button class="btn btn-orange btn-sm" onclick="rentTool('${t.tool_type}',${o.days})">
+         ${o.label} — ${IC.gold(13)}${fmtNum(o.cost)}
+       </button>`
+    ).join('');
+
+    const statsHtml = t.tool_type === 'harvester'
+      ? `${IC.greens(13)} Зароблено: <b>${fmtNum(t.total_greens)}</b> | Зібрано: <b>${fmtNum(t.total_actions)}</b>`
+      : t.tool_type === 'planter'
+      ? `Посаджено: <b>${fmtNum(t.total_actions)}</b>`
+      : `Полито: <b>${fmtNum(t.total_actions)}</b>`;
+
+    const configurerHtml = t.tool_type === 'planter' && t.active ? `
+      <div class="tool-configure">
+        <span style="font-size:12px">Рослина: <b>${t.auto_plant_emoji || ''} ${t.auto_plant_name || 'не вибрано'}</b></span>
+        <button class="btn btn-blue btn-sm" onclick="openPlanterConfig()">Вибрати</button>
+      </div>` : '';
+
+    return `
+      <div class="tool-card${t.active ? ' active' : ''}">
+        <div class="tool-card-header">
+          <span class="tool-name">${t.icon} ${t.label}</span>
+          <span class="tool-status ${t.active ? 'active' : 'inactive'}">${t.active ? '✅ ' : '❌ '}${expiryStr}</span>
+        </div>
+        <div class="tool-desc">${t.desc}</div>
+        ${configurerHtml}
+        <div class="tool-stats">${statsHtml}</div>
+        <div class="tool-rent-btns">${rentBtns}</div>
+      </div>`;
+  }).join('');
+}
+
+async function rentTool(toolType, days) {
+  try {
+    const cost = days * 100;
+    const r = await API.post('/api/tools/rent', { toolType, days });
+    toast(`🔧 Орендовано на ${days} ${days===1?'день':'днів'} за ${IC.gold(13)}${cost}`);
+    loadTools();
+    refreshPlayer();
+  } catch (e) { toast(e.message, true); }
+}
+
+function openPlanterConfig() {
+  if (!gardenData?.plants?.length) { toast('Немає доступних рослин', true); return; }
+  // reuse plant modal but for planter config
+  window._planterConfigMode = true;
+  window._currentPlotId = null;
+  const list = document.getElementById('plant-list');
+  const avail = gardenData.plants.filter(p => !p.is_boss);
+  const byTier = {};
+  avail.forEach(p => { const k=p.frame_color||'gray'; if(!byTier[k])byTier[k]=[]; byTier[k].push(p); });
+  let html = '';
+  for (const tier of _PLANT_TIERS) {
+    const plants = byTier[tier.key];
+    if (!plants?.length) continue;
+    html += `<div class="plant-tier-header">${tier.icon} ${tier.label}<span class="tier-range">рів. ${tier.range}</span></div>`;
+    html += plants.map(p => `
+      <div class="plant-item frame-${p.frame_color||'gray'}" onclick="selectPlanterPlant(${p.id})">
+        <span class="plant-emoji-big">${p.emoji||'🌱'}</span>
+        <div class="plant-info">
+          <div class="plant-info-name">${p.name}</div>
+          <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes*60)} | ${IC.greens(13)} ${fmtNum(p.seed_price)}</div>
+        </div>
+      </div>`).join('');
+  }
+  list.innerHTML = html;
+  document.getElementById('plant-modal').style.display = 'flex';
+}
+
+async function selectPlanterPlant(plantId) {
+  try {
+    const r = await API.post('/api/tools/configure', { plantId });
+    toast(`🌱 Автосаджалка: ${r.plant.emoji} ${r.plant.name}`);
+    closePlantModal();
+    window._planterConfigMode = false;
+    loadTools();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -482,7 +587,7 @@ function openPlantModal(plotId) {
           <div class="plant-info-name">${p.name}${p.is_boss ? ' <span class="boss-star">⭐</span>' : ''}</div>
           <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${fmtNum(p.greens_reward)} | ${IC.exp(13)} +${p.exp_reward}</div>
         </div>
-        <div class="plant-price">${IC.greens(13)} ${fmtNum(p.seed_price)}</div>
+        <div class="plant-price">${p.is_boss && p.gold_price ? `${IC.gold(13)} ${fmtNum(p.gold_price)}` : `${IC.greens(13)} ${fmtNum(p.seed_price)}`}</div>
       </div>`).join('');
   }
 
@@ -497,6 +602,7 @@ function closePlantModal(e) {
 }
 
 async function plantSeed(plantId) {
+  if (window._planterConfigMode) { selectPlanterPlant(plantId); return; }
   closePlantModal();
   try {
     await API.post(`/api/garden/${window._currentPlotId}/plant`, { plantId });
