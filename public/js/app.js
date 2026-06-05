@@ -2475,7 +2475,7 @@ function _renderRatingClans(r) {
     return;
   }
   document.getElementById('rating-list').innerHTML = r.list.map(c => `
-    <div class="rating-row${c.clanId === r.myClanId ? ' my-clan' : ''}">
+    <div class="rating-row${c.clanId === r.myClanId ? ' my-clan' : ''}" style="cursor:pointer" onclick="viewClan(${c.clanId},'rating')">
       <span class="rating-pos">#${c.rank}</span>
       <span class="rating-avatar" style="font-size:22px">${c.faction === 'elves' ? '🧝' : '👹'}</span>
       <div class="rating-info">
@@ -3361,6 +3361,55 @@ async function viewProfile(id) {
     _loadPubProfilePet(id);
     _loadPubProfileWarStats(id);
   } catch (e) { toast(e.message, true); }
+}
+
+async function viewClan(id, backTo) {
+  navigate('pubclan');
+  const backBtn = document.getElementById('pubclan-back-btn');
+  if (backBtn) backBtn.onclick = () => navigate(backTo || 'rating');
+  const el = document.getElementById('pubclan-content');
+  el.innerHTML = '<p class="text-muted text-center">Завантаження...</p>';
+  try {
+    const r = await API.get(`/api/clans/${id}`);
+    const c = r.clan;
+    const members = r.members || [];
+    const buildings = r.buildings || [];
+    const leader = members.find(m => m.role === 'leader');
+
+    const memberRows = members.map(m => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border)">
+        <span style="font-size:20px">${playerAvatar(m.faction, 'male')}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;cursor:pointer;color:var(--orange);text-decoration:underline dotted" onclick="viewProfile(${m.id})">${m.username}</div>
+          <div style="font-size:11px;color:var(--text-light)">${roleName(m.role)} · Рів.${m.level}</div>
+        </div>
+        <span style="font-size:12px;color:var(--text-light)">${IC.glory(12)} ${fmtNum(m.glory)}</span>
+      </div>`).join('');
+
+    const buildingRows = Object.entries(BUILDING_LABELS).map(([key, info]) => {
+      const b = buildings.find(b => b.building_key === key) || { level: 0 };
+      const maxLvl = (BUILDING_COSTS[key] || []).length;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 12px;border-bottom:1px solid var(--border);font-size:13px">
+        <span>${info.name}</span>
+        <span class="text-muted">Рів.${b.level}/${maxLvl}</span>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="padding:12px;text-align:center">
+        <div style="font-size:22px;font-weight:700;color:var(--orange)">[${c.tag}] ${c.name}</div>
+        <div style="font-size:13px;color:var(--text-light);margin-top:4px">${factionLabel(c.faction)} · ${IC.friends(13)} ${members.length} членів</div>
+        ${c.description ? `<div style="font-size:13px;margin-top:8px;color:var(--text)">${c.description}</div>` : ''}
+      </div>
+      <div class="panel mb-12">
+        <div class="panel-header">${IC.profile(14)} Учасники</div>
+        ${memberRows || '<p class="text-muted" style="padding:8px">Немає учасників</p>'}
+      </div>
+      <div class="panel mb-12">
+        <div class="panel-header">🏗 Будівлі</div>
+        ${buildingRows}
+      </div>`;
+  } catch (e) { el.innerHTML = `<p class="text-muted text-center">${e.message}</p>`; }
 }
 
 async function _loadPubProfilePet(playerId) {

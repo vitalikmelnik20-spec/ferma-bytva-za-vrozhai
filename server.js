@@ -104,7 +104,7 @@ const scheduleDailyReset = (io) => {
       const DAILY_TABS = [
         { key: 'glory',   field: 'glory_day',          label: 'Слава' },
         { key: 'battles', field: 'wins_day',            label: 'Бої' },
-        { key: 'garden',  field: 'green_day',           label: 'Огород' },
+        { key: 'garden',  field: 'green_day',           label: 'Город' },
         { key: 'caves',   field: 'gold_mined_day',      label: 'Печери' },
         { key: 'dragon',  field: 'dragon_damage_day',   label: 'Дракон' },
         { key: 'level',   field: 'exp_day',             label: 'Рівень' },
@@ -776,8 +776,13 @@ setInterval(async () => {
         await pool.query(
           `UPDATE players SET greens=greens+$1, total_harvest=total_harvest+$1,
              experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5,
-             exp_day=COALESCE(exp_day,0)+$6, exp_week=COALESCE(exp_week,0)+$6 WHERE id=$7`,
-          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, totalExp, player_id]
+             exp_day   = COALESCE(exp_day,0)   + $6,
+             exp_week  = COALESCE(exp_week,0)  + $6,
+             green_day   = COALESCE(green_day,0)   + $8,
+             green_week  = COALESCE(green_week,0)  + $8,
+             green_total = COALESCE(green_total,0) + $8
+           WHERE id=$7`,
+          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, totalExp, player_id, totalGreens]
         );
         await pool.query(
           `UPDATE player_tools SET total_actions=total_actions+$1, total_greens=total_greens+$2

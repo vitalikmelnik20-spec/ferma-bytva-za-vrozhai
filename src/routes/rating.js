@@ -6,7 +6,7 @@ const TABS = {
   glory:   { label: 'Слава',  icon: '/icons/res/glory.png',         fields: { all: 'glory',               day: 'glory_day',         week: 'glory_week'          } },
   level:   { label: 'Рівень', icon: '/icons/stats/level.svg',       fields: { all: 'level',               day: 'exp_day',           week: 'exp_week'            }, extra: 'experience DESC' },
   battles: { label: 'Бої',    icon: '/icons/ui/crossed-swords.svg', fields: { all: 'wins',                day: 'wins_day',          week: 'wins_week'           } },
-  garden:  { label: 'Огород', icon: '/icons/ui/plant.svg',          fields: { all: 'green_total',         day: 'green_day',         week: 'green_week'          } },
+  garden:  { label: 'Город',  icon: '/icons/ui/plant.svg',          fields: { all: 'green_total',         day: 'green_day',         week: 'green_week'          } },
   caves:   { label: 'Печери', icon: '/icons/ui/pickaxe.svg',        fields: { all: 'gold_mined_total',    day: 'gold_mined_day',    week: 'gold_mined_week'     } },
   dragon:  { label: 'Дракон', icon: '/icons/pets/dragon.svg',       fields: { all: 'dragon_damage_total', day: 'dragon_damage_day', week: 'dragon_damage_week'  } },
 };

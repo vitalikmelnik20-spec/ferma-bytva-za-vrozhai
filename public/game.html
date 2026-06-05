@@ -351,7 +351,7 @@
           <button class="rtab active" data-tab="glory"   onclick="ratingTab('glory',this)"><img src="/icons/res/glory.png" width="14" height="14" style="vertical-align:middle"> Слава</button>
           <button class="rtab"       data-tab="level"   onclick="ratingTab('level',this)"><img src="/icons/stats/level.svg" width="14" height="14" style="vertical-align:middle"> Рівень</button>
           <button class="rtab"       data-tab="battles" onclick="ratingTab('battles',this)"><img src="/icons/ui/crossed-swords.svg" width="14" height="14" style="vertical-align:middle"> Бої</button>
-          <button class="rtab"       data-tab="garden"  onclick="ratingTab('garden',this)"><img src="/icons/ui/plant.svg" width="14" height="14" style="vertical-align:middle"> Огород</button>
+          <button class="rtab"       data-tab="garden"  onclick="ratingTab('garden',this)"><img src="/icons/ui/plant.svg" width="14" height="14" style="vertical-align:middle"> Город</button>
           <button class="rtab"       data-tab="caves"   onclick="ratingTab('caves',this)"><img src="/icons/ui/pickaxe.svg" width="14" height="14" style="vertical-align:middle"> Печери</button>
           <button class="rtab"       data-tab="dragon"  onclick="ratingTab('dragon',this)"><img src="/icons/pets/dragon.svg" width="14" height="14" style="vertical-align:middle"> Дракон</button>
           <button class="rtab"       data-tab="clans"   onclick="ratingTab('clans',this)"><img src="/icons/ui/village.svg" width="14" height="14" style="vertical-align:middle"> Клани</button>
@@ -400,6 +400,19 @@
       </div>
       <div style="padding:8px">
         <button class="btn btn-gray btn-sm" onclick="navigate('clans')">← Назад</button>
+      </div>
+    </section>
+
+    <!-- PUBLIC CLAN VIEW -->
+    <section class="page" id="page-pubclan">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          <span><img src="/icons/menu/clans.png" width="16" height="16" style="vertical-align:middle"> Клан</span>
+          <button class="btn btn-gray btn-sm" id="pubclan-back-btn" onclick="navigate('rating')">← Назад</button>
+        </div>
+        <div class="panel-body" id="pubclan-content">
+          <p class="text-muted text-center">Завантаження...</p>
+        </div>
       </div>
     </section>
 
@@ -811,6 +824,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/api.js?v=6"></script>
-<script src="/js/app.js?v=14"></script>
+<script src="/js/app.js?v=15"></script>
 </body>
 </html>
