@@ -24,7 +24,7 @@ router.get('/', requireAuth, async (req, res) => {
     const extra  = TABS[tab].extra ? `, ${TABS[tab].extra}` : '';
 
     const { rows } = await pool.query(
-      `SELECT id, username, level, faction, gender, experience, wins, losses,
+      `SELECT id, username, level, faction, gender, experience, exp_to_next, wins, losses,
               glory, glory_day, glory_week,
               wins_day, wins_week,
               green_total, green_day, green_week,
@@ -41,25 +41,35 @@ router.get('/', requireAuth, async (req, res) => {
     let myRank = myIdx >= 0 ? myIdx + 1 : null;
     let myValue = myIdx >= 0 ? Number(rows[myIdx][field]) : 0;
     let myNick = '', myLevel = 1, myFaction = '', myGender = 'male';
+    let myExp = 0, myExpToNext = 100, myWins = 0, myLosses = 0;
 
     if (myIdx >= 0) {
-      myNick    = rows[myIdx].username;
-      myLevel   = rows[myIdx].level;
-      myFaction = rows[myIdx].faction;
-      myGender  = rows[myIdx].gender;
+      const me    = rows[myIdx];
+      myNick      = me.username;
+      myLevel     = me.level;
+      myFaction   = me.faction;
+      myGender    = me.gender;
+      myExp       = me.experience;
+      myExpToNext = me.exp_to_next;
+      myWins      = me.wins;
+      myLosses    = me.losses;
     } else {
       const { rows: [me] } = await pool.query(
-        `SELECT username, level, faction, gender, ${field},
+        `SELECT username, level, faction, gender, experience, exp_to_next, wins, losses, ${field},
            (SELECT COUNT(*)+1 FROM players WHERE ${field} > p.${field} AND is_banned=false) AS my_rank
          FROM players p WHERE id=$1`, [req.session.playerId]
       );
       if (me) {
-        myRank    = Number(me.my_rank);
-        myValue   = Number(me[field]);
-        myNick    = me.username;
-        myLevel   = me.level;
-        myFaction = me.faction;
-        myGender  = me.gender;
+        myRank      = Number(me.my_rank);
+        myValue     = Number(me[field]);
+        myNick      = me.username;
+        myLevel     = me.level;
+        myFaction   = me.faction;
+        myGender    = me.gender;
+        myExp       = me.experience;
+        myExpToNext = me.exp_to_next;
+        myWins      = me.wins;
+        myLosses    = me.losses;
       }
     }
 
@@ -81,6 +91,7 @@ router.get('/', requireAuth, async (req, res) => {
       faction:    r.faction,
       gender:     r.gender,
       experience: r.experience,
+      expToNext:  r.exp_to_next,
       wins:       r.wins,
       losses:     r.losses,
       value:      Number(r[field]),
@@ -92,6 +103,7 @@ router.get('/', requireAuth, async (req, res) => {
       tab, period,
       myRank, myValue, myPrevRank,
       myNick, myLevel, myFaction, myGender,
+      myExp, myExpToNext, myWins, myLosses,
       top3: list.slice(0, 3),
       list: list.slice(3),
     });
@@ -105,14 +117,16 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/clans', requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      `SELECT c.id, c.name, c.tag, c.rating_points,
+      `SELECT c.id, c.name, c.tag,
               lp.faction,
-              COUNT(cm.player_id) AS member_count
+              COUNT(cm.player_id)  AS member_count,
+              COALESCE(SUM(mp.glory), 0) AS clan_glory
        FROM clans c
        LEFT JOIN clan_members cm ON cm.clan_id = c.id
+       LEFT JOIN players mp ON mp.id = cm.player_id
        LEFT JOIN players lp ON lp.id = c.leader_id
        GROUP BY c.id, lp.faction
-       ORDER BY c.rating_points DESC
+       ORDER BY clan_glory DESC
        LIMIT 100`
     );
 
@@ -127,7 +141,7 @@ router.get('/clans', requireAuth, async (req, res) => {
       name:        r.name,
       tag:         r.tag,
       faction:     r.faction,
-      rating:      r.rating_points,
+      rating:      Number(r.clan_glory),
       memberCount: Number(r.member_count),
     }));
 

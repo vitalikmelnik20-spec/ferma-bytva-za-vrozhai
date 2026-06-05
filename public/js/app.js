@@ -2342,10 +2342,20 @@ function ratingPeriod(period, btn) {
   loadRating();
 }
 
-function _ratingValueLabel(tab, value) {
+// item is optional — pass for level/battles tabs to get extra detail
+function _ratingValueLabel(tab, value, item) {
   if (tab === 'glory')   return `${IC.glory(13)} ${fmtNum(value)}`;
-  if (tab === 'level')   return `Рів. ${value}`;
-  if (tab === 'battles') return `${IC.wins(13)} ${fmtNum(value)}`;
+  if (tab === 'level') {
+    const base = `Рів. ${value}`;
+    if (item?.expToNext) return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtNum(item.experience)} / ${fmtNum(item.expToNext)} XP</span>`;
+    return base;
+  }
+  if (tab === 'battles') {
+    const total = item ? (item.wins || 0) + (item.losses || 0) : 0;
+    return total
+      ? `${IC.wins(13)} ${fmtNum(item.wins)} <span style="font-size:10px;color:var(--text-light)">/ ${fmtNum(total)}</span>`
+      : `${IC.wins(13)} ${fmtNum(value)}`;
+  }
   if (tab === 'garden')  return `${IC.greens(13)} ${fmtNum(value)}`;
   if (tab === 'caves')   return `${IC.gold(13)} ${fmtNum(value)}`;
   if (tab === 'dragon')  return `${IC.hit(13)} ${fmtNum(value)}`;
@@ -2408,7 +2418,7 @@ function _renderRatingTop3(top3, tab) {
       <div class="rating-top-nick ${p.faction}">${p.nick}</div>
       <div class="rating-top-lvl">Рів.${p.level}</div>
       ${_factionLabel(p.faction)}
-      <div class="rating-top-val">${_ratingValueLabel(tab, p.value)}</div>
+      <div class="rating-top-val">${_ratingValueLabel(tab, p.value, p)}</div>
       ${p.title ? `<div class="rating-title-badge">${p.title}</div>` : ''}
     </div>`;
   }).join('')}</div>`;
@@ -2425,7 +2435,7 @@ function _renderRatingList(list, tab) {
         <div class="rating-name ${p.faction}">${p.nick}${p.title ? ` <span class="rating-title-inline">${p.title}</span>` : ''}</div>
         <div class="rating-sub">Рів.${p.level} · ${_factionLabel(p.faction)}</div>
       </div>
-      <span class="rating-pts">${_ratingValueLabel(tab, p.value)}</span>
+      <span class="rating-pts">${_ratingValueLabel(tab, p.value, p)}</span>
     </div>`).join('');
 }
 
@@ -2434,6 +2444,7 @@ function _renderRatingMyPos(r, tab) {
   if (!r.myRank) { el.style.display = 'none'; return; }
   el.style.display = 'flex';
   const arrow = _rankArrow(r.myRank, r.myPrevRank);
+  const myItem = { experience: r.myExp, expToNext: r.myExpToNext, wins: r.myWins, losses: r.myLosses };
   el.innerHTML = `
     <span class="rating-pos" style="color:var(--orange)">#${r.myRank}</span>
     <span class="rating-avatar">${_avatarIcon(r.myFaction, r.myGender, 22)}</span>
@@ -2442,7 +2453,7 @@ function _renderRatingMyPos(r, tab) {
       <div class="rating-sub">Рів.${r.myLevel} · ${_factionLabel(r.myFaction)}</div>
     </div>
     ${arrow}
-    <span class="rating-pts">${_ratingValueLabel(tab, r.myValue)}</span>`;
+    <span class="rating-pts">${_ratingValueLabel(tab, r.myValue, myItem)}</span>`;
 }
 
 function _renderRatingClans(r) {
