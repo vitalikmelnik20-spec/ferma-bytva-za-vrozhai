@@ -342,10 +342,12 @@ router.post('/:plotId/harvest', async (req, res) => {
            total_harvest = total_harvest + $7,
            green_day     = COALESCE(green_day,0)   + $7,
            green_week    = COALESCE(green_week,0)  + $7,
-           green_total   = COALESCE(green_total,0) + $7
+           green_total   = COALESCE(green_total,0) + $7,
+           exp_day       = COALESCE(exp_day,0)     + $9,
+           exp_week      = COALESCE(exp_week,0)    + $9
        WHERE id = $8`,
       [greensEarned + levelReward, goldReward, newExp, newExpToNext, newLevel,
-       hpBonus, greensEarned, req.session.playerId]
+       hpBonus, greensEarned, req.session.playerId, expEarned]
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
     const { updateDailyQuestProgress } = require('./daily');

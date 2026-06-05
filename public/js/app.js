@@ -2346,6 +2346,9 @@ function ratingPeriod(period, btn) {
 function _ratingValueLabel(tab, value, item) {
   if (tab === 'glory')   return `${IC.glory(13)} ${fmtNum(value)}`;
   if (tab === 'level') {
+    if (_ratingPeriod === 'day' || _ratingPeriod === 'week') {
+      return `+${fmtNum(value)} XP`;
+    }
     const base = `Рів. ${value}`;
     if (item?.expToNext) return `${base} <span style="font-size:10px;color:var(--text-light)">${fmtNum(item.experience)} / ${fmtNum(item.expToNext)} XP</span>`;
     return base;

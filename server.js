@@ -107,6 +107,7 @@ const scheduleDailyReset = (io) => {
         { key: 'garden',  field: 'green_day',           label: 'Огород' },
         { key: 'caves',   field: 'gold_mined_day',      label: 'Печери' },
         { key: 'dragon',  field: 'dragon_damage_day',   label: 'Дракон' },
+        { key: 'level',   field: 'exp_day',             label: 'Рівень' },
       ];
       const DAILY_REWARDS = [
         { rank: 1, gold: 100, green: 5000 },
@@ -133,6 +134,11 @@ const scheduleDailyReset = (io) => {
             await pool.query(
               `UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`,
               [rew.gold, rew.green, p.id]
+            );
+            await pool.query(
+              `INSERT INTO reward_log (player_id,rating_type,period_type,rank,reward_gold,reward_green,period_date)
+               VALUES ($1,$2,'day',$3,$4,$5,CURRENT_DATE-1)`,
+              [p.id, tab.key, rank, rew.gold, rew.green]
             );
             await writeEvent(p.id, {
               event_type: 'daily_rating_result',
@@ -170,7 +176,7 @@ const scheduleDailyReset = (io) => {
         }
       }
       // Reset daily counters
-      await pool.query(`UPDATE players SET glory_day=0, wins_day=0, green_day=0, gold_mined_day=0, dragon_damage_day=0`);
+      await pool.query(`UPDATE players SET glory_day=0, wins_day=0, green_day=0, gold_mined_day=0, dragon_damage_day=0, exp_day=0`);
       console.log('[Rating] Daily reset + awards done');
 
       // Weekly awards (Monday only)
@@ -190,6 +196,16 @@ const scheduleDailyReset = (io) => {
             const rank = i + 1;
             const rew = WEEKLY_REWARDS[i];
             await pool.query(`UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`, [rew.gold, rew.green, p.id]);
+            await pool.query(
+              `INSERT INTO reward_log (player_id,rating_type,period_type,rank,reward_gold,reward_green,period_date)
+               VALUES ($1,$2,'week',$3,$4,$5,CURRENT_DATE-1)`,
+              [p.id, tab.key, rank, rew.gold, rew.green]
+            );
+            await pool.query(
+              `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,period_date)
+               VALUES ($1,$2,'week',$3,$4,$5,$6,CURRENT_DATE-1)`,
+              [p.id, tab.key, rank, p.val, rew.gold, rew.green]
+            );
             await writeEvent(p.id, {
               event_type: 'weekly_rating_result',
               title: rank===1?`👑 №1 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
@@ -200,7 +216,7 @@ const scheduleDailyReset = (io) => {
             }, io);
           }
         }
-        await pool.query(`UPDATE players SET glory_week=0, wins_week=0, green_week=0, gold_mined_week=0, dragon_damage_week=0`);
+        await pool.query(`UPDATE players SET glory_week=0, wins_week=0, green_week=0, gold_mined_week=0, dragon_damage_week=0, exp_week=0`);
         console.log('[Rating] Weekly reset + awards done');
       }
     } catch (err) { console.error('[Rating cron]', err.message); }
@@ -614,9 +630,10 @@ setInterval(async () => {
         const { rows: [ply] } = await pool.query(
           `SELECT level, experience, exp_to_next FROM players WHERE id=$1`, [player_id]
         );
-        let totalGreens = 0, newExp = ply.experience, newLevel = ply.level, newExpToNext = ply.exp_to_next;
+        let totalGreens = 0, totalExp = 0, newExp = ply.experience, newLevel = ply.level, newExpToNext = ply.exp_to_next;
         for (const plot of readyPlots) {
           totalGreens += plot.greens_reward;
+          totalExp    += plot.exp_reward;
           newExp += plot.exp_reward;
           while (newExp >= newExpToNext) {
             newExp -= newExpToNext;
@@ -637,8 +654,9 @@ setInterval(async () => {
         }
         await pool.query(
           `UPDATE players SET greens=greens+$1, total_harvest=total_harvest+$1,
-             experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5 WHERE id=$6`,
-          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, player_id]
+             experience=$2, exp_to_next=$3, level=$4, max_hp=max_hp+$5,
+             exp_day=COALESCE(exp_day,0)+$6, exp_week=COALESCE(exp_week,0)+$6 WHERE id=$7`,
+          [totalGreens, newExp, newExpToNext, newLevel, (newLevel-ply.level)*100, totalExp, player_id]
         );
         await pool.query(
           `UPDATE player_tools SET total_actions=total_actions+$1, total_greens=total_greens+$2
@@ -865,27 +883,25 @@ setInterval(async () => {
 // Rating system migration
 (async () => {
   try {
-    const cols = [
-      'glory_day INTEGER DEFAULT 0',
-      'glory_week INTEGER DEFAULT 0',
-      'wins_day INTEGER DEFAULT 0',
-      'wins_week INTEGER DEFAULT 0',
-      'green_day BIGINT DEFAULT 0',
-      'green_week BIGINT DEFAULT 0',
+    const playerCols = [
+      'glory_day INTEGER DEFAULT 0',      'glory_week INTEGER DEFAULT 0',
+      'wins_day INTEGER DEFAULT 0',        'wins_week INTEGER DEFAULT 0',
+      'green_day BIGINT DEFAULT 0',        'green_week BIGINT DEFAULT 0',
       'green_total BIGINT DEFAULT 0',
-      'gold_mined_day INTEGER DEFAULT 0',
-      'gold_mined_week INTEGER DEFAULT 0',
+      'gold_mined_day INTEGER DEFAULT 0',  'gold_mined_week INTEGER DEFAULT 0',
       'gold_mined_total INTEGER DEFAULT 0',
-      'dragon_damage_day BIGINT DEFAULT 0',
-      'dragon_damage_week BIGINT DEFAULT 0',
+      'dragon_damage_day BIGINT DEFAULT 0','dragon_damage_week BIGINT DEFAULT 0',
       'dragon_damage_total BIGINT DEFAULT 0',
-      'active_title VARCHAR(100)',
-      'title_expires_at TIMESTAMP',
+      'exp_day BIGINT DEFAULT 0',          'exp_week BIGINT DEFAULT 0',
+      'active_title VARCHAR(100)',          'title_expires_at TIMESTAMP',
     ];
-    for (const col of cols) {
-      const name = col.split(' ')[0];
+    for (const col of playerCols) {
       try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
     }
+    // player_tools: add auto_plant_name/emoji if missing
+    try { await pool.query(`ALTER TABLE player_tools ADD COLUMN IF NOT EXISTS auto_plant_name VARCHAR`);  } catch(e) {}
+    try { await pool.query(`ALTER TABLE player_tools ADD COLUMN IF NOT EXISTS auto_plant_emoji VARCHAR`); } catch(e) {}
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS rating_snapshots (
         id          SERIAL PRIMARY KEY,
@@ -900,6 +916,20 @@ setInterval(async () => {
         period_date DATE NOT NULL DEFAULT CURRENT_DATE
       )
     `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS reward_log (
+        id          SERIAL PRIMARY KEY,
+        player_id   INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        rating_type VARCHAR(30) NOT NULL,
+        period_type VARCHAR(10) NOT NULL,
+        rank        INTEGER NOT NULL,
+        reward_gold INTEGER DEFAULT 0,
+        reward_green BIGINT DEFAULT 0,
+        period_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_reward_log_player ON reward_log(player_id, created_at DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_day ON players(glory_day DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_week ON players(glory_week DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_wins_day ON players(wins_day DESC)`);
@@ -908,6 +938,7 @@ setInterval(async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_green_total ON players(green_total DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_gold_mined_day ON players(gold_mined_day DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_dragon_day ON players(dragon_damage_day DESC)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_exp_day ON players(exp_day DESC)`);
     console.log('[Rating] Migration done');
   } catch (err) { console.error('[Rating migration]', err.message); }
 })();
