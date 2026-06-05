@@ -252,7 +252,7 @@ router.post('/mine', async (req, res) => {
     updateClanTask(req.session.playerId, 'mine_gold', gold);
     const { updateDailyQuestProgress } = require('./daily');
     await updateDailyQuestProgress(req.session.playerId, 'mines', 1);
-    res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, rareDrop, session: updatedSession });
+    res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, rareDrop, session: updatedSession, hpDiff: levelUp ? hpDiff : 0, newMaxHp: levelUp ? calcMaxHp(newLevel) : null });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

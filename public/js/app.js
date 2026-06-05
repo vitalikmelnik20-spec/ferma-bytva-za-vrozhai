@@ -226,10 +226,19 @@ function goToCaveMine() {
 
 function updateHeader() {
   if (!player) return;
-  document.getElementById('hdr-hp').textContent       = `${player.hp}/${player.max_hp}`;
+  document.getElementById('hdr-hp').textContent       = `${fmtNum(player.hp)}/${fmtNum(player.max_hp)}`;
   document.getElementById('hdr-greens').textContent   = fmtNum(player.greens);
   document.getElementById('hdr-gold').textContent     = fmtNum(player.gold);
   document.getElementById('hdr-diamonds').textContent = fmtNum(player.diamonds);
+  _updateHdrHpBar();
+}
+
+function _updateHdrHpBar() {
+  const bar = document.getElementById('hdr-hp-bar');
+  if (!bar || !player) return;
+  const pct = player.max_hp ? Math.round(player.hp / player.max_hp * 100) : 100;
+  bar.style.width = pct + '%';
+  bar.style.background = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
 }
 
 async function refreshPlayer() {
@@ -239,7 +248,7 @@ async function refreshPlayer() {
   player = data.player;
   // Flash header badge if value changed
   [
-    ['hdr-hp',       `${player.hp}/${player.max_hp}`,   prev && `${prev.hp}/${prev.max_hp}`],
+    ['hdr-hp',       `${fmtNum(player.hp)}/${fmtNum(player.max_hp)}`,   prev && `${fmtNum(prev.hp)}/${fmtNum(prev.max_hp)}`],
     ['hdr-greens',   fmtNum(player.greens),              prev && fmtNum(prev.greens)],
     ['hdr-gold',     fmtNum(player.gold),                prev && fmtNum(prev.gold)],
     ['hdr-diamonds', fmtNum(player.diamonds),            prev && fmtNum(prev.diamonds)],
@@ -249,10 +258,11 @@ async function refreshPlayer() {
     el.textContent = next;
     if (old !== undefined && old !== next) {
       el.classList.remove('hdr-flash');
-      void el.offsetWidth; // reflow to restart animation
+      void el.offsetWidth;
       el.classList.add('hdr-flash');
     }
   });
+  _updateHdrHpBar();
 }
 
 // ─── NAVIGATION ──────────────────────────────────────────────────────────────
@@ -648,6 +658,8 @@ function showLevelUpModal(r) {
   const rewardParts = [];
   if (greensReward > 0) rewardParts.push(`${IC.greens(14)} ${fmtNum(greensReward)}`);
   if (goldReward   > 0) rewardParts.push(`${IC.gold(14)} ${fmtNum(goldReward)}`);
+  const hpDiff  = r.hpDiff  || 0;
+  const newMaxHp = r.newMaxHp || null;
 
   document.getElementById('levelup-body').innerHTML = `
     <div class="levelup-icon-row">
@@ -658,6 +670,7 @@ function showLevelUpModal(r) {
       </div>
     </div>
     ${rewardParts.length ? `<div class="levelup-rewards">Ти отримав: ${rewardParts.join(' і ')}</div>` : ''}
+    ${hpDiff > 0 ? `<div class="levelup-rewards" style="color:#e53935">❤️ +${fmtNum(hpDiff)} HP! Новий максимум: ${fmtNum(newMaxHp)} HP</div>` : ''}
     <div class="levelup-next">Для наступного рівня треба: ${IC.exp(13)} ${fmtNum(nextExp)} досвіду</div>
     ${perksHtml}
     <button class="btn btn-green btn-full" style="margin-top:14px" onclick="closeLevelUpModal()">Закрити</button>`;
@@ -1973,7 +1986,23 @@ async function loadProfile() {
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', (() => { const x=xpTotal(p.level,p.experience,p.exp_to_next); return `${fmtNum(x.total)} / ${fmtNum(x.needed)}`; })())}
-        ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${(() => {
+          const pct = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 100;
+          const col = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
+          return `<div class="info-row" style="flex-direction:column;align-items:stretch;padding:10px 14px;gap:4px">
+            <div class="flex-between" style="font-size:13px">
+              <span>${IC.hp(14)} <b>Здоров'я</b></span>
+              <span style="color:${col};font-weight:700">${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}</span>
+            </div>
+            <div style="height:6px;background:#eee;border-radius:3px">
+              <div style="height:6px;background:${col};border-radius:3px;width:${pct}%;transition:width .4s"></div>
+            </div>
+            <div class="flex-between" style="font-size:12px;color:#777">
+              <span>+${fmtNum((p.hp_regen||0)*60)}/год · повне за 10год</span>
+              <button class="btn btn-green btn-sm" style="padding:2px 8px;font-size:11px" onclick="navigate('village')">Цілитель</button>
+            </div>
+          </div>`;
+        })()}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${infoRow(IC.village(14), 'Місто', p.city_name || '—', '<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>')}
@@ -2057,8 +2086,20 @@ async function loadStats() {
         ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0, r.taliEndurance || 0)}
         ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0)}
         ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0)}
-        ${row(IC.hp(14), "Здоров'я",    `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
-        ${row(IC.hp(14), 'Регенерація', `+${fmtNum((p.hp_regen||0)*60)}/год · повне за 10год`)}
+        ${(() => {
+          const pct = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 100;
+          const col = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
+          return `<div class="stats-row" style="flex-direction:column;align-items:stretch;gap:4px">
+            <div class="flex-between" style="font-size:13px">
+              <span>${IC.hp(14)} Здоров'я</span>
+              <span style="color:${col};font-weight:700">${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}</span>
+            </div>
+            <div style="height:5px;background:#eee;border-radius:3px">
+              <div style="height:5px;background:${col};border-radius:3px;width:${pct}%"></div>
+            </div>
+            <div style="font-size:12px;color:#777">+${fmtNum((p.hp_regen||0)*60)}/год · повне за 10год</div>
+          </div>`;
+        })()}
         ${r.harvestGiftPct > 0 ? row(`${IC.wheat(14)}`, 'Бонус врожаю (подарунки)', `+${r.harvestGiftPct}%`) : ''}
         ${(r.potionHarvestPct || 0) > 0 ? row(`${IC.pill(14)}`, 'Бонус врожаю (зілля)', `+${r.potionHarvestPct}%`) : ''}
         ${r.luckAmulets > 0 ? row(IC.star(14), 'Амулетів удачі', `×${1 + r.luckAmulets * 0.5} до бонусів`) : ''}
@@ -3351,7 +3392,19 @@ async function viewProfile(id) {
         ${infoRow(IC.battle(14), 'Фракція', factionLabel(p.faction))}
         ${infoRow(IC.profile(14), 'Стать', p.gender === 'male' ? 'Чоловіча' : 'Жіноча')}
         ${infoRow(IC.exp(14), 'Досвід', (() => { const x=xpTotal(p.level,p.experience,p.exp_to_next); return `${fmtNum(x.total)} / ${fmtNum(x.needed)}`; })())}
-        ${infoRow(IC.hp(14), "Здоров'я", `${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}`)}
+        ${(() => {
+          const pct = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 100;
+          const col = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
+          return `<div class="info-row" style="flex-direction:column;align-items:stretch;padding:8px 14px;gap:3px">
+            <div class="flex-between" style="font-size:13px">
+              <span>${IC.hp(14)} Здоров'я</span>
+              <span style="color:${col};font-weight:700">${fmtNum(p.hp)} / ${fmtNum(p.max_hp)}</span>
+            </div>
+            <div style="height:5px;background:#eee;border-radius:3px">
+              <div style="height:5px;background:${col};border-radius:3px;width:${pct}%"></div>
+            </div>
+          </div>`;
+        })()}
         ${infoRow(IC.clan(14), 'Клан', p.clan_name ? `<span onclick="navigate('clans')" style="cursor:pointer;color:#e65100;text-decoration:underline">[${p.clan_tag}] ${p.clan_name}</span>` : 'Не в клані')}
         ${infoRow(IC.glory(14), 'Слава', fmtNum(p.glory))}
         ${p.city_name ? infoRow(IC.village(14), 'Місто', p.city_name) : ''}

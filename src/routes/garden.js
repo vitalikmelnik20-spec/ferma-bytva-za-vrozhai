@@ -396,6 +396,8 @@ router.post('/:plotId/harvest', async (req, res) => {
       goldReward,
       newExpToNext,
       unlockedItems,
+      hpDiff: levelUp ? hpDiff : 0,
+      newMaxHp: levelUp ? calcMaxHp(newLevel) : null,
     });
   } catch (err) {
     console.error(err);
