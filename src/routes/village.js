@@ -5,7 +5,29 @@ const { applyHpRegenNow } = require('../helpers/hpRegen');
 
 router.use(requireAuth);
 
-// Heal player (Цілитель)
+function healCostCalc(hp, maxHp) {
+  const costPer1Pct = Math.floor(maxHp / 100);
+  const missingPct  = Math.floor((maxHp - hp) / maxHp * 100);
+  return { costPer1Pct, missingPct, totalCost: missingPct * costPer1Pct };
+}
+
+// GET /api/village/healer/cost — current heal cost
+router.get('/healer/cost', async (req, res) => {
+  try {
+    await applyHpRegenNow(req.session.playerId);
+    const { rows: [p] } = await pool.query(
+      'SELECT hp, max_hp, greens FROM players WHERE id=$1',
+      [req.session.playerId]
+    );
+    const { costPer1Pct, missingPct, totalCost } = healCostCalc(p.hp, p.max_hp);
+    res.json({ hp: p.hp, max_hp: p.max_hp, greens: p.greens, costPer1Pct, missingPct, totalCost });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// POST /api/village/heal — instant full heal
 router.post('/heal', async (req, res) => {
   try {
     await applyHpRegenNow(req.session.playerId);
@@ -16,18 +38,17 @@ router.post('/heal', async (req, res) => {
     if (player.hp >= player.max_hp)
       return res.status(400).json({ error: 'Здоров\'я вже повне' });
 
-    const missing = player.max_hp - player.hp;
-    const cost = Math.ceil(missing * 0.5);
+    const { missingPct, totalCost } = healCostCalc(player.hp, player.max_hp);
 
-    if (player.greens < cost)
-      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${cost}` });
+    if (player.greens < totalCost)
+      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${totalCost}` });
 
     await pool.query(
-      'UPDATE players SET hp = max_hp, greens = greens - $1 WHERE id=$2',
-      [cost, req.session.playerId]
+      'UPDATE players SET hp = max_hp, greens = greens - $1, last_hp_update = NOW() WHERE id=$2',
+      [totalCost, req.session.playerId]
     );
 
-    res.json({ success: true, healed: missing, cost });
+    res.json({ success: true, healed: player.max_hp - player.hp, cost: totalCost, missingPct });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -133,12 +154,12 @@ router.post('/enchant/:inventoryId', async (req, res) => {
 
 // Get village info (NPCs list)
 router.get('/', async (req, res) => {
+  await applyHpRegenNow(req.session.playerId);
   const { rows: [player] } = await pool.query(
     'SELECT hp, max_hp, greens, gold FROM players WHERE id=$1',
     [req.session.playerId]
   );
-  const missing = player.max_hp - player.hp;
-  const healCost = missing > 0 ? Math.ceil(missing * 0.5) : 0;
+  const { totalCost: healCost } = healCostCalc(player.hp, player.max_hp);
 
   res.json({
     player: { hp: player.hp, max_hp: player.max_hp, greens: player.greens, gold: player.gold },
@@ -150,7 +171,7 @@ router.get('/', async (req, res) => {
       { id: 'alchemist',name: 'Алхімік',   icon: 'inventory', desc: 'Рецепти зілля та крафт настоїв' },
       { id: 'smith',    name: 'Коваль',    icon: 'levelup',   desc: 'Покращує зброю/броню (+2 до всіх статів за 500 золота)' },
       { id: 'trader',   name: 'Торговець', icon: 'market',    desc: 'Рідкісні товари за алмази' },
-      { id: 'healer',   name: 'Цілитель',  icon: 'hp',        desc: `Відновлює здоров'я (${healCost} зелені)` }
+      { id: 'healer',   name: 'Цілитель',  icon: 'hp',        desc: `Відновлює здоров'я`, healCost, healerHp: player.hp, healerMaxHp: player.max_hp, healerGreens: player.greens }
     ]
   });
 });

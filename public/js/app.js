@@ -1396,7 +1396,31 @@ async function upgradeTalisman(invId) {
 async function loadVillage() {
   try {
     const r = await API.get('/api/village');
-    document.getElementById('village-npcs').innerHTML = r.npcs.map(npc => `
+    document.getElementById('village-npcs').innerHTML = r.npcs.map(npc => {
+      let action = '';
+      if (npc.id === 'healer') {
+        const hp = npc.healerHp, maxHp = npc.healerMaxHp, greens = npc.healerGreens, cost = npc.healCost;
+        const hpPct = Math.round(hp / maxHp * 100);
+        const barColor = hpPct > 60 ? '#4caf50' : hpPct > 30 ? '#ff9800' : '#f44336';
+        const full = hp >= maxHp;
+        action = `<div style="min-width:150px">
+          <div style="font-size:12px;color:#555;margin-bottom:3px">${IC.hp(13)} ${fmtNum(hp)} / ${fmtNum(maxHp)}</div>
+          <div style="height:6px;background:#eee;border-radius:3px;margin-bottom:5px">
+            <div style="height:6px;background:${barColor};border-radius:3px;width:${hpPct}%"></div>
+          </div>
+          ${full
+            ? `<div class="text-muted" style="font-size:12px;text-align:center">Ти здоровий!</div>`
+            : `<div style="font-size:12px;color:#555;margin-bottom:4px">
+                 Вартість: <b style="color:#388e3c">${fmtNum(cost)} ${IC.greens(12)}</b>
+                 &nbsp;·&nbsp; Не вистачає: <b>${100-hpPct}%</b>
+               </div>
+               <button class="btn ${greens >= cost ? 'btn-green' : 'btn-gray'} btn-sm" onclick="healPlayer()" ${greens >= cost ? '' : 'disabled'}>
+                 Лікувати
+               </button>`
+          }
+        </div>`;
+      }
+      return `
       <div class="flex-between" style="padding:10px 0;border-bottom:1px solid #eee">
         <div class="flex-row">
           ${IC[npc.icon] ? IC[npc.icon](28) : ''}
@@ -1405,11 +1429,12 @@ async function loadVillage() {
             <div class="text-muted">${npc.desc}</div>
           </div>
         </div>
-        ${npc.id === 'healer'   ? '<button class="btn btn-green btn-sm"  onclick="healPlayer()">Лікувати</button>' : ''}
+        ${action}
         ${npc.id === 'jeweler'  ? `<button class="btn btn-orange btn-sm" onclick="navigate('jeweler')">${IC.ring(14)} Зайти</button>` : ''}
         ${npc.id === 'alchemist'? `<button class="btn btn-blue btn-sm"   onclick="navigate('alchemist')">${IC.inventory(14)} Зайти</button>` : ''}
         ${npc.id === 'smith'    ? `<button class="btn btn-orange btn-sm" onclick="openEnchantPage()">${IC.levelup(14)} Зачарувати</button>` : ''}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch (e) { toast(e.message, true); }
   loadGreenhouse();
   loadBank();
@@ -1712,7 +1737,7 @@ async function bankWithdraw(id) {
 async function healPlayer() {
   try {
     const r = await API.post('/api/village/heal');
-    toast(`${IC.hp(13)} Вилікувано +${r.healed} HP за ${IC.greens(13)}${r.cost}`);
+    toast(`❤️ HP відновлено повністю! +${fmtNum(r.healed)} HP за ${fmtNum(r.cost)} ${IC.greens(13)}`);
     await refreshPlayer();
     loadVillage();
   } catch (e) { toast(e.message, true); }
