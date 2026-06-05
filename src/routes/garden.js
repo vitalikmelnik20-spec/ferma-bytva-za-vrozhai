@@ -13,6 +13,14 @@ router.get('/', async (req, res) => {
       `SELECT pl.*, p.name as plant_name, p.emoji as plant_emoji,
               p.greens_reward, p.exp_reward,
               p.frame_color as plant_frame_color, p.is_boss as plant_is_boss,
+              COALESCE(pl.water_count,0) as water_count,
+              pl.planted_seconds,
+              CASE WHEN pl.status='growing'
+                AND COALESCE(pl.water_count,0) < 3
+                AND pl.planted_seconds > 0
+                AND EXTRACT(EPOCH FROM (NOW()-pl.planted_at))
+                    >= pl.planted_seconds * (COALESCE(pl.water_count,0)+1) * 0.3
+              THEN true ELSE false END as can_water,
               EXTRACT(EPOCH FROM (pl.ready_at - NOW())) as seconds_left
        FROM plots pl
        LEFT JOIN plants p ON p.id = pl.plant_id
@@ -116,9 +124,10 @@ router.post('/:plotId/plant', async (req, res) => {
     const { rows: [updated] } = await pool.query(
       `UPDATE plots SET plant_id=$1, planted_at=NOW(),
          ready_at=NOW() + ($2 * INTERVAL '1 minute'),
-         status='growing', watered=false, watered_by=NULL
-       WHERE id=$3 RETURNING ready_at`,
-      [plantId, growthMinutes, req.params.plotId]
+         status='growing', water_count=0, planted_seconds=$3,
+         watered=false, watered_by=NULL
+       WHERE id=$4 RETURNING ready_at`,
+      [plantId, growthMinutes, growthMinutes * 60, req.params.plotId]
     );
 
     res.json({ success: true, readyAt: updated.ready_at });
@@ -128,48 +137,66 @@ router.post('/:plotId/plant', async (req, res) => {
   }
 });
 
-// Water own plot
+// Water own plot (up to 3 times at 30/60/90% elapsed, each -15% remaining)
 router.post('/:plotId/water', async (req, res) => {
   try {
     const { rows: [plot] } = await pool.query(
-      'SELECT * FROM plots WHERE id=$1 AND player_id=$2',
+      `SELECT *, EXTRACT(EPOCH FROM (NOW()-planted_at)) as elapsed_secs
+       FROM plots WHERE id=$1 AND player_id=$2`,
       [req.params.plotId, req.session.playerId]
     );
-    if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
-    if (plot.status !== 'growing') return res.status(400).json({ error: 'Грядка не росте' });
-    if (plot.watered) return res.status(400).json({ error: 'Вже полита' });
+    if (!plot)                      return res.status(404).json({ error: 'Грядку не знайдено' });
+    if (plot.status !== 'growing')  return res.status(400).json({ error: 'Грядка не росте' });
 
-    // Reduce remaining time by 10%
+    const waterCount   = plot.water_count    || 0;
+    const plantedSecs  = plot.planted_seconds || 0;
+    if (waterCount >= 3) return res.status(400).json({ error: 'Вже полито максимум 3 рази' });
+    if (!plantedSecs)    return res.status(400).json({ error: 'Посади рослину заново — дані про час відсутні' });
+
+    const threshold = plantedSecs * (waterCount + 1) * 0.3;
+    if (plot.elapsed_secs < threshold) {
+      const waitSecs = Math.ceil(threshold - plot.elapsed_secs);
+      const m = Math.ceil(waitSecs / 60);
+      return res.status(400).json({ error: `Ще рано. Зачекай ще ~${m} хв` });
+    }
+
     await pool.query(
-      `UPDATE plots
-       SET watered=true,
-           ready_at = NOW() + (ready_at - NOW()) * 0.9
+      `UPDATE plots SET water_count=water_count+1, watered=true,
+         ready_at = NOW() + (ready_at - NOW()) * 0.85
        WHERE id=$1`,
       [req.params.plotId]
     );
-    await pool.query('UPDATE players SET plots_watered = plots_watered + 1 WHERE id=$1', [req.session.playerId]);
+    await pool.query('UPDATE players SET plots_watered=plots_watered+1 WHERE id=$1', [req.session.playerId]);
 
-    res.json({ success: true });
+    res.json({ success: true, waterCount: waterCount + 1 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
   }
 });
 
-// Water friend's plot
+// Water friend's plot (up to 3 times, +5 greens reward)
 router.post('/friend/:plotId/water', async (req, res) => {
   try {
     const { rows: [plot] } = await pool.query(
-      'SELECT * FROM plots WHERE id=$1',
+      `SELECT *, EXTRACT(EPOCH FROM (NOW()-planted_at)) as elapsed_secs
+       FROM plots WHERE id=$1`,
       [req.params.plotId]
     );
     if (!plot) return res.status(404).json({ error: 'Грядку не знайдено' });
     if (plot.player_id === req.session.playerId)
       return res.status(400).json({ error: 'Не можна поливати власні грядки тут' });
     if (plot.status !== 'growing') return res.status(400).json({ error: 'Грядка не росте' });
-    if (plot.watered) return res.status(400).json({ error: 'Вже полита' });
 
-    // Check friendship
+    const waterCount  = plot.water_count    || 0;
+    const plantedSecs = plot.planted_seconds || 0;
+    if (waterCount >= 3) return res.status(400).json({ error: 'Вже полито максимум 3 рази' });
+    if (plantedSecs > 0) {
+      const threshold = plantedSecs * (waterCount + 1) * 0.3;
+      if (plot.elapsed_secs < threshold)
+        return res.status(400).json({ error: 'Ще рано поливати цю рослину' });
+    }
+
     const { rows: friendship } = await pool.query(
       `SELECT id FROM friends
        WHERE status='accepted'
@@ -180,28 +207,23 @@ router.post('/friend/:plotId/water', async (req, res) => {
       return res.status(403).json({ error: 'Тільки друзі можуть поливати грядки' });
 
     await pool.query(
-      `UPDATE plots
-       SET watered=true, watered_by=$1,
-           ready_at = NOW() + (ready_at - NOW()) * 0.9
+      `UPDATE plots SET water_count=water_count+1, watered=true, watered_by=$1,
+         ready_at = NOW() + (ready_at - NOW()) * 0.85
        WHERE id=$2`,
       [req.session.playerId, req.params.plotId]
     );
-    // Reward waterer
-    await pool.query(
-      'UPDATE players SET greens = greens + 5 WHERE id=$1',
-      [req.session.playerId]
-    );
+    await pool.query('UPDATE players SET greens=greens+5 WHERE id=$1', [req.session.playerId]);
 
     const { rows: [waterer] } = await pool.query('SELECT username FROM players WHERE id=$1', [req.session.playerId]);
     const writeEvent = require('../helpers/writeEvent');
     await writeEvent(plot.player_id, {
       event_type: 'garden_watered',
       title: `${waterer.username} полив твою грядку`,
-      body: `Рослина росте на 10% швидше`,
+      body: `Рослина росте на 15% швидше (полив ${waterCount+1}/3)`,
       icon: '💧', color: 'blue',
     }, req.app.locals.io);
 
-    res.json({ success: true });
+    res.json({ success: true, waterCount: waterCount + 1 });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -382,6 +404,14 @@ router.get('/friend/:playerId', async (req, res) => {
 
     const { rows } = await pool.query(
       `SELECT pl.*, p.name as plant_name, p.emoji as plant_emoji,
+              p.frame_color as plant_frame_color, p.is_boss as plant_is_boss,
+              COALESCE(pl.water_count,0) as water_count,
+              CASE WHEN pl.status='growing'
+                AND COALESCE(pl.water_count,0) < 3
+                AND pl.planted_seconds > 0
+                AND EXTRACT(EPOCH FROM (NOW()-pl.planted_at))
+                    >= pl.planted_seconds * (COALESCE(pl.water_count,0)+1) * 0.3
+              THEN true ELSE false END as can_water,
               EXTRACT(EPOCH FROM (pl.ready_at - NOW())) as seconds_left
        FROM plots pl
        LEFT JOIN plants p ON p.id = pl.plant_id

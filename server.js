@@ -381,6 +381,17 @@ setInterval(async () => {
     } catch (err) { console.error('[dragon cooldown migration]', err.message); }
   })();
 
+  // v3 watering: add water_count + planted_seconds to plots
+  (async () => {
+    try {
+      await pool.query(`ALTER TABLE plots ADD COLUMN IF NOT EXISTS water_count     INTEGER DEFAULT 0`);
+      await pool.query(`ALTER TABLE plots ADD COLUMN IF NOT EXISTS planted_seconds INTEGER`);
+      // carry over old single-water state
+      await pool.query(`UPDATE plots SET water_count=1 WHERE watered=true AND (water_count IS NULL OR water_count=0)`);
+      console.log('[v3 watering] Columns ready');
+    } catch (err) { console.error('[v3 watering migration]', err.message); }
+  })();
+
   setInterval(async () => {
     try {
       const now = new Date();

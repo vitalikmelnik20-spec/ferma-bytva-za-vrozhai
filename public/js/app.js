@@ -397,9 +397,13 @@ function renderPlots() {
         <div class="plot-name">${plot.plant_name}${plot.plant_is_boss ? ' ⭐' : ''}</div>
         <div class="plot-timer" data-secs="${secs}">${fmtTime(secs)}</div>
         <span class="plot-status-badge badge-growing"><img src="/icons/ui/timer.svg" width="13" height="13" style="vertical-align:middle;filter:invert(1)"> Росте</span>
-        ${!plot.watered
-          ? `<button class="btn btn-blue btn-sm" onclick="waterPlot(event,${plot.id})"><img src="/icons/ui/water.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Полити</button>`
-          : `<span class="text-muted" style="font-size:11px">${IC.water(13)} Полито</span>`}`;
+        ${plot.can_water
+          ? `<button class="btn btn-blue btn-sm" onclick="waterPlot(event,${plot.id})"><img src="/icons/ui/water.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Полити (${plot.water_count}/3)</button>`
+          : plot.water_count >= 3
+            ? `<span class="text-muted" style="font-size:11px">${IC.water(13)} 3/3 Полито</span>`
+            : plot.water_count > 0
+              ? `<span class="text-muted" style="font-size:11px">${IC.water(13)} ${plot.water_count}/3 Зачекай...</span>`
+              : `<span class="text-muted" style="font-size:11px">${IC.water(13)} Ще рано</span>`}`;
 
     } else if (plot.status === 'ready') {
       div.className = `plot-card ready${fc ? ' frame-'+fc : ''}`;
@@ -505,8 +509,8 @@ async function plantSeed(plantId) {
 async function waterPlot(event, plotId) {
   event.stopPropagation();
   try {
-    await API.post(`/api/garden/${plotId}/water`);
-    toast(`${IC.water(13)} Полито! -10% часу`);
+    const r = await API.post(`/api/garden/${plotId}/water`);
+    toast(`${IC.water(13)} Полито! -15% часу (${r.waterCount}/3)`);
     await loadGarden();
   } catch (e) { toast(e.message, true); }
 }
