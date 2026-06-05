@@ -6,9 +6,9 @@ router.use(requireAuth);
 
 const TOOLS = ['waterer', 'planter', 'harvester'];
 const TOOL_META = {
-  waterer:   { label: 'Автополивалка',  icon: '💧', desc: 'Автоматично поливає рослини коли настав час' },
-  planter:   { label: 'Автосаджалка',   icon: '🌱', desc: 'Автоматично саджає обрану рослину на порожні грядки' },
-  harvester: { label: 'Автозбирач',     icon: '🌾', desc: 'Автоматично збирає достиглі рослини' },
+  waterer:   { label: 'Автополивалка',  icon: '/icons/ui/water.svg',   desc: 'Автоматично поливає рослини коли настав час' },
+  planter:   { label: 'Автосаджалка',   icon: '/icons/ui/plant.svg',   desc: 'Автоматично саджає обрану рослину на порожні грядки' },
+  harvester: { label: 'Автозбирач',     icon: '/icons/ui/harvest.svg', desc: 'Автоматично збирає достиглі рослини' },
 };
 
 // GET /api/tools

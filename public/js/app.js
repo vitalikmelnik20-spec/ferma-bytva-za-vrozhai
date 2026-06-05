@@ -414,8 +414,8 @@ function renderTools(tools) {
     return `
       <div class="tool-card${t.active ? ' active' : ''}">
         <div class="tool-card-header">
-          <span class="tool-name">${t.icon} ${t.label}</span>
-          <span class="tool-status ${t.active ? 'active' : 'inactive'}">${t.active ? '✅ ' : '❌ '}${expiryStr}</span>
+          <span class="tool-name"><img src="${t.icon}" width="16" height="16" style="vertical-align:middle"> ${t.label}</span>
+          <span class="tool-status ${t.active ? 'active' : 'inactive'}">${t.active ? IC.ok(13)+' ' : IC.no(13)+' '}${expiryStr}</span>
         </div>
         <div class="tool-desc">${t.desc}</div>
         ${configurerHtml}
