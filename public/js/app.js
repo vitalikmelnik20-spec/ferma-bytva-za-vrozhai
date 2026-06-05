@@ -391,7 +391,7 @@ function renderTools(tools) {
   const el = document.getElementById('tools-list');
   el.innerHTML = tools.map(t => {
     const expiryStr = t.active && t.expires_at
-      ? `до ${kyivTime(t.expires_at)}`
+      ? `до ${kyivDateTime(t.expires_at)}`
       : 'Не активний';
     const rentBtns = RENT_OPTS.map(o =>
       `<button class="btn btn-orange btn-sm" onclick="rentTool('${t.tool_type}',${o.days})">
