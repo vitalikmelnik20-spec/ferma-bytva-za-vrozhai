@@ -86,8 +86,9 @@ router.post('/configure', async (req, res) => {
       return res.status(400).json({ error: 'Бос-рослини не можна садити автоматично (коштують золото)' });
 
     const { rowCount } = await pool.query(
-      `UPDATE player_tools SET auto_plant_id=$1 WHERE player_id=$2 AND tool_type='planter' AND expires_at > NOW()`,
-      [plantId, req.session.playerId]
+      `UPDATE player_tools SET auto_plant_id=$1, auto_plant_name=$2, auto_plant_emoji=$3
+       WHERE player_id=$4 AND tool_type='planter' AND expires_at > NOW()`,
+      [plantId, plant.name, plant.emoji, req.session.playerId]
     );
     if (!rowCount) return res.status(400).json({ error: 'Автосаджалка не активна' });
 
