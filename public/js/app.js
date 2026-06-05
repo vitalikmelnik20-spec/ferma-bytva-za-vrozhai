@@ -3697,6 +3697,10 @@ function initSocket() {
     toast(`${IC.bell(14)} ${message}`);
   });
 
+  socket.on('rating:update', () => {
+    if (document.getElementById('page-rating')?.classList.contains('active')) loadRating();
+  });
+
   socket.on('caves:open', () => {
     toast('Печери відкрились! Поспішай добути золото!');
     if (document.getElementById('page-caves')?.classList.contains('active')) loadCaves();

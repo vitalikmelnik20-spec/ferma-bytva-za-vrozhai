@@ -121,6 +121,8 @@ const scheduleDailyReset = (io) => {
       };
       const now = new Date();
       const isMonday = now.getDay() === 1;
+      const yesterday = new Date(now.getTime() - 24*60*60*1000);
+      const dateStr = `${String(yesterday.getDate()).padStart(2,'0')}.${String(yesterday.getMonth()+1).padStart(2,'0')}.${yesterday.getFullYear()}`;
 
       for (const tab of DAILY_TABS) {
         const { rows: top } = await pool.query(
@@ -141,11 +143,21 @@ const scheduleDailyReset = (io) => {
                VALUES ($1,$2,'day',$3,$4,$5,CURRENT_DATE-1)`,
               [p.id, tab.key, rank, rew.gold, rew.green]
             );
+            const rewTitle = rank===1?`👑 №1 в рейтингу ${tab.label}! Нагорода нарахована`
+                           : rank===2?`🥈 №2 в рейтингу ${tab.label}! Нагорода нарахована`
+                                     :`🥉 №3 в рейтингу ${tab.label}! Нагорода нарахована`;
+            const rewBody  = rank===1?`Вітаємо! Ти зайняв 1 місце в рейтингу [${tab.label}] за ${dateStr}. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿 зараховано.`
+                           : rank===2?`Вітаємо! 2 місце в рейтингу [${tab.label}] за ${dateStr}. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿.`
+                                     :`Вітаємо! 3 місце в рейтингу [${tab.label}] за ${dateStr}. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿.`;
+            await pool.query(
+              `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+              [p.id, rewTitle, rewBody]
+            );
             await writeEvent(p.id, {
               event_type: 'daily_rating_result',
-              title: rank === 1 ? `👑 №1 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
-                                : rank === 2 ? `🥈 №2 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
-                                : `🥉 №3 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
+              title: rank===1?`👑 №1 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                            : rank===2?`🥈 №2 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                                      :`🥉 №3 в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
               body: `Денний рейтинг [${tab.label}]. Нагорода: ${rew.gold} 🏅 та ${rew.green} 🌿 зараховано.`,
               icon: rank===1?'👑':rank===2?'🥈':'🥉', color: rank===1?'gold':'blue',
             }, io);
@@ -162,20 +174,38 @@ const scheduleDailyReset = (io) => {
                  ON CONFLICT (player_id,tab_key) DO UPDATE SET title_name=$3, expires_at=$4, granted_at=NOW()`,
                 [p.id, tab.key, WEEKLY_TITLES[tab.key], titleExpires]
               );
+              await pool.query(
+                `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+                [p.id, `👑 Титул "${WEEKLY_TITLES[tab.key]}" отримано!`,
+                 `Ти лідер тижня в ${tab.label}! Титул "${WEEKLY_TITLES[tab.key]}" активний 7 днів.`]
+              );
               await writeEvent(p.id, {
                 event_type: 'daily_rating_result',
                 title: `👑 Ти отримав титул "${WEEKLY_TITLES[tab.key]}"!`,
                 body: `Ти лідер тижня в ${tab.label}! Титул активний 7 днів.`,
                 icon: '👑', color: 'gold',
               }, io);
+              io.to(`player:${p.id}`).emit('notification', {
+                type: 'rating',
+                message: `👑 Ти отримав титул "${WEEKLY_TITLES[tab.key]}"!`,
+              });
             }
           } else {
             await writeEvent(p.id, {
               event_type: 'daily_rating_result',
               title: `🏅 Ти на #${rank} місці в ${tab.label} за день!`,
-              body: `Ти зайняв #${rank} місце. Продовжуй у тому ж дусі!`,
+              body: `Сьогодні ти зайняв #${rank} місце в рейтингу [${tab.label}]. Продовжуй у тому ж дусі!`,
               icon: '🏅', color: 'blue',
             }, io);
+            await pool.query(
+              `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+              [p.id, `🏅 #${rank} місце в рейтингу ${tab.label} за ${dateStr}`,
+               `Сьогодні ти зайняв #${rank} місце в рейтингу [${tab.label}]. Продовжуй у тому ж дусі!`]
+            );
+            io.to(`player:${p.id}`).emit('notification', {
+              type: 'rating',
+              message: `🏅 Ти на #${rank} місці в ${tab.label} за день!`,
+            });
           }
           await pool.query(
             `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,title_given,period_date)
@@ -186,6 +216,7 @@ const scheduleDailyReset = (io) => {
       }
       // Reset daily counters
       await pool.query(`UPDATE players SET glory_day=0, wins_day=0, green_day=0, gold_mined_day=0, dragon_damage_day=0, exp_day=0`);
+      io.emit('rating:update', { type: 'daily_reset' });
       console.log('[Rating] Daily reset + awards done');
 
       // Weekly awards (Monday only)
@@ -196,33 +227,78 @@ const scheduleDailyReset = (io) => {
           { rank: 3, gold: 50,  green: 2500  },
         ];
         for (const tab of DAILY_TABS) {
+          const weekField = tab.field.replace('_day','_week');
           const { rows: top } = await pool.query(
-            `SELECT id, ${tab.field.replace('_day','_week')} as val FROM players WHERE is_banned=false AND ${tab.field.replace('_day','_week')} > 0
-             ORDER BY ${tab.field.replace('_day','_week')} DESC LIMIT 3`
+            `SELECT id, ${weekField} as val FROM players WHERE is_banned=false AND ${weekField} > 0
+             ORDER BY ${weekField} DESC LIMIT 100`
           );
           for (let i = 0; i < top.length; i++) {
             const p = top[i];
             const rank = i + 1;
-            const rew = WEEKLY_REWARDS[i];
-            await pool.query(`UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`, [rew.gold, rew.green, p.id]);
+            const rew = rank <= 3 ? WEEKLY_REWARDS[rank-1] : null;
+
+            if (rew) {
+              await pool.query(`UPDATE players SET gold=gold+$1, greens=greens+$2 WHERE id=$3`, [rew.gold, rew.green, p.id]);
+              await pool.query(
+                `INSERT INTO reward_log (player_id,rating_type,period_type,rank,reward_gold,reward_green,period_date)
+                 VALUES ($1,$2,'week',$3,$4,$5,CURRENT_DATE-1)`,
+                [p.id, tab.key, rank, rew.gold, rew.green]
+              );
+              const wTitle = rank===1?`👑 №1 тижня в рейтингу ${tab.label}! Нагорода нарахована`
+                           : rank===2?`🥈 №2 тижня в рейтингу ${tab.label}! Нагорода нарахована`
+                                     :`🥉 №3 тижня в рейтингу ${tab.label}! Нагорода нарахована`;
+              const wBody  = rank===1?`Тижневий рейтинг [${tab.label}] за ${dateStr}. 1 місце. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿.`
+                           : rank===2?`2 місце тижня в рейтингу [${tab.label}] за ${dateStr}. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿.`
+                                     :`3 місце тижня в рейтингу [${tab.label}] за ${dateStr}. Нагорода: ${rew.gold} 🏅 і ${rew.green} 🌿.`;
+              await pool.query(`INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`, [p.id, wTitle, wBody]);
+            }
+
             await pool.query(
-              `INSERT INTO reward_log (player_id,rating_type,period_type,rank,reward_gold,reward_green,period_date)
-               VALUES ($1,$2,'week',$3,$4,$5,CURRENT_DATE-1)`,
-              [p.id, tab.key, rank, rew.gold, rew.green]
+              `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,title_given,period_date)
+               VALUES ($1,$2,'week',$3,$4,$5,$6,$7,CURRENT_DATE-1)`,
+              [p.id, tab.key, rank, p.val, rew?.gold||0, rew?.green||0, rank===1 ? WEEKLY_TITLES[tab.key]||null : null]
             );
-            await pool.query(
-              `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,period_date)
-               VALUES ($1,$2,'week',$3,$4,$5,$6,CURRENT_DATE-1)`,
-              [p.id, tab.key, rank, p.val, rew.gold, rew.green]
-            );
+
             await writeEvent(p.id, {
               event_type: 'weekly_rating_result',
-              title: rank===1?`👑 №1 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
-                             :rank===2?`🥈 №2 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
-                             :`🥉 №3 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`,
-              body: `Тижневий рейтинг [${tab.label}]. Нагорода: ${rew.gold} 🏅 та ${rew.green} 🌿.`,
-              icon: rank===1?'👑':rank===2?'🥈':'🥉', color: 'gold',
+              title: rew
+                ? (rank===1?`👑 №1 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                  :rank===2?`🥈 №2 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                           :`🥉 №3 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`)
+                : `🏅 Ти на #${rank} місці тижневого рейтингу ${tab.label}!`,
+              body: rew
+                ? `Тижневий рейтинг [${tab.label}]. Нагорода: ${rew.gold} 🏅 та ${rew.green} 🌿.`
+                : `Тиждень ${dateStr}. Ти на #${rank} місці рейтингу [${tab.label}].`,
+              icon: rew?(rank===1?'👑':rank===2?'🥈':'🥉'):'🏅', color: rew?'gold':'blue',
             }, io);
+
+            io.to(`player:${p.id}`).emit('notification', {
+              type: 'rating',
+              message: rew
+                ? (rank===1?`👑 №1 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                  :rank===2?`🥈 №2 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`
+                           :`🥉 №3 тижня в ${tab.label}! +${rew.gold}🏅 +${rew.green}🌿`)
+                : `🏅 Ти на #${rank} місці тижневого ${tab.label}!`,
+            });
+
+            if (rew && rank === 1 && WEEKLY_TITLES[tab.key]) {
+              const titleExpires = new Date(now.getTime() + 7*24*60*60*1000);
+              await pool.query(
+                `INSERT INTO player_titles (player_id, tab_key, title_name, expires_at)
+                 VALUES ($1,$2,$3,$4)
+                 ON CONFLICT (player_id,tab_key) DO UPDATE SET title_name=$3, expires_at=$4, granted_at=NOW()`,
+                [p.id, tab.key, WEEKLY_TITLES[tab.key], titleExpires]
+              );
+              await pool.query(
+                `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+                [p.id, `👑 Титул "${WEEKLY_TITLES[tab.key]}" отримано!`,
+                 `Ти лідер тижня в ${tab.label}! Титул "${WEEKLY_TITLES[tab.key]}" активний 7 днів.`]
+              );
+              io.to(`player:${p.id}`).emit('notification', {
+                type: 'rating',
+                message: `👑 Ти отримав титул "${WEEKLY_TITLES[tab.key]}"!`,
+              });
+            }
           }
         }
         // Clan leader title (top-1 clan)
@@ -242,16 +318,26 @@ const scheduleDailyReset = (io) => {
                ON CONFLICT (player_id,tab_key) DO UPDATE SET title_name='Лідер Кланів', expires_at=$2, granted_at=NOW()`,
               [topClan.leader_id, titleExpires]
             );
+            await pool.query(
+              `INSERT INTO mail (receiver_id, subject, body, is_system) VALUES ($1,$2,$3,true)`,
+              [topClan.leader_id, `🏰 Титул "Лідер Кланів" отримано!`,
+               `Твій клан очолив тижневий рейтинг кланів. Титул "Лідер Кланів" активний 7 днів.`]
+            );
             await writeEvent(topClan.leader_id, {
               event_type: 'weekly_rating_result',
               title: `🏰 Твій клан №1 тижня! Титул "Лідер Кланів"`,
               body: `Твій клан очолив тижневий рейтинг кланів. Титул "Лідер Кланів" активний 7 днів.`,
               icon: '🏰', color: 'gold',
             }, io);
+            io.to(`player:${topClan.leader_id}`).emit('notification', {
+              type: 'rating',
+              message: `🏰 Твій клан №1 тижня! Титул "Лідер Кланів" активний!`,
+            });
           }
         } catch (e) { console.error('[Rating] clan leader title:', e.message); }
 
         await pool.query(`UPDATE players SET glory_week=0, wins_week=0, green_week=0, gold_mined_week=0, dragon_damage_week=0, exp_week=0`);
+        io.emit('rating:update', { type: 'weekly_reset' });
         console.log('[Rating] Weekly reset + awards done');
       }
     } catch (err) { console.error('[Rating cron]', err.message); }
