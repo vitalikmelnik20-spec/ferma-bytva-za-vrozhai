@@ -1906,6 +1906,16 @@ html {
 .rating-title-inline { font-size: 10px; background: rgba(255,193,7,0.2); color: #b8860b;
                         border-radius: 4px; padding: 1px 4px; margin-left: 3px; }
 
+/* ── Profile titles ── */
+.profile-titles { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; }
+.title-badge {
+  display: inline-block;
+  background: #1a1200; color: #ffd700;
+  border: 1px solid rgba(255,215,0,0.5);
+  border-radius: 12px; padding: 4px 12px;
+  font-size: 12px; font-weight: 600; letter-spacing: 0.2px;
+}
+
 /* ── Position arrows ── */
 .rank-arrow { font-size: 11px; font-weight: 700; padding: 2px 5px; border-radius: 6px; white-space: nowrap; }
 .rank-arrow.up   { color: #2e7d32; background: rgba(76,175,80,0.15); }

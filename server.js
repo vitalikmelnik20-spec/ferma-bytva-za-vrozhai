@@ -115,8 +115,9 @@ const scheduleDailyReset = (io) => {
         { rank: 3, gold: 25,  green: 1250 },
       ];
       const WEEKLY_TITLES = {
-        glory:   'Легенда Слави', battles: 'Легенда Боїв', garden: 'Легенда Огорода',
-        caves:   'Легенда Печер', dragon: 'Драконоборець',
+        glory:   'Легенда Слави',   battles: 'Легенда Боїв',
+        garden:  'Легенда Огорода', caves:   'Легенда Печер',
+        dragon:  'Дракониборець',   level:   'Майстер Прогресу',
       };
       const now = new Date();
       const isMonday = now.getDay() === 1;
@@ -156,9 +157,17 @@ const scheduleDailyReset = (io) => {
             if (rank === 1 && WEEKLY_TITLES[tab.key]) {
               const titleExpires = new Date(now.getTime() + 7*24*60*60*1000);
               await pool.query(
-                `UPDATE players SET active_title=$1, title_expires_at=$2 WHERE id=$3`,
-                [WEEKLY_TITLES[tab.key], titleExpires, p.id]
+                `INSERT INTO player_titles (player_id, tab_key, title_name, expires_at)
+                 VALUES ($1,$2,$3,$4)
+                 ON CONFLICT (player_id,tab_key) DO UPDATE SET title_name=$3, expires_at=$4, granted_at=NOW()`,
+                [p.id, tab.key, WEEKLY_TITLES[tab.key], titleExpires]
               );
+              await writeEvent(p.id, {
+                event_type: 'daily_rating_result',
+                title: `👑 Ти отримав титул "${WEEKLY_TITLES[tab.key]}"!`,
+                body: `Ти лідер тижня в ${tab.label}! Титул активний 7 днів.`,
+                icon: '👑', color: 'gold',
+              }, io);
             }
           } else {
             await writeEvent(p.id, {
@@ -169,9 +178,9 @@ const scheduleDailyReset = (io) => {
             }, io);
           }
           await pool.query(
-            `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,period_date)
-             VALUES ($1,$2,'day',$3,$4,$5,$6,CURRENT_DATE-1)`,
-            [p.id, tab.key, rank, p.val, rew?.gold||0, rew?.green||0]
+            `INSERT INTO rating_snapshots (player_id,rating_type,period_type,rank,value,reward_gold,reward_green,title_given,period_date)
+             VALUES ($1,$2,'day',$3,$4,$5,$6,$7,CURRENT_DATE-1)`,
+            [p.id, tab.key, rank, p.val, rew?.gold||0, rew?.green||0, rank===1 ? WEEKLY_TITLES[tab.key]||null : null]
           );
         }
       }
@@ -216,6 +225,32 @@ const scheduleDailyReset = (io) => {
             }, io);
           }
         }
+        // Clan leader title (top-1 clan)
+        try {
+          const { rows: [topClan] } = await pool.query(
+            `SELECT c.leader_id FROM clans c
+             LEFT JOIN clan_members cm ON cm.clan_id = c.id
+             LEFT JOIN players mp ON mp.id = cm.player_id
+             GROUP BY c.id, c.leader_id
+             ORDER BY COALESCE(SUM(mp.glory), 0) DESC LIMIT 1`
+          );
+          if (topClan?.leader_id) {
+            const titleExpires = new Date(now.getTime() + 7*24*60*60*1000);
+            await pool.query(
+              `INSERT INTO player_titles (player_id, tab_key, title_name, expires_at)
+               VALUES ($1,'clans','Лідер Кланів',$2)
+               ON CONFLICT (player_id,tab_key) DO UPDATE SET title_name='Лідер Кланів', expires_at=$2, granted_at=NOW()`,
+              [topClan.leader_id, titleExpires]
+            );
+            await writeEvent(topClan.leader_id, {
+              event_type: 'weekly_rating_result',
+              title: `🏰 Твій клан №1 тижня! Титул "Лідер Кланів"`,
+              body: `Твій клан очолив тижневий рейтинг кланів. Титул "Лідер Кланів" активний 7 днів.`,
+              icon: '🏰', color: 'gold',
+            }, io);
+          }
+        } catch (e) { console.error('[Rating] clan leader title:', e.message); }
+
         await pool.query(`UPDATE players SET glory_week=0, wins_week=0, green_week=0, gold_mined_week=0, dragon_damage_week=0, exp_week=0`);
         console.log('[Rating] Weekly reset + awards done');
       }
@@ -930,6 +965,18 @@ setInterval(async () => {
       )
     `);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_reward_log_player ON reward_log(player_id, created_at DESC)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_titles (
+        id         SERIAL PRIMARY KEY,
+        player_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        tab_key    VARCHAR(30) NOT NULL,
+        title_name VARCHAR(100) NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        granted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(player_id, tab_key)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_player_titles ON player_titles(player_id, expires_at)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_day ON players(glory_day DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_glory_week ON players(glory_week DESC)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_players_wins_day ON players(wins_day DESC)`);

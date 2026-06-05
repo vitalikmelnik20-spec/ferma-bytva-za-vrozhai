@@ -1924,6 +1924,12 @@ async function loadProfile() {
         </div>
       </div>
 
+      ${r.titles?.length ? `
+      <div class="panel mb-12">
+        <div class="panel-header">👑 Активні титули</div>
+        <div class="profile-titles">${r.titles.map(t => `<span class="title-badge">${t.title_name}</span>`).join('')}</div>
+      </div>` : ''}
+
       <div class="panel mb-12">
         <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
         ${infoRow(p.is_online ? IC.online() : IC.offline(), 'Статус', p.is_online ? 'Зараз онлайн' : 'Офлайн')}
@@ -2422,7 +2428,7 @@ function _renderRatingTop3(top3, tab) {
       <div class="rating-top-lvl">Рів.${p.level}</div>
       ${_factionLabel(p.faction)}
       <div class="rating-top-val">${_ratingValueLabel(tab, p.value, p)}</div>
-      ${p.title ? `<div class="rating-title-badge">${p.title}</div>` : ''}
+      ${p.titles?.length ? p.titles.map(t => `<div class="rating-title-badge">${t}</div>`).join('') : ''}
     </div>`;
   }).join('')}</div>`;
   document.getElementById('rating-top3').innerHTML = html;
@@ -2435,7 +2441,7 @@ function _renderRatingList(list, tab) {
       <span class="rating-pos">#${p.rank}</span>
       <span class="rating-avatar">${_avatarIcon(p.faction, p.gender, 22)}</span>
       <div class="rating-info">
-        <div class="rating-name ${p.faction}">${p.nick}${p.title ? ` <span class="rating-title-inline">${p.title}</span>` : ''}</div>
+        <div class="rating-name ${p.faction}">${p.nick}${p.titles?.length ? p.titles.map(t => ` <span class="rating-title-inline">${t}</span>`).join('') : ''}</div>
         <div class="rating-sub">Рів.${p.level} · ${_factionLabel(p.faction)}</div>
       </div>
       <span class="rating-pts">${_ratingValueLabel(tab, p.value, p)}</span>
@@ -3295,6 +3301,12 @@ async function viewProfile(id) {
           <button class="btn btn-orange btn-sm" onclick="sendGift(${p.id})">${IC.gift(14)} Подарунок</button>
         </div>
       </div>
+
+      ${r.titles?.length ? `
+      <div class="panel mb-12">
+        <div class="panel-header">👑 Активні титули</div>
+        <div class="profile-titles">${r.titles.map(t => `<span class="title-badge">${t.title_name}</span>`).join('')}</div>
+      </div>` : ''}
 
       <div class="panel mb-12">
         <div class="panel-header">${IC.stats_ic(14)} Інформація</div>

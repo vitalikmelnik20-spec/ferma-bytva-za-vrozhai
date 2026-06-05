@@ -84,7 +84,13 @@ router.get('/', async (req, res) => {
       [req.session.playerId]
     );
 
-    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts, itemRunes });
+    const { rows: titles } = await pool.query(
+      `SELECT tab_key, title_name, expires_at FROM player_titles
+       WHERE player_id=$1 AND expires_at > NOW() ORDER BY granted_at DESC LIMIT 3`,
+      [req.session.playerId]
+    );
+
+    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts, itemRunes, titles });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -377,11 +383,18 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
+    const { rows: titles } = await pool.query(
+      `SELECT tab_key, title_name FROM player_titles
+       WHERE player_id=$1 AND expires_at > NOW() ORDER BY granted_at DESC LIMIT 3`,
+      [req.params.id]
+    );
+
     res.json({
       player,
       equipment: equip.rows,
       gifts: gifts.rows,
       itemRunes,
+      titles,
       friendshipStatus: friendship.rows[0]?.status || null,
       isRequester: friendship.rows[0]?.requester_id === req.session.playerId
     });

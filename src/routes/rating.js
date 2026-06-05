@@ -30,7 +30,9 @@ router.get('/', requireAuth, async (req, res) => {
               green_total, green_day, green_week,
               gold_mined_total, gold_mined_day, gold_mined_week,
               dragon_damage_total, dragon_damage_day, dragon_damage_week,
-              active_title, title_expires_at
+              ARRAY(SELECT title_name FROM player_titles
+                    WHERE player_id=players.id AND expires_at > NOW()
+                    ORDER BY granted_at DESC LIMIT 3) AS active_titles
        FROM players
        WHERE is_banned = false
        ORDER BY ${field} DESC${extra}
@@ -95,8 +97,8 @@ router.get('/', requireAuth, async (req, res) => {
       wins:       r.wins,
       losses:     r.losses,
       value:      Number(r[field]),
-      title:      r.active_title && r.title_expires_at && new Date(r.title_expires_at) > new Date()
-                    ? r.active_title : null,
+      titles:     r.active_titles || [],
+      title:      r.active_titles?.[0] || null,
     }));
 
     res.json({
