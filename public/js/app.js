@@ -945,14 +945,24 @@ function showBattleResult(r) {
     </div>
 
     <div style="${bs}">
-      <div style="font-size:13px;line-height:1.8">
-        <b>Залишилось здоров'я:</b><br>
-        ${r.attackerName}: <b style="color:${r.attackerHpAfter<=50?'#e53935':'#2e7d32'}">${r.attackerHpAfter}</b>
-        <span style="color:#aaa;font-size:11px">(-${r.attackerHpBefore-r.attackerHpAfter})</span>
-        &nbsp;|&nbsp;
-        ${r.defenderName}: <b style="color:${r.defenderHpAfter<=50?'#e53935':'#555'}">${r.defenderHpAfter}</b>
-        <span style="color:#aaa;font-size:11px">(-${r.defenderHpBefore-r.defenderHpAfter})</span>
-      </div>
+      <div style="font-size:13px;font-weight:600;margin-bottom:6px">${IC.hp(14)} Залишилось здоров'я:</div>
+      ${[
+        { name: r.attackerName, hpAfter: r.attackerHpAfter, hpBefore: r.attackerHpBefore, maxHp: r.attackerMaxHp },
+        { name: r.defenderName, hpAfter: r.defenderHpAfter, hpBefore: r.defenderHpBefore, maxHp: r.defenderMaxHp },
+      ].map(({ name, hpAfter, hpBefore, maxHp }) => {
+        const pct = maxHp ? Math.round(hpAfter / maxHp * 100) : 100;
+        const barColor = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
+        const lost = hpBefore - hpAfter;
+        return `<div style="margin-bottom:5px">
+          <div class="flex-between" style="font-size:12px;margin-bottom:2px">
+            <span><b>${name}</b>: ${fmtNum(hpAfter)}${maxHp ? ` / ${fmtNum(maxHp)}` : ''}</span>
+            ${lost > 0 ? `<span style="color:#e53935;font-size:11px">-${fmtNum(lost)}</span>` : ''}
+          </div>
+          <div style="height:5px;background:#eee;border-radius:3px">
+            <div style="height:5px;background:${barColor};border-radius:3px;width:${pct}%"></div>
+          </div>
+        </div>`;
+      }).join('')}
     </div>
 
     ${(r.aPet || r.dPet) ? `

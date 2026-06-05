@@ -5,6 +5,7 @@ const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
 const { PET_CATALOG } = require('./pets');
 const petCombat = require('../utils/petCombat');
+const { applyHpRegenNow } = require('../helpers/hpRegen');
 
 // Завантажити тваринку гравця для бою (лише якщо активна і жива)
 async function fetchPetForBattle(playerId) {
@@ -396,8 +397,9 @@ router.post('/round', async (req, res) => {
     const isNewFight = !fight || fight.defenderId !== parseInt(defenderId);
 
     if (isNewFight) {
+      await applyHpRegenNow(req.session.playerId);
       const { rows: [attacker] } = await pool.query(
-        'SELECT id, username, faction, hp, battles_today, battles_max, on_vacation, is_admin FROM players WHERE id=$1',
+        'SELECT id, username, faction, hp, max_hp, battles_today, battles_max, on_vacation, is_admin FROM players WHERE id=$1',
         [req.session.playerId]
       );
       if (!attacker) return res.status(404).json({ error: 'Гравця не знайдено' });
@@ -432,6 +434,8 @@ router.post('/round', async (req, res) => {
         defenderDamageDealt:  0,
         attackerHpBefore:     attacker.hp,
         defenderHpBefore:     defender.hp,
+        attackerMaxHp:        attacker.max_hp,
+        defenderMaxHp:        defender.max_hp,
         attackerName:         attacker.username,
         defenderName:         defender.username,
         // Тваринки
@@ -764,6 +768,7 @@ router.post('/round', async (req, res) => {
         defenderName: fight.defenderName,
         attackerHpBefore: fight.attackerHpBefore, attackerHpAfter: attackerAfter.hp,
         defenderHpBefore: fight.defenderHpBefore, defenderHpAfter: defenderAfter.hp,
+        attackerMaxHp: fight.attackerMaxHp, defenderMaxHp: fight.defenderMaxHp,
         ringEffect,
         // Тваринки
         aPet: fight.aPet ? { name: fight.aPet.name, icon: fight.aPet.icon,
@@ -785,6 +790,8 @@ router.post('/round', async (req, res) => {
       roundData, roundNum: fight.roundNum - 1, isLast: false,
       attackerHpAfter: attackerAfter.hp,
       defenderHpAfter: defenderAfter.hp,
+      attackerMaxHp: fight.attackerMaxHp,
+      defenderMaxHp: fight.defenderMaxHp,
       attackerName: fight.attackerName,
       defenderName: fight.defenderName,
     });
@@ -809,6 +816,7 @@ router.post('/fight', async (req, res) => {
     const cw = req.session.clanWarFight;
     const isWarBattle = !!(cw && cw.warId && cw.defenderId === parseInt(defenderId));
 
+    await applyHpRegenNow(req.session.playerId);
     const { rows: [attacker] } = await fetchPlayerWithStats(req.session.playerId);
     if (!attacker) return res.status(404).json({ error: 'Гравця не знайдено' });
     if (!isWarBattle) {
@@ -1138,6 +1146,8 @@ router.post('/fight', async (req, res) => {
       attackerHpAfter:  attackerAfter.hp,
       defenderHpBefore: defender.hp,
       defenderHpAfter:  defenderAfter.hp,
+      attackerMaxHp: attacker.max_hp,
+      defenderMaxHp: defender.max_hp,
       ringEffect,
       petResult: (aPet || dPet) ? {
         attackerPetDamage: aPetTotalDmg,
