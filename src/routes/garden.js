@@ -12,6 +12,7 @@ router.get('/', async (req, res) => {
     const plots = await pool.query(
       `SELECT pl.*, p.name as plant_name, p.emoji as plant_emoji,
               p.greens_reward, p.exp_reward,
+              p.frame_color as plant_frame_color, p.is_boss as plant_is_boss,
               EXTRACT(EPOCH FROM (pl.ready_at - NOW())) as seconds_left
        FROM plots pl
        LEFT JOIN plants p ON p.id = pl.plant_id

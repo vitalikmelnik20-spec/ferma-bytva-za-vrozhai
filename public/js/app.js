@@ -340,24 +340,12 @@ function updateHomeProfile() {
 
 // ─── GARDEN ──────────────────────────────────────────────────────────────────
 
-// SVG plant illustrations for each growth stage
-function plantSVG(name, stage) {
-  const map = {
-    'Пшениця':           'wheat',
-    'Морква':            'carrot',
-    'Капуста':           'cabbage',
-    'Соняшник':          'sunflower',
-    'Гарбуз':            'pumpkin',
-    'Диня':              'melon',
-    'Виноград':          'grapes',
-    'Зілля сили':        'herb',
-    'Зілля спритності':  'herb',
-    'Чарівний гриб':     'mushroom',
-  };
-  const file = map[name] || 'herb';
-  const opacity = stage === 'seedling' ? '0.45' : stage === 'growing' ? '0.75' : '1';
-  const size    = stage === 'seedling' ? '32' : stage === 'growing' ? '42' : '52';
-  return `<img src="/icons/plants/${file}.svg" width="${size}" height="${size}" style="opacity:${opacity}">`;
+// Plant display using emoji from DB
+function plantEmoji(emoji, stage) {
+  const e = emoji || '🌱';
+  const size    = stage === 'seedling' ? '28px' : stage === 'growing' ? '36px' : '46px';
+  const opacity = stage === 'seedling' ? '0.5'  : stage === 'growing' ? '0.8'  : '1';
+  return `<span style="font-size:${size};line-height:1;opacity:${opacity};filter:drop-shadow(1px 2px 4px rgba(0,0,0,0.2))">${e}</span>`;
 }
 
 // Soil strip SVG
@@ -386,9 +374,10 @@ function renderPlots() {
 
   gardenData.plots.forEach(plot => {
     const div = document.createElement('div');
-    div.className = 'plot-card ' + plot.status;
+    const fc = plot.plant_frame_color || '';
 
     if (plot.status === 'empty') {
+      div.className = 'plot-card empty';
       div.innerHTML = `
         ${soilSVG}
         <div class="plot-name" style="color:#8d6e3a">Порожня грядка</div>
@@ -398,12 +387,14 @@ function renderPlots() {
     } else if (plot.status === 'growing') {
       const secs = Math.max(0, plot.seconds_left);
       const stage = secs > 120 ? 'seedling' : 'growing';
-      div.dataset.plotId   = plot.id;
-      div.dataset.plantName = plot.plant_name;
+      div.className = `plot-card growing${fc ? ' frame-'+fc : ''}`;
+      div.dataset.plotId         = plot.id;
+      div.dataset.plantEmoji     = plot.plant_emoji || '🌱';
+      div.dataset.plantFrameColor = fc;
       div.innerHTML = `
-        <div class="plot-plant growing-anim">${plantSVG(plot.plant_name, stage)}</div>
+        <div class="plot-plant growing-anim">${plantEmoji(plot.plant_emoji, stage)}</div>
         ${soilSVG}
-        <div class="plot-name">${plot.plant_name}</div>
+        <div class="plot-name">${plot.plant_name}${plot.plant_is_boss ? ' ⭐' : ''}</div>
         <div class="plot-timer" data-secs="${secs}">${fmtTime(secs)}</div>
         <span class="plot-status-badge badge-growing"><img src="/icons/ui/timer.svg" width="13" height="13" style="vertical-align:middle;filter:invert(1)"> Росте</span>
         ${!plot.watered
@@ -411,12 +402,13 @@ function renderPlots() {
           : `<span class="text-muted" style="font-size:11px">${IC.water(13)} Полито</span>`}`;
 
     } else if (plot.status === 'ready') {
+      div.className = `plot-card ready${fc ? ' frame-'+fc : ''}`;
       div.innerHTML = `
-        <div class="plot-plant">${plantSVG(plot.plant_name, 'ready')}</div>
+        <div class="plot-plant">${plantEmoji(plot.plant_emoji, 'ready')}</div>
         ${soilSVG}
-        <div class="plot-name">${plot.plant_name}</div>
+        <div class="plot-name">${plot.plant_name}${plot.plant_is_boss ? ' ⭐' : ''}</div>
         <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>
-        <div class="text-muted" style="font-size:12px">${IC.greens(13)}${plot.greens_reward} ${IC.exp(13)}${Math.floor(plot.exp_reward * 0.1)}</div>`;
+        <div class="text-muted" style="font-size:12px">${IC.greens(13)} ${fmtNum(plot.greens_reward)} ${IC.exp(13)} ${plot.exp_reward}</div>`;
       div.onclick = () => harvestPlot(plot.id);
     }
 
@@ -438,13 +430,13 @@ function startPlotTimers() {
       if (s === 0) {
         const card = el.closest('.plot-card');
         if (card) {
-          const plotId    = parseInt(card.dataset.plotId);
-          const plantName = card.dataset.plantName || '';
-          card.className = 'plot-card ready';
+          const plotId = parseInt(card.dataset.plotId);
+          const emoji  = card.dataset.plantEmoji || '🌱';
+          const fc     = card.dataset.plantFrameColor || '';
+          card.className = `plot-card ready${fc ? ' frame-'+fc : ''}`;
           card.innerHTML = `
-            <div class="plot-plant">${plantSVG(plantName, 'ready')}</div>
+            <div class="plot-plant">${plantEmoji(emoji, 'ready')}</div>
             ${soilSVG}
-            <div class="plot-name">${plantName}</div>
             <span class="plot-status-badge badge-ready"><img src="/icons/ui/harvest.svg" width="14" height="14" style="vertical-align:middle;filter:invert(1)"> Готово!</span>`;
           card.onclick = () => harvestPlot(plotId);
         }
@@ -453,19 +445,44 @@ function startPlotTimers() {
   }, 1000);
 }
 
+const _PLANT_TIERS = [
+  { key: 'gray',   icon: '⬜', label: 'Базові городні',         range: '1–20'   },
+  { key: 'green',  icon: '🟩', label: 'Фрукти та ягоди',        range: '21–40'  },
+  { key: 'blue',   icon: '🟦', label: 'Магічні трави та гриби',  range: '41–60'  },
+  { key: 'purple', icon: '🟪', label: 'Кристальні та небесні',   range: '61–80'  },
+  { key: 'orange', icon: '🟧', label: 'Давньовічні',             range: '81–90'  },
+  { key: 'gold',   icon: '🌟', label: 'Легендарні',              range: '91–100' },
+];
+
 function openPlantModal(plotId) {
   if (!gardenData?.plants?.length) { toast('Немає доступних рослин', true); return; }
   window._currentPlotId = plotId;
-  const list = document.getElementById('plant-list');
-  list.innerHTML = gardenData.plants.map(p => `
-    <div class="plant-item" onclick="plantSeed(${p.id})">
-      <img src="/icons/plants/${(() => { const m={'Пшениця':'wheat','Морква':'carrot','Капуста':'cabbage','Соняшник':'sunflower','Гарбуз':'pumpkin','Диня':'melon','Виноград':'grapes','Зілля сили':'herb','Зілля спритності':'herb','Чарівний гриб':'mushroom'}; return m[p.name]||'herb'; })()}.svg" width="40" height="40" class="plant-emoji-big">
-      <div class="plant-info">
-        <div class="plant-info-name">${p.name}</div>
-        <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${p.greens_reward} | ${IC.exp(13)} +${Math.floor(p.exp_reward * 0.1)}</div>
-      </div>
-      <div class="plant-price">${IC.greens(13)} ${p.seed_price}</div>
-    </div>`).join('');
+
+  // Group by tier
+  const byTier = {};
+  gardenData.plants.forEach(p => {
+    const k = p.frame_color || 'gray';
+    if (!byTier[k]) byTier[k] = [];
+    byTier[k].push(p);
+  });
+
+  let html = '';
+  for (const tier of _PLANT_TIERS) {
+    const plants = byTier[tier.key];
+    if (!plants?.length) continue;
+    html += `<div class="plant-tier-header">${tier.icon} ${tier.label}<span class="tier-range">рів. ${tier.range}</span></div>`;
+    html += plants.map(p => `
+      <div class="plant-item frame-${p.frame_color || 'gray'}${p.is_boss ? ' is-boss' : ''}" onclick="plantSeed(${p.id})">
+        <span class="plant-emoji-big">${p.emoji || '🌱'}</span>
+        <div class="plant-info">
+          <div class="plant-info-name">${p.name}${p.is_boss ? ' <span class="boss-star">⭐</span>' : ''}</div>
+          <div class="plant-info-stats">${IC.timer(13)} ${fmtTime(p.growth_minutes * 60)} | ${IC.greens(13)} +${fmtNum(p.greens_reward)} | ${IC.exp(13)} +${p.exp_reward}</div>
+        </div>
+        <div class="plant-price">${IC.greens(13)} ${fmtNum(p.seed_price)}</div>
+      </div>`).join('');
+  }
+
+  document.getElementById('plant-list').innerHTML = html;
   document.getElementById('plant-modal').style.display = 'flex';
 }
 
