@@ -2358,6 +2358,7 @@ async function loadProfile() {
         ${infoRow(IC.village(14), 'Місто', p.city_name || '—', '<button class="btn btn-orange btn-sm" onclick="changeCity()">Змінити</button>')}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
+        ${infoRow('🏆', 'Досягнення', `<span style="cursor:pointer;color:var(--orange)" onclick="navigate('achievements')">${r.achDone ?? 0} / 65</span>`)}
       </div>
 
       <div class="panel mb-12">
@@ -3889,6 +3890,7 @@ async function viewProfile(id) {
         ${p.city_name ? infoRow(IC.village(14), 'Місто', p.city_name) : ''}
         ${infoRow(IC.wins(14), 'Перемог', p.wins)}
         ${infoRow(IC.skull(14), 'Поразок', p.losses)}
+        ${infoRow('🏆', 'Досягнення', `${r.achDone ?? 0} / 65`)}
         ${p.status_text ? infoRow(IC.bell(14), 'Статус', p.status_text) : ''}
       </div>
 

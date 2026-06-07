@@ -91,7 +91,12 @@ router.get('/', async (req, res) => {
       [req.session.playerId]
     );
 
-    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts, itemRunes, titles });
+    const { rows: [{ ach_done }] } = await pool.query(
+      `SELECT COUNT(*)::INTEGER AS ach_done FROM player_achievements WHERE player_id=$1 AND is_completed=true`,
+      [req.session.playerId]
+    );
+
+    res.json({ player, inventory: inventory.rows, gifts: gifts.rows, tricks: tricks.rows, trainCosts, itemRunes, titles, achDone: ach_done });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -390,12 +395,18 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
+    const { rows: [{ ach_done: pubAchDone }] } = await pool.query(
+      `SELECT COUNT(*)::INTEGER AS ach_done FROM player_achievements WHERE player_id=$1 AND is_completed=true`,
+      [req.params.id]
+    );
+
     res.json({
       player,
       equipment: equip.rows,
       gifts: gifts.rows,
       itemRunes,
       titles,
+      achDone: pubAchDone,
       friendshipStatus: friendship.rows[0]?.status || null,
       isRequester: friendship.rows[0]?.requester_id === req.session.playerId
     });
