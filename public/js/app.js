@@ -296,6 +296,7 @@ function navigate(page) {
   if (page === 'clan-defense') loadClanDefense();
   if (page === 'pets')         loadPets();
   if (page === 'events')       loadEvents();
+  if (page === 'messages')     loadMessages();
   if (page !== 'caves')  stopCavesPolling();
   if (page !== 'clans' && _warTimerInterval) {
     clearInterval(_warTimerInterval);
@@ -721,6 +722,191 @@ async function buyPlot() {
   } catch (e) { toast(e.message, true); }
 }
 
+// ─── PRIVATE MESSAGES ────────────────────────────────────────────────────────
+
+let _privChatOtherId   = null;
+let _privChatConvId    = null;
+let _privChatOtherName = '';
+let _msgSearchTimer    = null;
+
+function _updateMsgBadge(count) {
+  const badge = document.getElementById('msg-home-badge');
+  if (!badge) return;
+  if (count > 0) {
+    badge.textContent = count > 99 ? '99+' : count;
+    badge.style.display = '';
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+async function loadMessages() {
+  const el = document.getElementById('conversations-list');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted" style="padding:12px">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/messages/conversations');
+    const convs = r.conversations || [];
+    const totalUnread = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+    _updateMsgBadge(totalUnread);
+
+    if (!convs.length) {
+      el.innerHTML = '<p class="text-muted" style="padding:12px 16px;font-size:13px">Немає повідомлень. Напиши комусь першим!</p>';
+      return;
+    }
+    el.innerHTML = convs.map(c => {
+      const onlineHtml = c.other_online
+        ? `<span style="color:#4caf50;font-size:11px">🟢 онлайн</span>`
+        : `<span style="color:#bbb;font-size:11px">⚫ ${c.other_last_seen ? _timeAgo(c.other_last_seen) : 'давно'}</span>`;
+      const fIcon = c.other_faction === 'elves' ? '🧝' : '👹';
+      const preview = c.last_message ? c.last_message.slice(0, 30) + (c.last_message.length > 30 ? '…' : '') : '';
+      const timeStr = c.last_message_at ? _msgTime(c.last_message_at) : '';
+      const unread = c.unread_count > 0
+        ? `<span style="background:#e53935;color:#fff;border-radius:50%;font-size:10px;font-weight:700;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;display:inline-block">${c.unread_count}</span>`
+        : '';
+      return `
+        <div onclick="openPrivChat(${c.other_id},'${c.other_name.replace(/'/g,"\\'")}',${c.id})"
+             style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer">
+          <div style="font-size:24px;width:36px;text-align:center">${fIcon}</div>
+          <div style="flex:1;overflow:hidden">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <span style="font-weight:700;font-size:13px">${c.other_name}</span>
+              <span style="font-size:11px;color:#aaa">${timeStr}</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1px">
+              <span style="font-size:12px;color:#888;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">${preview}</span>
+              <div style="margin-left:6px">${unread}</div>
+            </div>
+            <div style="margin-top:2px">${onlineHtml}</div>
+          </div>
+        </div>`;
+    }).join('');
+  } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
+}
+
+function _msgTime(ts) {
+  const d = new Date(ts), now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'щойно';
+  if (diff < 3600000) return `${Math.floor(diff/60000)}хв`;
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+  return d.toLocaleDateString('uk-UA',{day:'2-digit',month:'2-digit'});
+}
+
+async function openPrivChat(playerId, username, convId) {
+  _privChatOtherId   = playerId;
+  _privChatOtherName = username;
+  _privChatConvId    = convId || null;
+  navigate('privchat');
+
+  document.getElementById('privchat-header-name').textContent = username;
+  document.getElementById('privchat-header-online').textContent = '';
+  const profBtn = document.getElementById('privchat-profile-btn');
+  if (profBtn) profBtn.onclick = () => viewProfile(playerId);
+  const backBtn = document.getElementById('privchat-back-btn');
+  if (backBtn) backBtn.onclick = () => navigate('messages');
+
+  const msgsEl = document.getElementById('privchat-messages');
+  msgsEl.innerHTML = '<p class="text-muted text-center" style="font-size:12px">Завантаження...</p>';
+
+  try {
+    const r = await API.get(`/api/messages/${playerId}`);
+    _privChatConvId = r.conversationId;
+    if (r.other) {
+      const onlineStr = r.other.is_online ? '🟢 онлайн' : `⚫ ${r.other.last_seen ? _timeAgo(r.other.last_seen) : 'давно'}`;
+      document.getElementById('privchat-header-online').textContent = onlineStr;
+    }
+    _renderPrivMessages(r.messages || []);
+    // Mark as read
+    if (_privChatConvId) {
+      API.put(`/api/messages/${_privChatConvId}/read`, {}).catch(() => {});
+      _updateMsgBadge(0);
+    }
+  } catch (e) { msgsEl.innerHTML = `<p class="text-muted text-center">${e.message}</p>`; }
+
+  const inp = document.getElementById('privchat-input');
+  if (inp) inp.focus();
+}
+
+function _renderPrivMessages(msgs) {
+  const el = document.getElementById('privchat-messages');
+  if (!el) return;
+  if (!msgs.length) {
+    el.innerHTML = '<p class="text-muted text-center" style="font-size:12px;margin-top:20px">Немає повідомлень. Напиши першим!</p>';
+    return;
+  }
+  el.innerHTML = msgs.map(m => {
+    const isMine = m.sender_id === (player?.id);
+    const timeStr = new Date(m.created_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+    const readMark = isMine ? (m.is_read ? '✓✓' : '✓') : '';
+    return `
+      <div style="display:flex;justify-content:${isMine ? 'flex-end' : 'flex-start'}">
+        <div style="max-width:75%;background:${isMine ? '#dcf8c6' : '#fff'};border:1px solid ${isMine ? '#b2dfdb' : '#e0e0e0'};
+             border-radius:${isMine ? '14px 4px 14px 14px' : '4px 14px 14px 14px'};
+             padding:7px 11px;font-size:13px;word-break:break-word">
+          <div>${m.content}</div>
+          <div style="display:flex;justify-content:flex-end;gap:3px;margin-top:3px">
+            <span style="font-size:10px;color:#aaa">${timeStr}</span>
+            ${isMine ? `<span style="font-size:10px;color:${m.is_read ? '#4caf50' : '#aaa'}">${readMark}</span>` : ''}
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function sendPrivateMsg() {
+  const inp = document.getElementById('privchat-input');
+  const text = inp?.value?.trim();
+  if (!text || !_privChatOtherId) return;
+  inp.value = '';
+  try {
+    const r = await API.post(`/api/messages/${_privChatOtherId}`, { content: text });
+    _privChatConvId = r.conversationId;
+    // Append the new message optimistically
+    const el = document.getElementById('privchat-messages');
+    if (el) {
+      const timeStr = new Date(r.message.created_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+      const div = document.createElement('div');
+      div.style.cssText = 'display:flex;justify-content:flex-end';
+      div.innerHTML = `
+        <div style="max-width:75%;background:#dcf8c6;border:1px solid #b2dfdb;
+             border-radius:14px 4px 14px 14px;padding:7px 11px;font-size:13px;word-break:break-word">
+          <div>${r.message.content}</div>
+          <div style="display:flex;justify-content:flex-end;gap:3px;margin-top:3px">
+            <span style="font-size:10px;color:#aaa">${timeStr}</span>
+            <span style="font-size:10px;color:#aaa">✓</span>
+          </div>
+        </div>`;
+      el.appendChild(div);
+      el.scrollTop = el.scrollHeight;
+      // Remove empty-state message if present
+      el.querySelectorAll('p.text-muted').forEach(p => p.remove());
+    }
+  } catch (e) { toast(e.message, true); inp.value = text; }
+}
+
+function _onMsgSearch(val) {
+  clearTimeout(_msgSearchTimer);
+  const resultsEl = document.getElementById('msg-search-results');
+  if (!val.trim()) { if (resultsEl) resultsEl.style.display = 'none'; return; }
+  _msgSearchTimer = setTimeout(async () => {
+    try {
+      const r = await API.get(`/api/social/search?q=${encodeURIComponent(val.trim())}`);
+      if (!resultsEl) return;
+      if (!r.players.length) { resultsEl.innerHTML = '<p class="text-muted" style="font-size:12px">Нічого не знайдено</p>'; resultsEl.style.display = ''; return; }
+      resultsEl.innerHTML = r.players.map(p => `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 4px;cursor:pointer;border-bottom:1px solid var(--border)"
+             onclick="openPrivChat(${p.id},'${p.username.replace(/'/g,"\\'")}',null)">
+          <span style="font-size:18px">${p.faction==='elves'?'🧝':'👹'}</span>
+          <div style="flex:1"><span style="font-weight:600;font-size:13px">${p.username}</span> <span class="text-muted">Рів.${p.level}</span></div>
+          <button class="btn btn-blue btn-sm">Написати</button>
+        </div>`).join('');
+      resultsEl.style.display = '';
+    } catch (e) { /* ignore */ }
+  }, 400);
+}
+
 // ─── BATTLE ──────────────────────────────────────────────────────────────────
 async function loadOpponents() {
   showOpponents();
@@ -1029,6 +1215,9 @@ function showBattleResult(r) {
     <div class="flex-row" style="gap:8px">
       <button class="btn btn-green" style="flex:1" onclick="fightNext()">Наступний бій</button>
       <button class="btn btn-blue" style="flex:1" onclick="showOpponents()">До списку</button>
+    </div>
+    <div style="margin-top:8px">
+      <button class="btn btn-blue btn-sm btn-full" onclick="openPrivChat(${r.defenderId},'${(r.defenderName||'').replace(/'/g,"\\'")}',null)">💬 Написати ${r.defenderName||'суперника'}</button>
     </div>`;
 }
 
@@ -2371,6 +2560,7 @@ async function loadFriends() {
             ? `<button class="btn btn-green btn-sm" onclick="acceptFriend(${f.id})">Прийняти</button>`
             : ''}
           ${f.status === 'accepted' ? `<button class="btn btn-blue btn-sm" onclick="viewProfile(${f.friend_id})">Профіль</button>` : ''}
+          ${f.status === 'accepted' ? `<button class="btn btn-green btn-sm" onclick="openPrivChat(${f.friend_id},'${f.friend_name.replace(/'/g,"\\'")}',null)">💬</button>` : ''}
           ${f.status === 'accepted' ? `<button class="btn btn-orange btn-sm" onclick="sendGift(${f.friend_id})">${IC.gift(13)}</button>` : ''}
           <button class="btn btn-red btn-sm" onclick="removeFriend(${f.id})">&times;</button>
         </div>
@@ -3529,6 +3719,7 @@ async function viewProfile(id) {
         <div style="padding:8px 12px 12px;display:flex;gap:6px;flex-wrap:wrap;justify-content:center">
           <button class="btn btn-red btn-sm" onclick="navigate('battle')">${IC.battle(14)} Битися</button>
           ${friendBtn}
+          <button class="btn btn-blue btn-sm" onclick="openPrivChat(${p.id},'${p.username.replace(/'/g,"\\'")}',null)">💬 Написати</button>
           <button class="btn btn-orange btn-sm" onclick="sendGift(${p.id})">${IC.gift(14)} Подарунок</button>
         </div>
       </div>
@@ -4181,6 +4372,56 @@ function initSocket() {
     const page = document.getElementById('page-clans');
     if (page && page.classList.contains('active')) {
       renderMyClan().then(() => loadWarResults(warId));
+    }
+  });
+
+  // Private messages socket events
+  socket.on('message:new', ({ conversationId, message, senderName, senderFaction, senderId }) => {
+    // Update badge
+    const msgsPage = document.getElementById('page-messages');
+    const chatPage = document.getElementById('page-privchat');
+    const msgsActive = msgsPage?.classList.contains('active');
+    const chatActive = chatPage?.classList.contains('active');
+
+    if (chatActive && _privChatOtherId === senderId) {
+      // Currently in this chat — append message + mark read
+      const el = document.getElementById('privchat-messages');
+      if (el) {
+        el.querySelectorAll('p.text-muted').forEach(p => p.remove());
+        const timeStr = new Date(message.created_at).toLocaleTimeString('uk-UA',{hour:'2-digit',minute:'2-digit'});
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;justify-content:flex-start';
+        div.innerHTML = `
+          <div style="max-width:75%;background:#fff;border:1px solid #e0e0e0;
+               border-radius:4px 14px 14px 14px;padding:7px 11px;font-size:13px;word-break:break-word">
+            <div>${message.content}</div>
+            <div style="display:flex;justify-content:flex-end;margin-top:3px">
+              <span style="font-size:10px;color:#aaa">${timeStr}</span>
+            </div>
+          </div>`;
+        el.appendChild(div);
+        el.scrollTop = el.scrollHeight;
+        API.put(`/api/messages/${conversationId}/read`, {}).catch(() => {});
+      }
+    } else {
+      // Not in this chat — show notification badge
+      toast(`💬 ${senderName}: ${message.content.slice(0, 40)}${message.content.length > 40 ? '…' : ''}`);
+      // Update badge count
+      API.get('/api/messages/conversations').then(r => {
+        const total = (r.conversations||[]).reduce((s,c) => s+(c.unread_count||0), 0);
+        _updateMsgBadge(total);
+        if (msgsActive) loadMessages();
+      }).catch(() => {});
+    }
+  });
+
+  socket.on('message:read', ({ conversationId }) => {
+    if (_privChatConvId === conversationId) {
+      // Update ✓ → ✓✓ for all sent messages
+      document.querySelectorAll('#privchat-messages .msg-status').forEach(el => {
+        el.textContent = '✓✓';
+        el.style.color = '#4caf50';
+      });
     }
   });
 

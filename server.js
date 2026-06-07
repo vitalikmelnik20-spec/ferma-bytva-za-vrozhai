@@ -61,6 +61,7 @@ app.use('/api/bank',         require('./src/routes/bank'));
 app.use('/api/events',       require('./src/routes/events'));
 app.use('/api/clan-war',     require('./src/routes/clanWar'));
 app.use('/api/tools',        require('./src/routes/tools'));
+app.use('/api/messages',     require('./src/routes/messages'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -1037,6 +1038,55 @@ setInterval(async () => {
     } catch (err) { console.error('[ClanWar cleanup]', err.message); }
   }, 7 * 24 * 60 * 60 * 1000);
 }
+
+// Refund gold for plots beyond 15 (old formula: 200*(slot_index+1))
+(async () => {
+  try {
+    const { rows: extra } = await pool.query(
+      `SELECT player_id, slot_index FROM plots WHERE slot_index >= 15 ORDER BY player_id, slot_index`
+    );
+    if (!extra.length) return;
+    const refundMap = {};
+    for (const { player_id, slot_index } of extra) {
+      refundMap[player_id] = (refundMap[player_id] || 0) + 200 * (slot_index + 1);
+    }
+    for (const [player_id, refund] of Object.entries(refundMap)) {
+      await pool.query(`UPDATE players SET gold = gold + $1 WHERE id = $2`, [refund, player_id]);
+    }
+    await pool.query(`DELETE FROM plots WHERE slot_index >= 15`);
+    console.log(`[Plot limit] Видалено зайві грядки, повернуто золото ${Object.keys(refundMap).length} гравцям`);
+  } catch (err) { console.error('[Plot limit refund]', err.message); }
+})();
+
+// Messenger tables migration
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS conversations (
+        id               SERIAL PRIMARY KEY,
+        player1_id       INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        player2_id       INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        last_message_at  TIMESTAMP,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW(),
+        UNIQUE(player1_id, player2_id)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversations_p1 ON conversations(player1_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_conversations_p2 ON conversations(player2_id)`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id               SERIAL PRIMARY KEY,
+        conversation_id  INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        sender_id        INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        content          TEXT NOT NULL CHECK (char_length(content) <= 500),
+        is_read          BOOLEAN NOT NULL DEFAULT false,
+        created_at       TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at DESC)`);
+    console.log('[Messenger] Tables ready');
+  } catch (err) { console.error('[Messenger tables]', err.message); }
+})();
 
 // Rating system migration
 (async () => {
