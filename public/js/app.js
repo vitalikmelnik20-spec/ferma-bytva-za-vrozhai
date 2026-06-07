@@ -2752,6 +2752,14 @@ async function renderMyClan(el) {
     </div>
     <div id="treasury-log-section" style="margin-top:8px"></div>
 
+    ${isSenior ? `
+    <div class="panel-header" style="margin-top:12px">${IC.settings(14)} Управління</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <button class="btn btn-blue btn-sm" onclick="toggleClanMode()">${c.mode === 'open' ? '🔓 Відкритий (закрити)' : '🔒 Закритий (відкрити)'}</button>
+      <button class="btn btn-orange btn-sm" onclick="loadClanApplications()">📩 Заявки</button>
+    </div>
+    <div id="clan-applications-section" style="margin-top:8px"></div>` : ''}
+
     <div style="margin-top:12px;display:flex;gap:6px;flex-wrap:wrap">
       ${isLeader
         ? `<button class="btn btn-red btn-sm" onclick="dissolveClan()">Розпустити клан</button>`
@@ -2774,16 +2782,78 @@ async function renderMyClan(el) {
 }
 
 async function renderClanList(el) {
-  const r = await API.get('/api/clans');
-  el.innerHTML = r.clans.map(c => `
-    <div class="opponent-card">
-      <div class="opponent-avatar" style="font-weight:700;font-size:14px">[${c.tag}]</div>
-      <div class="opponent-info">
-        <div style="font-weight:700">${c.name} <span class="text-muted badge-faction ${c.faction}">${c.faction === 'elves' ? 'Ельфи' : 'Орки'}</span></div>
-        <div class="text-muted">${c.member_count}/50 учасників | ${IC.glory(13)}${fmtNum(c.rating_points)}</div>
+  el.innerHTML = `
+    <div style="margin-bottom:10px">
+      <div class="flex-row" style="gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <input id="clan-search-q" class="form-control" style="flex:1;min-width:120px" placeholder="Назва або тег..." oninput="_debouncedClanSearch()">
+        <select id="clan-search-faction" class="form-control" style="width:auto" onchange="searchClans()">
+          <option value="">Всі фракції</option>
+          <option value="elves">🧝 Ельфи</option>
+          <option value="orcs">👹 Орки</option>
+        </select>
+        <select id="clan-search-mode" class="form-control" style="width:auto" onchange="searchClans()">
+          <option value="">Всі</option>
+          <option value="open">🔓 Відкриті</option>
+          <option value="closed">🔒 Закриті</option>
+        </select>
+        <select id="clan-search-sort" class="form-control" style="width:auto" onchange="searchClans()">
+          <option value="rating">За рейтингом</option>
+          <option value="members">За кількістю</option>
+          <option value="new">Нові</option>
+        </select>
       </div>
-      <button class="btn btn-blue btn-sm" onclick="joinClan(${c.id})">Вступити</button>
-    </div>`).join('') || '<p class="text-muted">Кланів ще немає</p>';
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px">
+        <input type="checkbox" id="clan-search-spots" onchange="searchClans()"> Є вільні місця
+      </label>
+    </div>
+    <div id="clan-search-results"><p class="text-muted text-center">Завантаження...</p></div>`;
+  searchClans();
+}
+
+let _clanSearchTimer = null;
+function _debouncedClanSearch() {
+  clearTimeout(_clanSearchTimer);
+  _clanSearchTimer = setTimeout(searchClans, 400);
+}
+
+async function searchClans() {
+  const q        = document.getElementById('clan-search-q')?.value.trim() || '';
+  const faction  = document.getElementById('clan-search-faction')?.value || '';
+  const mode     = document.getElementById('clan-search-mode')?.value || '';
+  const sort     = document.getElementById('clan-search-sort')?.value || 'rating';
+  const hasSpots = document.getElementById('clan-search-spots')?.checked ? 'true' : '';
+  const el       = document.getElementById('clan-search-results');
+  if (!el) return;
+
+  const params = new URLSearchParams();
+  if (q)        params.set('q', q);
+  if (faction)  params.set('faction', faction);
+  if (mode)     params.set('mode', mode);
+  if (sort)     params.set('sort', sort);
+  if (hasSpots) params.set('has_spots', 'true');
+
+  try {
+    const r = await API.get(`/api/clans/search?${params}`);
+    const inClan = !!player?.clan_name;
+    el.innerHTML = r.clans.map(c => {
+      const open    = c.mode !== 'closed';
+      const modeIcon = open ? '🔓' : '🔒';
+      const btn = inClan
+        ? ''
+        : open
+          ? `<button class="btn btn-green btn-sm" onclick="joinClan(${c.id})">Вступити</button>`
+          : `<button class="btn btn-blue btn-sm" onclick="applyClan(${c.id})">Заявка</button>`;
+      return `
+        <div class="opponent-card" style="cursor:pointer" onclick="viewClan(${c.id},'clans')">
+          <div class="opponent-avatar" style="font-weight:700;font-size:13px">[${c.tag}]</div>
+          <div class="opponent-info">
+            <div style="font-weight:700">${c.name} ${modeIcon} <span class="badge-faction ${c.faction}" style="font-size:11px">${c.faction === 'elves' ? 'Ельфи' : 'Орки'}</span></div>
+            <div class="text-muted" style="font-size:12px">${c.member_count}/${c.max_members} · ${IC.glory(12)}${fmtNum(c.rating_points)}</div>
+          </div>
+          ${btn}
+        </div>`;
+    }).join('') || '<p class="text-muted text-center">Кланів не знайдено</p>';
+  } catch (e) { el.innerHTML = `<p class="text-muted text-center">${e.message}</p>`; }
 }
 
 function roleName(r) {
@@ -2796,6 +2866,14 @@ async function joinClan(id) {
     toast('Ви вступили до клану!');
     await refreshPlayer();
     loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function applyClan(id) {
+  try {
+    await API.post(`/api/clans/apply/${id}`);
+    toast('Заявку подано! Чекайте рішення Отамана.');
+    searchClans();
   } catch (e) { toast(e.message, true); }
 }
 
@@ -3351,6 +3429,52 @@ async function dissolveClan() {
   } catch (e) { toast(e.message, true); }
 }
 
+async function toggleClanMode() {
+  try {
+    const r = await API.post('/api/clans/toggle-mode');
+    toast(r.mode === 'open' ? '🔓 Клан тепер відкритий' : '🔒 Клан тепер закритий');
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function loadClanApplications() {
+  const el = document.getElementById('clan-applications-section');
+  if (!el) return;
+  try {
+    const r = await API.get('/api/clans/applications');
+    if (!r.applications.length) {
+      el.innerHTML = '<p class="text-muted" style="font-size:12px">Нових заявок немає</p>';
+      return;
+    }
+    el.innerHTML = r.applications.map(a => `
+      <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #eee;font-size:13px">
+        <div style="flex:1">
+          <span style="cursor:pointer;color:var(--orange);font-weight:600" onclick="viewProfile(${a.player_id})">${a.username}</span>
+          <span class="text-muted"> · Рів.${a.level} · ${factionLabel(a.faction)}</span>
+        </div>
+        <button class="btn btn-green btn-sm" style="padding:2px 8px" onclick="acceptApp(${a.id})">✅</button>
+        <button class="btn btn-red btn-sm"   style="padding:2px 8px" onclick="rejectApp(${a.id})">❌</button>
+      </div>`).join('');
+  } catch (e) { el.innerHTML = `<p class="text-muted" style="font-size:12px">${e.message}</p>`; }
+}
+
+async function acceptApp(appId) {
+  try {
+    await API.post(`/api/clans/applications/${appId}/accept`);
+    toast('Гравця прийнято до клану!');
+    loadClanApplications();
+    loadClans();
+  } catch (e) { toast(e.message, true); }
+}
+
+async function rejectApp(appId) {
+  try {
+    await API.post(`/api/clans/applications/${appId}/reject`);
+    toast('Заявку відхилено');
+    loadClanApplications();
+  } catch (e) { toast(e.message, true); }
+}
+
 // ─── PUBLIC PROFILE ───────────────────────────────────────────────────────────
 async function viewProfile(id) {
   navigate('pubprofile');
@@ -3461,42 +3585,84 @@ async function viewClan(id, backTo) {
     const c = r.clan;
     const members = r.members || [];
     const buildings = r.buildings || [];
-    const leader = members.find(m => m.role === 'leader');
+    const myClanId = r.myMembershipClanId;
+    const isMyOwnClan = myClanId === c.id;
+    const inAnotherClan = myClanId && !isMyOwnClan;
 
-    const memberRows = members.map(m => `
-      <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border)">
-        <span style="font-size:20px">${playerAvatar(m.faction, 'male')}</span>
-        <div style="flex:1">
-          <div style="font-weight:600;cursor:pointer;color:var(--orange);text-decoration:underline dotted" onclick="viewProfile(${m.id})">${m.username}</div>
-          <div style="font-size:11px;color:var(--text-light)">${roleName(m.role)} · Рів.${m.level}</div>
-        </div>
-        <span style="font-size:12px;color:var(--text-light)">${IC.glory(12)} ${fmtNum(m.glory)}</span>
-      </div>`).join('');
+    const modeIcon = c.mode === 'open' ? '🔓 Відкритий' : '🔒 Закритий';
+
+    // Join/Apply button logic
+    let actionBtn = '';
+    if (!isMyOwnClan && !inAnotherClan) {
+      if (c.mode === 'open' && c.free_spots > 0) {
+        actionBtn = `<button class="btn btn-green btn-sm" onclick="joinClan(${c.id});navigate('clans')">✅ Вступити</button>`;
+      } else if (c.mode !== 'open') {
+        actionBtn = r.myApp
+          ? `<button class="btn btn-gray btn-sm" disabled>⏳ Заявка на розгляді</button>`
+          : `<button class="btn btn-blue btn-sm" onclick="applyClan(${c.id})">📩 Подати заявку</button>`;
+      }
+    }
+
+    const memberRows = members.map(m => {
+      const roleIcons = { leader:'🌻', senior:'🌾', officer:'🌿', member:'🥕' };
+      const onlineHtml = m.is_online
+        ? `<span style="color:#4caf50;font-size:11px">🟢 онлайн</span>`
+        : `<span style="color:#bbb;font-size:11px">⚫ ${m.last_seen ? _timeAgo(m.last_seen) : 'давно'}</span>`;
+      return `
+        <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border)">
+          <span style="font-size:18px">${roleIcons[m.role] || '🥕'}</span>
+          <div style="flex:1">
+            <div style="font-weight:600;cursor:pointer;color:var(--orange);text-decoration:underline dotted" onclick="viewProfile(${m.id})">${m.username}</div>
+            <div style="font-size:11px;color:var(--text-light)">${roleName(m.role)} · Рів.${m.level} · ${onlineHtml}</div>
+          </div>
+          <span style="font-size:12px;color:var(--text-light)">${IC.glory(12)} ${fmtNum(m.glory)}</span>
+        </div>`;
+    }).join('');
 
     const buildingRows = Object.entries(BUILDING_LABELS).map(([key, info]) => {
       const b = buildings.find(b => b.building_key === key) || { level: 0 };
       const maxLvl = (BUILDING_COSTS[key] || []).length;
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 12px;border-bottom:1px solid var(--border);font-size:13px">
-        <span>${info.name}</span>
-        <span class="text-muted">Рів.${b.level}/${maxLvl}</span>
+        <span>${info.name}</span><span class="text-muted">Рів.${b.level}/${maxLvl}</span>
       </div>`;
     }).join('');
 
     el.innerHTML = `
-      <div style="padding:12px;text-align:center">
-        <div style="font-size:22px;font-weight:700;color:var(--orange)">[${c.tag}] ${c.name}</div>
-        <div style="font-size:13px;color:var(--text-light);margin-top:4px">${factionLabel(c.faction)} · ${IC.friends(13)} ${members.length} членів</div>
+      <div class="panel mb-12" style="padding:14px;text-align:center">
+        <div style="font-size:24px;font-weight:700;color:var(--orange)">[${c.tag}] ${c.name}</div>
+        <div style="font-size:13px;color:var(--text-light);margin:4px 0">${factionLabel(c.faction)} · ${modeIcon}</div>
         ${c.description ? `<div style="font-size:13px;margin-top:8px;color:var(--text)">${c.description}</div>` : ''}
+        ${actionBtn ? `<div style="margin-top:10px">${actionBtn}</div>` : ''}
       </div>
+
       <div class="panel mb-12">
-        <div class="panel-header">${IC.profile(14)} Учасники</div>
+        <div class="panel-header">${IC.stats_ic(14)} Інформація</div>
+        ${infoRow('👑', 'Засновник', `<span style="cursor:pointer;color:var(--orange);text-decoration:underline dotted" onclick="viewProfile(${c.leader_id})">${c.leader_name || '—'}</span>`)}
+        ${infoRow(IC.friends(14), 'Учасники', `${c.member_count} / ${c.max_members}`)}
+        ${infoRow('🚪', 'Вільних місць', c.free_spots)}
+        ${infoRow('⭐', 'Рейтинг', fmtNum(c.rating_points))}
+        ${infoRow('🏆', 'Перемог у войнах', c.wars_won)}
+        ${infoRow('💀', 'Поразок у войнах', c.wars_lost)}
+        ${infoRow('💰', 'Скарбниця', fmtNum(c.treasury_total) + ' (загалом)')}
+      </div>
+
+      <div class="panel mb-12">
+        <div class="panel-header">${IC.friends(14)} Учасники (${members.length})</div>
         ${memberRows || '<p class="text-muted" style="padding:8px">Немає учасників</p>'}
       </div>
+
       <div class="panel mb-12">
         <div class="panel-header">🏗 Будівлі</div>
         ${buildingRows}
       </div>`;
   } catch (e) { el.innerHTML = `<p class="text-muted text-center">${e.message}</p>`; }
+}
+
+function _timeAgo(ts) {
+  const mins = Math.floor((Date.now() - new Date(ts)) / 60000);
+  if (mins < 60) return `${mins}хв тому`;
+  if (mins < 1440) return `${Math.floor(mins/60)}год тому`;
+  return `${Math.floor(mins/1440)}д тому`;
 }
 
 async function _loadPubProfilePet(playerId) {

@@ -208,13 +208,208 @@ router.post('/buildings/upgrade', async (req, res) => {
   }
 });
 
+// ─── Clan search ─────────────────────────────────────────────────────────────
+router.get('/search', async (req, res) => {
+  try {
+    const { q, faction, mode, has_spots, sort = 'rating' } = req.query;
+    const conditions = ['1=1'];
+    const params = [];
+
+    if (q) {
+      params.push(`%${q.toLowerCase()}%`);
+      conditions.push(`(LOWER(c.name) LIKE $${params.length} OR LOWER(c.tag) LIKE $${params.length})`);
+    }
+    if (faction && ['elves','orcs'].includes(faction)) {
+      params.push(faction);
+      conditions.push(`c.faction=$${params.length}`);
+    }
+    if (mode && ['open','closed'].includes(mode)) {
+      params.push(mode);
+      conditions.push(`c.mode=$${params.length}`);
+    }
+    if (has_spots === 'true') {
+      conditions.push(`(SELECT COUNT(*) FROM clan_members WHERE clan_id=c.id) < COALESCE(c.max_members,50)`);
+    }
+
+    const orderBy = sort === 'members' ? 'member_count DESC'
+                  : sort === 'new'     ? 'c.created_at DESC'
+                  :                      'c.rating_points DESC';
+
+    const { rows } = await pool.query(
+      `SELECT c.id, c.name, c.tag, c.faction, c.mode, c.rating_points,
+              COALESCE(c.max_members,50) AS max_members,
+              COUNT(cm.player_id)::int AS member_count
+       FROM clans c
+       LEFT JOIN clan_members cm ON cm.clan_id=c.id
+       WHERE ${conditions.join(' AND ')}
+       GROUP BY c.id
+       ORDER BY ${orderBy}
+       LIMIT 50`,
+      params
+    );
+    res.json({ clans: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ─── Clan applications ────────────────────────────────────────────────────────
+router.post('/apply/:id', async (req, res) => {
+  try {
+    const { rows: inClan } = await pool.query(
+      'SELECT id FROM clan_members WHERE player_id=$1', [req.session.playerId]
+    );
+    if (inClan.length > 0) return res.status(400).json({ error: 'Ви вже в клані' });
+
+    const { rows: [clan] } = await pool.query(
+      'SELECT id, mode FROM clans WHERE id=$1', [req.params.id]
+    );
+    if (!clan) return res.status(404).json({ error: 'Клан не знайдено' });
+    if (clan.mode === 'open') return res.status(400).json({ error: 'Клан відкритий — просто вступіть' });
+
+    const { rows: existing } = await pool.query(
+      `SELECT id FROM clan_applications WHERE clan_id=$1 AND player_id=$2 AND status='pending'`,
+      [req.params.id, req.session.playerId]
+    );
+    if (existing.length > 0) return res.status(400).json({ error: 'Заявку вже подано' });
+
+    await pool.query(
+      `INSERT INTO clan_applications (clan_id, player_id) VALUES ($1,$2)`,
+      [req.params.id, req.session.playerId]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.get('/applications', async (req, res) => {
+  try {
+    const { rows: [me] } = await pool.query(
+      'SELECT clan_id, role FROM clan_members WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!me) return res.status(403).json({ error: 'Ви не в клані' });
+    if (!['leader','senior'].includes(me.role))
+      return res.status(403).json({ error: 'Недостатньо прав' });
+
+    const { rows } = await pool.query(
+      `SELECT ca.id, ca.created_at, p.id AS player_id, p.username, p.level, p.faction, p.glory
+       FROM clan_applications ca
+       JOIN players p ON p.id=ca.player_id
+       WHERE ca.clan_id=$1 AND ca.status='pending'
+       ORDER BY ca.created_at ASC`,
+      [me.clan_id]
+    );
+    res.json({ applications: rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.post('/applications/:appId/accept', async (req, res) => {
+  try {
+    const { rows: [me] } = await pool.query(
+      'SELECT clan_id, role FROM clan_members WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!me || !['leader','senior'].includes(me.role))
+      return res.status(403).json({ error: 'Недостатньо прав' });
+
+    const { rows: [app] } = await pool.query(
+      `SELECT * FROM clan_applications WHERE id=$1 AND clan_id=$2 AND status='pending'`,
+      [req.params.appId, me.clan_id]
+    );
+    if (!app) return res.status(404).json({ error: 'Заявку не знайдено' });
+
+    const { rows: alreadyIn } = await pool.query(
+      'SELECT id FROM clan_members WHERE player_id=$1', [app.player_id]
+    );
+    if (alreadyIn.length > 0) {
+      await pool.query(`UPDATE clan_applications SET status='rejected' WHERE id=$1`, [app.id]);
+      return res.status(400).json({ error: 'Гравець вже в іншому клані' });
+    }
+
+    const { rows: [{ count }] } = await pool.query(
+      'SELECT COUNT(*) FROM clan_members WHERE clan_id=$1', [me.clan_id]
+    );
+    const { rows: [clan] } = await pool.query(
+      'SELECT COALESCE(max_members,50) AS max_members FROM clans WHERE id=$1', [me.clan_id]
+    );
+    if (parseInt(count) >= clan.max_members)
+      return res.status(400).json({ error: 'Клан заповнений' });
+
+    await pool.query(
+      'INSERT INTO clan_members (clan_id, player_id, role) VALUES ($1,$2,$3)',
+      [me.clan_id, app.player_id, 'member']
+    );
+    await pool.query(
+      `UPDATE clan_applications SET status='accepted' WHERE id=$1`, [app.id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+router.post('/applications/:appId/reject', async (req, res) => {
+  try {
+    const { rows: [me] } = await pool.query(
+      'SELECT clan_id, role FROM clan_members WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!me || !['leader','senior'].includes(me.role))
+      return res.status(403).json({ error: 'Недостатньо прав' });
+
+    const { rowCount } = await pool.query(
+      `UPDATE clan_applications SET status='rejected'
+       WHERE id=$1 AND clan_id=$2 AND status='pending'`,
+      [req.params.appId, me.clan_id]
+    );
+    if (!rowCount) return res.status(404).json({ error: 'Заявку не знайдено' });
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
+// ─── Toggle clan mode (open/closed) ─────────────────────────────────────────
+router.post('/toggle-mode', async (req, res) => {
+  try {
+    const { rows: [me] } = await pool.query(
+      'SELECT clan_id, role FROM clan_members WHERE player_id=$1', [req.session.playerId]
+    );
+    if (!me || !['leader','senior'].includes(me.role))
+      return res.status(403).json({ error: 'Недостатньо прав' });
+
+    const { rows: [clan] } = await pool.query(
+      'SELECT mode FROM clans WHERE id=$1', [me.clan_id]
+    );
+    const newMode = clan.mode === 'open' ? 'closed' : 'open';
+    await pool.query('UPDATE clans SET mode=$1 WHERE id=$2', [newMode, me.clan_id]);
+    res.json({ success: true, mode: newMode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Помилка сервера' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
-    const { rows: [clan] } = await pool.query('SELECT * FROM clans WHERE id=$1', [req.params.id]);
+    const { rows: [clan] } = await pool.query(
+      `SELECT c.*, p.username AS leader_name,
+              (SELECT COUNT(*) FROM clan_members WHERE clan_id=c.id)::int AS member_count
+       FROM clans c
+       LEFT JOIN players p ON p.id=c.leader_id
+       WHERE c.id=$1`,
+      [req.params.id]
+    );
     if (!clan) return res.status(404).json({ error: 'Клан не знайдено' });
 
     const { rows: members } = await pool.query(
-      `SELECT cm.role, p.id, p.username, p.level, p.glory, p.is_online, p.faction
+      `SELECT cm.role, p.id, p.username, p.level, p.glory, p.is_online, p.last_seen, p.faction
        FROM clan_members cm JOIN players p ON p.id = cm.player_id
        WHERE cm.clan_id=$1
        ORDER BY CASE cm.role WHEN 'leader' THEN 0 WHEN 'senior' THEN 1 WHEN 'officer' THEN 2 ELSE 3 END, p.level DESC`,
@@ -226,7 +421,32 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ clan: { ...clan, treasury_greens: undefined, treasury_gold: undefined }, members, buildings });
+    // Check if current player has a pending application
+    const playerId = req.session.playerId;
+    const { rows: [myApp] } = await pool.query(
+      `SELECT id FROM clan_applications WHERE clan_id=$1 AND player_id=$2 AND status='pending'`,
+      [req.params.id, playerId]
+    );
+
+    const { rows: [myMembership] } = await pool.query(
+      'SELECT clan_id FROM clan_members WHERE player_id=$1', [playerId]
+    );
+
+    const maxMembers = clan.max_members || 50;
+    res.json({
+      clan: {
+        id: clan.id, name: clan.name, tag: clan.tag, faction: clan.faction,
+        description: clan.description, mode: clan.mode || 'open',
+        rating_points: clan.rating_points, wars_won: clan.wars_won || 0,
+        wars_lost: clan.wars_lost || 0, leader_name: clan.leader_name,
+        leader_id: clan.leader_id, member_count: clan.member_count,
+        max_members: maxMembers, free_spots: maxMembers - clan.member_count,
+        treasury_total: (clan.treasury_greens || 0) + (clan.treasury_gold || 0),
+      },
+      members, buildings,
+      myApp: myApp ? true : false,
+      myMembershipClanId: myMembership?.clan_id || null,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

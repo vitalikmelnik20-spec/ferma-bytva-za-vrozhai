@@ -920,6 +920,20 @@ setInterval(async () => {
         try { await pool.query(sql); } catch (e) { /* column/constraint may already exist */ }
       }
 
+      // clan_applications table + clan mode/max_members columns
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS clan_applications (
+          id         SERIAL PRIMARY KEY,
+          clan_id    INTEGER NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+          player_id  INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+          status     VARCHAR(10) NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_clan_apps ON clan_applications(clan_id, status)`);
+      try { await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS mode VARCHAR(10) NOT NULL DEFAULT 'open'`); } catch(e) {}
+      try { await pool.query(`ALTER TABLE clans ADD COLUMN IF NOT EXISTS max_members INTEGER NOT NULL DEFAULT 50`); } catch(e) {}
+
       console.log('[ClanWar] Tables ready');
     } catch (err) { console.error('[ClanWar tables]', err.message); }
   })();
