@@ -197,17 +197,11 @@ function calcStats(player, training, gifts, runes) {
   const giftSpeed     = Math.floor(statGifts.reduce((s, g) => s + (g.speed_bonus     || 0), 0) * luckMult);
   const giftAccuracy  = Math.floor(statGifts.reduce((s, g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
 
-  // clan bonus is a % of the player's own training level
-  const clanPow = Math.floor(training.power_level     * (player.house_power     || 0) / 100);
-  const clanEnd = Math.floor(training.endurance_level * (player.house_endurance || 0) / 100);
-  const clanSpd = Math.floor(training.speed_level     * (player.house_speed     || 0) / 100);
-  const clanAcc = Math.floor(training.accuracy_level  * (player.house_accuracy  || 0) / 100);
-
   return {
-    power:     training.power_level     + player.equip_power     + giftPower     + (runes?.rune_power     || 0) + clanPow,
-    endurance: training.endurance_level + player.equip_endurance + giftEndurance + (runes?.rune_endurance || 0) + clanEnd,
-    speed:     training.speed_level     + player.equip_speed     + giftSpeed     + (runes?.rune_speed     || 0) + clanSpd,
-    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy  + (runes?.rune_accuracy  || 0) + clanAcc,
+    power:     training.power_level     + player.equip_power     + giftPower     + (runes?.rune_power     || 0) + (player.house_power     || 0),
+    endurance: training.endurance_level + player.equip_endurance + giftEndurance + (runes?.rune_endurance || 0) + (player.house_endurance || 0),
+    speed:     training.speed_level     + player.equip_speed     + giftSpeed     + (runes?.rune_speed     || 0) + (player.house_speed     || 0),
+    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy  + (runes?.rune_accuracy  || 0) + (player.house_accuracy  || 0),
   };
 }
 

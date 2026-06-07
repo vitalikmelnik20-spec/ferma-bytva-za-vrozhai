@@ -2553,9 +2553,13 @@ async function loadStats() {
     };
 
     const statRow = (icon, label, base, eq, gift, rune, potion = 0, tali = 0, clan = 0) => {
-      const total = base + eq + gift + rune + potion + tali + clan;
+      const bonuses = bonusTag(eq, gift, rune, potion, tali, clan);
+      const total   = base + eq + gift + rune + potion + tali + clan;
+      const totalTag = bonuses
+        ? ` <span style="color:#aaa;font-size:11px">= ${total}</span>`
+        : '';
       return row(icon, label,
-        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion, tali, clan)}`
+        `<strong>${base}</strong>${bonuses}${totalTag}`
       );
     };
 
