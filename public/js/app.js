@@ -99,6 +99,10 @@ let fightTargetName = null;
 let _lastFightTier = null;
 let socket = null;
 
+// Notification unread counters
+let _unreadEventsCount = 0;
+let _unreadMsgsCount   = 0;
+
 // Dragon state (declared here to avoid TDZ errors)
 let _dragonTimerInterval       = null;
 let _dragonAttackCdInterval    = null;
@@ -296,9 +300,10 @@ function navigate(page) {
   if (page === 'daily')        loadDaily();
   if (page === 'clan-defense') loadClanDefense();
   if (page === 'pets')         loadPets();
-  if (page === 'events')       loadEvents();
-  if (page === 'messages')     loadMessages();
-  if (page === 'achievements') loadAchievements();
+  if (page === 'events')         loadEvents();
+  if (page === 'messages')       loadMessages();
+  if (page === 'achievements')   loadAchievements();
+  if (page === 'notifications')  loadNotifications();
   if (page !== 'caves')  stopCavesPolling();
   if (page !== 'clans' && _warTimerInterval) {
     clearInterval(_warTimerInterval);
@@ -732,14 +737,22 @@ let _privChatOtherName = '';
 let _msgSearchTimer    = null;
 
 function _updateMsgBadge(count) {
-  const badge = document.getElementById('msg-home-badge');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count > 99 ? '99+' : count;
-    badge.style.display = '';
-  } else {
-    badge.style.display = 'none';
-  }
+  _unreadMsgsCount = count;
+  _updateNotifBadge();
+}
+
+function _updateNotifBadge() {
+  const total = _unreadEventsCount + _unreadMsgsCount;
+  ['events-badge', 'notif-home-badge'].forEach(id => {
+    const b = document.getElementById(id);
+    if (!b) return;
+    if (total > 0) {
+      b.textContent = total > 99 ? '99+' : total;
+      b.style.display = 'inline-block';
+    } else {
+      b.style.display = 'none';
+    }
+  });
 }
 
 async function loadMessages() {
@@ -806,7 +819,7 @@ async function openPrivChat(playerId, username, convId) {
   const profBtn = document.getElementById('privchat-profile-btn');
   if (profBtn) profBtn.onclick = () => viewProfile(playerId);
   const backBtn = document.getElementById('privchat-back-btn');
-  if (backBtn) backBtn.onclick = () => navigate('messages');
+  if (backBtn) backBtn.onclick = () => navigate('notifications');
 
   const msgsEl = document.getElementById('privchat-messages');
   msgsEl.innerHTML = '<p class="text-muted text-center" style="font-size:12px">Завантаження...</p>';
@@ -4544,10 +4557,13 @@ function initSocket() {
       // Not in this chat — show notification badge
       toast(`💬 ${senderName}: ${message.content.slice(0, 40)}${message.content.length > 40 ? '…' : ''}`);
       // Update badge count
+      const notifPage = document.getElementById('page-notifications');
+      const notifActive = notifPage?.classList.contains('active');
       API.get('/api/messages/conversations').then(r => {
         const total = (r.conversations||[]).reduce((s,c) => s+(c.unread_count||0), 0);
         _updateMsgBadge(total);
         if (msgsActive) loadMessages();
+        if (notifActive && _notifActiveTab === 'messages') _renderNotifConversations();
       }).catch(() => {});
     }
   });
@@ -4598,17 +4614,10 @@ function initSocket() {
 
 // ─── EVENTS ──────────────────────────────────────────────────────────────────
 function updateEventsBadge(count) {
-  const badge = document.getElementById('events-badge');
+  _unreadEventsCount = count;
   const menuLabel = document.getElementById('events-menu-label');
-  if (!badge) return;
-  if (count > 0) {
-    badge.textContent = count > 99 ? '99+' : count;
-    badge.style.display = 'inline-block';
-    if (menuLabel) menuLabel.textContent = `Події (${count})`;
-  } else {
-    badge.style.display = 'none';
-    if (menuLabel) menuLabel.textContent = 'Події';
-  }
+  if (menuLabel) menuLabel.textContent = count > 0 ? `Події (${count})` : 'Події';
+  _updateNotifBadge();
 }
 
 async function refreshEventsCount() {
@@ -4691,6 +4700,163 @@ async function loadEvents() {
 
     contentEl.innerHTML = html || `<div class="panel"><div class="panel-body"><p class="text-muted" style="text-align:center">Подій ще немає</p></div></div>`;
   } catch (e) { toast(e.message, true); }
+}
+
+// ─── NOTIFICATIONS (unified hub) ─────────────────────────────────────────────
+let _notifActiveTab = 'messages';
+
+async function loadNotifications(tab) {
+  tab = tab || _notifActiveTab || 'messages';
+  _notifActiveTab = tab;
+  document.querySelectorAll('#notif-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  const activeBtn = document.getElementById(tab === 'messages' ? 'notif-tab-msgs' : 'notif-tab-events');
+  if (activeBtn) activeBtn.classList.add('active');
+  const msgsEl   = document.getElementById('notif-msgs-content');
+  const eventsEl = document.getElementById('notif-events-content');
+  if (msgsEl)   msgsEl.style.display   = tab === 'messages' ? '' : 'none';
+  if (eventsEl) eventsEl.style.display = tab === 'events'   ? '' : 'none';
+  if (tab === 'messages') await _renderNotifConversations();
+  else                    await _renderNotifEvents();
+}
+
+function notifTab(tab, btn) {
+  _notifActiveTab = tab;
+  document.querySelectorAll('#notif-tabs .cat-tab').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const msgsEl   = document.getElementById('notif-msgs-content');
+  const eventsEl = document.getElementById('notif-events-content');
+  if (msgsEl)   msgsEl.style.display   = tab === 'messages' ? '' : 'none';
+  if (eventsEl) eventsEl.style.display = tab === 'events'   ? '' : 'none';
+  if (tab === 'messages') _renderNotifConversations();
+  else                    _renderNotifEvents();
+}
+
+async function _renderNotifConversations() {
+  const el = document.getElementById('notif-msgs-content');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted" style="padding:12px">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/messages/conversations');
+    const convs = r.conversations || [];
+    const totalUnread = convs.reduce((s, c) => s + (c.unread_count || 0), 0);
+    _unreadMsgsCount = totalUnread;
+    _updateNotifBadge();
+
+    const searchHtml = `<div style="padding:8px 12px 4px">
+      <input type="text" id="notif-msg-search" placeholder="Пошук гравця..." style="width:100%;padding:7px 10px;border:1.5px solid #ccc;border-radius:8px;font-size:13px" oninput="_onNotifMsgSearch(this.value)">
+    </div>
+    <div id="notif-search-results" style="display:none;padding:0 12px 8px"></div>`;
+
+    if (!convs.length) {
+      el.innerHTML = searchHtml + '<p class="text-muted" style="padding:12px 16px;font-size:13px">Немає повідомлень. Напиши комусь першим!</p>';
+      return;
+    }
+
+    const list = convs.map(c => {
+      const onlineHtml = c.other_online
+        ? `<span style="color:#4caf50;font-size:11px">🟢 онлайн</span>`
+        : `<span style="color:#bbb;font-size:11px">⚫ ${c.other_last_seen ? _timeAgo(c.other_last_seen) : 'давно'}</span>`;
+      const fIcon = c.other_faction === 'elves' ? '🧝' : '👹';
+      const preview = c.last_message ? c.last_message.slice(0, 30) + (c.last_message.length > 30 ? '…' : '') : '';
+      const timeStr = c.last_message_at ? _msgTime(c.last_message_at) : '';
+      const unread = c.unread_count > 0
+        ? `<span style="background:#e53935;color:#fff;border-radius:50%;font-size:10px;font-weight:700;min-width:18px;height:18px;line-height:18px;text-align:center;padding:0 4px;display:inline-block">${c.unread_count}</span>`
+        : '';
+      return `<div onclick="openPrivChat(${c.other_id},'${c.other_name.replace(/'/g,"\\'")}',${c.id})"
+           style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer">
+        <div style="font-size:24px;width:36px;text-align:center">${fIcon}</div>
+        <div style="flex:1;overflow:hidden">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span style="font-weight:700;font-size:13px">${c.other_name}</span>
+            <span style="font-size:11px;color:#aaa">${timeStr}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1px">
+            <span style="font-size:12px;color:#888;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1">${preview}</span>
+            <div style="margin-left:6px">${unread}</div>
+          </div>
+          <div style="margin-top:2px">${onlineHtml}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = searchHtml + `<div id="notif-convs-list">${list}</div>`;
+  } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
+}
+
+let _notifMsgSearchTimer = null;
+function _onNotifMsgSearch(val) {
+  clearTimeout(_notifMsgSearchTimer);
+  const resEl = document.getElementById('notif-search-results');
+  if (!val.trim()) { if (resEl) resEl.style.display = 'none'; return; }
+  _notifMsgSearchTimer = setTimeout(async () => {
+    try {
+      const r = await API.get(`/api/social/search?q=${encodeURIComponent(val.trim())}`);
+      const players = r.players || [];
+      if (!resEl) return;
+      if (!players.length) { resEl.innerHTML = '<p class="text-muted" style="font-size:13px">Нікого не знайдено</p>'; resEl.style.display = ''; return; }
+      resEl.innerHTML = players.map(p =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0;cursor:pointer" onclick="openPrivChat(${p.id},'${p.username.replace(/'/g,"\\'")}',null)">
+          <span style="font-size:13px">${p.faction === 'elves' ? '🧝' : '👹'} ${p.username}</span>
+          <span class="btn btn-blue btn-sm">Написати</span>
+        </div>`
+      ).join('');
+      resEl.style.display = '';
+    } catch(_) {}
+  }, 400);
+}
+
+async function _renderNotifEvents() {
+  const el = document.getElementById('notif-events-content');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted" style="text-align:center;padding:12px">Завантаження...</p>';
+  try {
+    await API.post('/api/events/read-all');
+    _unreadEventsCount = 0;
+    _updateNotifBadge();
+    const menuLabel = document.getElementById('events-menu-label');
+    if (menuLabel) menuLabel.textContent = 'Події';
+
+    const r = await API.get('/api/events');
+    const events = r.events || [];
+
+    const SYSTEM  = ['insects_attack','dragon_start','dragon_end','clan_war_start','clan_war_end','greenhouse_full','deposit_ready'];
+    const BATTLE  = ['battle_win','battle_lose','battle_attacked_win','battle_attacked_lose','ring_stolen','ring_stolen_from'];
+    const SOCIAL  = ['gift_received','friend_request','garden_watered','prank','clan_join','clan_kicked'];
+    const REWARDS = ['level_up','quest_done','deposit_done','daily_reward','tournament_end'];
+
+    const sys     = events.filter(e => SYSTEM.includes(e.event_type));
+    const battle  = events.filter(e => BATTLE.includes(e.event_type));
+    const social  = events.filter(e => SOCIAL.includes(e.event_type));
+    const rewards = events.filter(e => REWARDS.includes(e.event_type));
+
+    const COLOR_MAP = { green:'#388e3c', red:'#c62828', orange:'#e65100', gold:'#f9a825', blue:'#1565c0', purple:'#6a1b9a' };
+    const renderBlock = (title, list) => {
+      if (!list.length) return '';
+      return `<div class="panel mb-8"><div class="panel-header">${title}</div><div class="panel-body" style="padding:0">
+        ${list.map(ev => {
+          const color = COLOR_MAP[ev.color] || '#555';
+          const timeStr = new Date(ev.created_at).toLocaleString('uk-UA', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+          return `<div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid #f0f0f0">
+            <span style="font-size:22px;flex-shrink:0">${ev.icon || '📋'}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:600;font-size:13px;color:${color}">${ev.title}</div>
+              ${ev.body ? `<div class="text-muted" style="font-size:12px;margin-top:2px">${ev.body}</div>` : ''}
+              <div style="font-size:11px;color:#bbb;margin-top:3px">${timeStr}</div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div></div>`;
+    };
+
+    const html = [
+      renderBlock(`${IC.swords(13)} Бойовий журнал`, battle),
+      renderBlock(`${IC.bell(13)} Системні події`, sys),
+      renderBlock(`${IC.friends(13)} Соціальні події`, social),
+      renderBlock(`${IC.trophy(13)} Нагороди`, rewards),
+    ].join('');
+
+    el.innerHTML = html || '<p class="text-muted" style="text-align:center;padding:20px">Подій ще немає</p>';
+  } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
 }
 
 // ─── CAVES ───────────────────────────────────────────────────────────────────
