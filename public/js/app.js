@@ -4749,11 +4749,11 @@ async function refreshEventsCount() {
 
 async function loadEvents() {
   try {
-    // mark all as read
+    const r = await API.get('/api/events');
+
+    // Delete events AFTER fetching so they are visible first
     await API.post('/api/events/read-all');
     updateEventsBadge(0);
-
-    const r = await API.get('/api/events');
     const events = r.events;
 
     // Block 0: mini profile
@@ -4930,13 +4930,14 @@ async function _renderNotifEvents() {
   if (!el) return;
   el.innerHTML = '<p class="text-muted" style="text-align:center;padding:12px">Завантаження...</p>';
   try {
+    const r = await API.get('/api/events');
+
+    // Delete events AFTER fetching so they are visible first
     await API.post('/api/events/read-all');
     _unreadEventsCount = 0;
     _updateNotifBadge();
     const menuLabel = document.getElementById('events-menu-label');
     if (menuLabel) menuLabel.textContent = 'Події';
-
-    const r = await API.get('/api/events');
     const events = r.events || [];
 
     const SYSTEM  = ['insects_attack','dragon_start','dragon_end','clan_war_start','clan_war_end','greenhouse_full','deposit_ready'];
