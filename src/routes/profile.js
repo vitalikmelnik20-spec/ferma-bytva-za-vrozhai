@@ -216,6 +216,19 @@ router.get('/stats', async (req, res) => {
       [req.session.playerId]
     );
 
+    // Clan house bonuses
+    const { rows: [clanHouseRow] } = await pool.query(
+      `SELECT
+        COALESCE(SUM(CASE WHEN ch.stat='power'     THEN ch.level ELSE 0 END), 0)::INTEGER AS clan_power,
+        COALESCE(SUM(CASE WHEN ch.stat='endurance' THEN ch.level ELSE 0 END), 0)::INTEGER AS clan_endurance,
+        COALESCE(SUM(CASE WHEN ch.stat='speed'     THEN ch.level ELSE 0 END), 0)::INTEGER AS clan_speed,
+        COALESCE(SUM(CASE WHEN ch.stat='accuracy'  THEN ch.level ELSE 0 END), 0)::INTEGER AS clan_accuracy
+       FROM clan_houses ch
+       JOIN clan_members cm ON cm.clan_id = ch.clan_id
+       WHERE cm.player_id = $1`,
+      [req.session.playerId]
+    );
+
     // Talisman stat bonuses (Талісман Воїна / Захисника)
     const { rows: talismanRows } = await pool.query(
       `SELECT tu.bonus_pct, it.name FROM talisman_upgrades tu
@@ -262,6 +275,10 @@ router.get('/stats', async (req, res) => {
       luckAmulets:   activeGifts.filter(g => g.is_luck_amulet).length,
       potionPower, potionEndurance, potionSpeed, potionAccuracy, potionHarvestPct: potionHarvestPct2,
       taliPower, taliEndurance,
+      clanPower:     clanHouseRow?.clan_power     || 0,
+      clanEndurance: clanHouseRow?.clan_endurance || 0,
+      clanSpeed:     clanHouseRow?.clan_speed     || 0,
+      clanAccuracy:  clanHouseRow?.clan_accuracy  || 0,
       dragonBattles:      player.dragon_battles        || 0,
       dragonTotalDamage:  player.dragon_total_damage    || 0,
       dragonGreensEarned: player.dragon_greens_earned   || 0,

@@ -1113,16 +1113,16 @@ setInterval(async () => {
 (async () => {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS player_houses (
-        player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-        stat      VARCHAR(20) NOT NULL,
-        level     INTEGER NOT NULL DEFAULT 0,
-        PRIMARY KEY (player_id, stat)
+      CREATE TABLE IF NOT EXISTS clan_houses (
+        clan_id INTEGER NOT NULL REFERENCES clans(id) ON DELETE CASCADE,
+        stat    VARCHAR(20) NOT NULL,
+        level   INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (clan_id, stat)
       )
     `);
     // Update all existing pets to hp_max = 6000
     await pool.query(`UPDATE pets SET hp_max=6000, hp_current=6000 WHERE hp_max != 6000`);
-    console.log('[Houses] Table ready, pet HP updated to 6000');
+    console.log('[Houses] clan_houses table ready, pet HP updated to 6000');
   } catch (err) { console.error('[Houses migration]', err.message); }
 })();
 

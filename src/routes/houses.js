@@ -8,8 +8,6 @@ const STATS = ['power', 'endurance', 'speed', 'accuracy'];
 const STAT_LABELS = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
 const MAX_LEVEL = 200;
 
-// Рівні кратні 10 — золото; інші — зелень
-// Greens: 50 * ceil(newLevel/10),  Gold: newLevel/10
 function houseCost(newLevel) {
   if (newLevel % 10 === 0) {
     return { type: 'gold', amount: Math.round(newLevel / 5) };
@@ -21,8 +19,17 @@ function houseCost(newLevel) {
 router.get('/', async (req, res) => {
   try {
     const pid = req.session.playerId;
+
+    const { rows: [membership] } = await pool.query(
+      `SELECT clan_id FROM clan_members WHERE player_id=$1`, [pid]
+    );
+    if (!membership) {
+      return res.json({ noClan: true });
+    }
+    const clanId = membership.clan_id;
+
     const { rows } = await pool.query(
-      `SELECT stat, level FROM player_houses WHERE player_id=$1`, [pid]
+      `SELECT stat, level FROM clan_houses WHERE clan_id=$1`, [clanId]
     );
     const levels = {};
     for (const s of STATS) levels[s] = 0;
@@ -39,10 +46,16 @@ router.get('/', async (req, res) => {
       };
     }
 
-    const { rows: [p] } = await pool.query(
-      `SELECT greens, gold FROM players WHERE id=$1`, [pid]
+    const { rows: [clan] } = await pool.query(
+      `SELECT treasury_greens, treasury_gold FROM clans WHERE id=$1`, [clanId]
     );
-    res.json({ houses, greens: p.greens, gold: p.gold, maxLevel: MAX_LEVEL });
+
+    res.json({
+      houses,
+      treasury_greens: clan.treasury_greens,
+      treasury_gold:   clan.treasury_gold,
+      maxLevel: MAX_LEVEL,
+    });
   } catch (err) {
     console.error('[houses/get]', err.message);
     res.status(500).json({ error: 'Помилка сервера' });
@@ -59,44 +72,53 @@ router.post('/upgrade/:stat', async (req, res) => {
   try {
     await client.query('BEGIN');
 
+    const { rows: [membership] } = await client.query(
+      `SELECT clan_id FROM clan_members WHERE player_id=$1`, [pid]
+    );
+    if (!membership) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Ти не в клані' });
+    }
+    const clanId = membership.clan_id;
+
     const { rows: [row] } = await client.query(
-      `SELECT level FROM player_houses WHERE player_id=$1 AND stat=$2 FOR UPDATE`,
-      [pid, stat]
+      `SELECT level FROM clan_houses WHERE clan_id=$1 AND stat=$2 FOR UPDATE`,
+      [clanId, stat]
     );
     const currentLevel = row?.level ?? 0;
 
     if (currentLevel >= MAX_LEVEL) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: 'Максимальний рівень будинку' });
+      return res.status(400).json({ error: 'Максимальний рівень' });
     }
 
     const newLevel = currentLevel + 1;
     const cost = houseCost(newLevel);
 
-    const { rows: [player] } = await client.query(
-      `SELECT greens, gold FROM players WHERE id=$1`, [pid]
+    const { rows: [clan] } = await client.query(
+      `SELECT treasury_greens, treasury_gold FROM clans WHERE id=$1 FOR UPDATE`, [clanId]
     );
 
-    if (cost.type === 'greens' && player.greens < cost.amount) {
+    if (cost.type === 'greens' && clan.treasury_greens < cost.amount) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${cost.amount}` });
+      return res.status(400).json({ error: `Недостатньо зелені в скарбниці. Потрібно: ${cost.amount}` });
     }
-    if (cost.type === 'gold' && player.gold < cost.amount) {
+    if (cost.type === 'gold' && clan.treasury_gold < cost.amount) {
       await client.query('ROLLBACK');
-      return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${cost.amount}` });
+      return res.status(400).json({ error: `Недостатньо золота в скарбниці. Потрібно: ${cost.amount}` });
     }
 
     if (cost.type === 'greens') {
-      await client.query(`UPDATE players SET greens=greens-$1 WHERE id=$2`, [cost.amount, pid]);
+      await client.query(`UPDATE clans SET treasury_greens=treasury_greens-$1 WHERE id=$2`, [cost.amount, clanId]);
     } else {
-      await client.query(`UPDATE players SET gold=gold-$1 WHERE id=$2`, [cost.amount, pid]);
+      await client.query(`UPDATE clans SET treasury_gold=treasury_gold-$1 WHERE id=$2`, [cost.amount, clanId]);
     }
 
     await client.query(
-      `INSERT INTO player_houses (player_id, stat, level)
+      `INSERT INTO clan_houses (clan_id, stat, level)
        VALUES ($1, $2, 1)
-       ON CONFLICT (player_id, stat) DO UPDATE SET level = player_houses.level + 1`,
-      [pid, stat]
+       ON CONFLICT (clan_id, stat) DO UPDATE SET level = clan_houses.level + 1`,
+      [clanId, stat]
     );
 
     await client.query('COMMIT');

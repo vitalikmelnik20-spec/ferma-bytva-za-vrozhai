@@ -238,12 +238,14 @@ function fetchPlayerWithStats(playerId) {
      LEFT JOIN inventory i ON i.player_id = p.id
      LEFT JOIN items it    ON it.id = i.item_id
      LEFT JOIN (
-       SELECT player_id,
-         SUM(CASE WHEN stat='power'     THEN level ELSE 0 END) AS house_power,
-         SUM(CASE WHEN stat='endurance' THEN level ELSE 0 END) AS house_endurance,
-         SUM(CASE WHEN stat='speed'     THEN level ELSE 0 END) AS house_speed,
-         SUM(CASE WHEN stat='accuracy'  THEN level ELSE 0 END) AS house_accuracy
-       FROM player_houses GROUP BY player_id
+       SELECT cm.player_id,
+         SUM(CASE WHEN ch.stat='power'     THEN ch.level ELSE 0 END) AS house_power,
+         SUM(CASE WHEN ch.stat='endurance' THEN ch.level ELSE 0 END) AS house_endurance,
+         SUM(CASE WHEN ch.stat='speed'     THEN ch.level ELSE 0 END) AS house_speed,
+         SUM(CASE WHEN ch.stat='accuracy'  THEN ch.level ELSE 0 END) AS house_accuracy
+       FROM clan_houses ch
+       JOIN clan_members cm ON cm.clan_id = ch.clan_id
+       GROUP BY cm.player_id
      ) ph ON ph.player_id = p.id
      WHERE p.id = $1
      GROUP BY p.id, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,

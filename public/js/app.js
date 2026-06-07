@@ -1004,8 +1004,13 @@ async function loadHouses() {
   el.innerHTML = '<p class="text-muted text-center" style="padding:20px">Завантаження...</p>';
   try {
     const r = await API.get('/api/houses');
+    if (r.noClan) {
+      el.innerHTML = '<p class="text-muted text-center" style="padding:20px">Ти не в клані. Вступи до клану щоб прокачувати параметри.</p>';
+      if (resEl) resEl.innerHTML = '';
+      return;
+    }
     _housesData = r;
-    if (resEl) resEl.innerHTML = `${IC.greens(12)} ${fmtNum(r.greens)} · ${IC.gold(12)} ${fmtNum(r.gold)}`;
+    if (resEl) resEl.innerHTML = `${IC.greens(12)} ${fmtNum(r.treasury_greens)} · ${IC.gold(12)} ${fmtNum(r.treasury_gold)}`;
     renderHouses(r);
   } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
 }
@@ -2534,30 +2539,31 @@ async function loadStats() {
          <span class="stats-row-value">${value}</span>
        </div>`;
 
-    const bonusTag = (eq, gift, rune, potion, tali = 0) => {
+    const bonusTag = (eq, gift, rune, potion, tali = 0, clan = 0) => {
       const parts = [];
       if (eq     > 0) parts.push(`<span style="color:#e65100">+${eq} ${IC.swords(14)}</span>`);
       if (gift   > 0) parts.push(`<span style="color:#4caf50">+${gift} ${IC.gift(14)}</span>`);
       if (rune   > 0) parts.push(`<span style="color:#7c4dff">+${rune} ${IC.talisman(14)}</span>`);
       if (potion > 0) parts.push(`<span style="color:#0097a7">+${potion} ${IC.pill(14)}</span>`);
       if (tali   > 0) parts.push(`<span style="color:#ff8f00">+${tali} ${IC.talisman(14)}</span>`);
+      if (clan   > 0) parts.push(`<span style="color:#795548">+${clan} ${IC.village(14)}</span>`);
       return parts.length ? ` ${parts.join(' ')}` : '';
     };
 
-    const statRow = (icon, label, base, eq, gift, rune, potion = 0, tali = 0) => {
-      const total = base + eq + gift + rune + potion + tali;
+    const statRow = (icon, label, base, eq, gift, rune, potion = 0, tali = 0, clan = 0) => {
+      const total = base + eq + gift + rune + potion + tali + clan;
       return row(icon, label,
-        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion, tali)}`
+        `<strong>${total}</strong>${bonusTag(eq, gift, rune, potion, tali, clan)}`
       );
     };
 
     document.getElementById('stats-content').innerHTML = `
       <div class="stats-section">
         <div class="stats-section-title">${IC.settings(14)} Параметри</div>
-        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower,     r.potionPower     || 0, r.taliPower     || 0)}
-        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0, r.taliEndurance || 0)}
-        ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0)}
-        ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0)}
+        ${statRow(IC.power(14),    'Сила',      p.power_level,     p.equip_power,     r.giftPower,     r.runePower,     r.potionPower     || 0, r.taliPower     || 0, r.clanPower     || 0)}
+        ${statRow(IC.endurance(14),'Захист',    p.endurance_level, p.equip_endurance, r.giftEndurance, r.runeEndurance, r.potionEndurance || 0, r.taliEndurance || 0, r.clanEndurance || 0)}
+        ${statRow(IC.speed(14),    'Швидкість', p.speed_level,     p.equip_speed,     r.giftSpeed,     r.runeSpeed,     r.potionSpeed    || 0, 0,               r.clanSpeed     || 0)}
+        ${statRow(IC.accuracy(14), 'Точність',  p.accuracy_level,  p.equip_accuracy,  r.giftAccuracy,  r.runeAccuracy,  r.potionAccuracy  || 0, 0,               r.clanAccuracy  || 0)}
         ${(() => {
           const pct = p.max_hp ? Math.round(p.hp / p.max_hp * 100) : 100;
           const col = pct > 60 ? '#4caf50' : pct > 30 ? '#ff9800' : '#f44336';
