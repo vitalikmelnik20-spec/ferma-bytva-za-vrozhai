@@ -130,7 +130,10 @@ async function checkAchievements(playerId, io) {
         (SELECT COUNT(*)::INTEGER FROM plots WHERE player_id = p.id)                 AS plot_count,
         (SELECT COUNT(*)::INTEGER FROM friends
            WHERE status='accepted' AND (requester_id=p.id OR addressee_id=p.id))     AS friend_count,
-        COALESCE(pet.level, 0)                                                        AS pet_level,
+        COALESCE(GREATEST(
+          COALESCE(pt.power_level,1), COALESCE(pt.endurance_level,1),
+          COALESCE(pt.speed_level,1), COALESCE(pt.accuracy_level,1)
+        ), 0)                                                                         AS pet_level,
         CASE WHEN pet.id IS NOT NULL THEN 1 ELSE 0 END                               AS pet_owned,
         CASE WHEN cm.player_id IS NOT NULL THEN 1 ELSE 0 END                         AS has_clan,
         (SELECT COUNT(*)::INTEGER FROM clan_war_participants WHERE player_id = p.id) AS cwar_part,
@@ -144,9 +147,10 @@ async function checkAchievements(playerId, io) {
              AND clan_id=(SELECT clan_id FROM clan_members WHERE player_id=p.id LIMIT 1)) AS clan_tasks,
         (SELECT COUNT(*)::INTEGER FROM inventory WHERE player_id=p.id AND is_equipped=true) AS equipped_items
       FROM players p
-      LEFT JOIN caves_stats cs  ON cs.player_id  = p.id
-      LEFT JOIN pets pet        ON pet.player_id  = p.id
-      LEFT JOIN clan_members cm ON cm.player_id   = p.id
+      LEFT JOIN caves_stats cs    ON cs.player_id  = p.id
+      LEFT JOIN pets pet          ON pet.player_id  = p.id
+      LEFT JOIN pet_training pt   ON pt.pet_id      = pet.id
+      LEFT JOIN clan_members cm   ON cm.player_id   = p.id
       WHERE p.id = $1
     `, [playerId]);
     if (!s) return;
