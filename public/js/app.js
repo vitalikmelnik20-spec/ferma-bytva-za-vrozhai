@@ -1005,7 +1005,7 @@ async function loadHouses() {
   try {
     const r = await API.get('/api/houses');
     _housesData = r;
-    if (resEl) resEl.textContent = `${IC.greens(12)} ${fmtNum(r.greens)} · ${IC.gold(12)} ${fmtNum(r.gold)}`;
+    if (resEl) resEl.innerHTML = `${IC.greens(12)} ${fmtNum(r.greens)} · ${IC.gold(12)} ${fmtNum(r.gold)}`;
     renderHouses(r);
   } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
 }
@@ -1044,7 +1044,7 @@ function renderHouses(r) {
                  ${[10,25,50,100].filter(t => t > h.level && t <= r.maxLevel).slice(0,2).map(t => {
                    let gc = 0, gc2 = 0;
                    for (let l = h.level+1; l <= t; l++) {
-                     const c = (l%10===0) ? {type:'gold',amount:l/10} : {type:'greens',amount:50*Math.ceil(l/10)};
+                     const c = (l%10===0) ? {type:'gold',amount:Math.round(l/5)} : {type:'greens',amount:100*Math.ceil(l/10)};
                      if (c.type==='gold') gc+=c.amount; else gc2+=c.amount;
                    }
                    const parts = [];
@@ -1076,8 +1076,8 @@ async function upgradeHouseTo(stat, targetLevel) {
   const currentLevel = _housesData.houses[stat]?.level ?? 0;
   let greensTotal = 0, goldTotal = 0;
   for (let l = currentLevel + 1; l <= targetLevel; l++) {
-    if (l % 10 === 0) goldTotal += l / 10;
-    else greensTotal += 50 * Math.ceil(l / 10);
+    if (l % 10 === 0) goldTotal += Math.round(l / 5);
+    else greensTotal += 100 * Math.ceil(l / 10);
   }
   const parts = [];
   if (greensTotal > 0) parts.push(`${fmtNum(greensTotal)} зелені`);

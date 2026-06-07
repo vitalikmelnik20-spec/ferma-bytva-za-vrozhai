@@ -12,9 +12,9 @@ const MAX_LEVEL = 200;
 // Greens: 50 * ceil(newLevel/10),  Gold: newLevel/10
 function houseCost(newLevel) {
   if (newLevel % 10 === 0) {
-    return { type: 'gold', amount: newLevel / 10 };
+    return { type: 'gold', amount: Math.round(newLevel / 5) };
   }
-  return { type: 'greens', amount: 50 * Math.ceil(newLevel / 10) };
+  return { type: 'greens', amount: 100 * Math.ceil(newLevel / 10) };
 }
 
 // GET /api/houses
