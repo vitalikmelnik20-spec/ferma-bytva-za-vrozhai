@@ -97,9 +97,9 @@ const scheduleDailyReset = (io) => {
     // Notify online players that caves are open
     if (io) io.emit('caves:open');
     console.log('[Reset] caves:open розіслано');
-    // Auto-cleanup events older than 7 days
+    // Auto-cleanup events older than 24 hours (unread ones auto-expire)
     try {
-      await pool.query(`DELETE FROM events WHERE created_at < NOW() - INTERVAL '7 days'`);
+      await pool.query(`DELETE FROM events WHERE created_at < NOW() - INTERVAL '24 hours'`);
     } catch (err) { console.error('[Reset] events cleanup помилка:', err.message); }
 
     // Rating: award top-3 per daily tab + reset day counters
@@ -1106,6 +1106,29 @@ setInterval(async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at DESC)`);
     console.log('[Messenger] Tables ready');
   } catch (err) { console.error('[Messenger tables]', err.message); }
+})();
+
+// Caves stats + missing player columns migration
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS caves_stats (
+        player_id        INTEGER NOT NULL UNIQUE REFERENCES players(id) ON DELETE CASCADE,
+        total_sessions   INTEGER NOT NULL DEFAULT 0,
+        total_mines_done INTEGER NOT NULL DEFAULT 0,
+        total_gold       BIGINT  NOT NULL DEFAULT 0
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_caves_stats_player ON caves_stats(player_id)`);
+    const missingPlayerCols = [
+      'total_harvest BIGINT DEFAULT 0',
+      'dragon_battles INTEGER DEFAULT 0',
+    ];
+    for (const col of missingPlayerCols) {
+      try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
+    }
+    console.log('[Caves/Dragon migration] Tables and columns ready');
+  } catch (err) { console.error('[Caves/Dragon migration]', err.message); }
 })();
 
 // Achievements migration

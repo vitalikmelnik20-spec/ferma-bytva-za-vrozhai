@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
 
     const params = typeArr ? [req.session.playerId, typeArr] : [req.session.playerId];
     const { rows } = await pool.query(
-      `SELECT * FROM events WHERE player_id=$1 ${filter}
+      `SELECT * FROM events WHERE player_id=$1 AND created_at > NOW() - INTERVAL '24 hours' ${filter}
        ORDER BY created_at DESC LIMIT 100`,
       params
     );
@@ -42,7 +42,8 @@ router.get('/', async (req, res) => {
 router.get('/count', async (req, res) => {
   try {
     const { rows: [{ count }] } = await pool.query(
-      `SELECT COUNT(*) FROM events WHERE player_id=$1 AND is_read=false`,
+      `SELECT COUNT(*) FROM events
+       WHERE player_id=$1 AND is_read=false AND created_at > NOW() - INTERVAL '24 hours'`,
       [req.session.playerId]
     );
     res.json({ unread_count: parseInt(count) });
@@ -66,11 +67,11 @@ router.post('/read/:id', async (req, res) => {
   }
 });
 
-// POST /api/events/read-all
+// POST /api/events/read-all — mark as read AND delete (viewed = gone)
 router.post('/read-all', async (req, res) => {
   try {
     await pool.query(
-      `UPDATE events SET is_read=true WHERE player_id=$1`,
+      `DELETE FROM events WHERE player_id=$1`,
       [req.session.playerId]
     );
     res.json({ success: true });
