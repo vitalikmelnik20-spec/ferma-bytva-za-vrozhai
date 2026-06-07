@@ -408,6 +408,15 @@ router.get('/:id', async (req, res) => {
     );
     if (!clan) return res.status(404).json({ error: 'Клан не знайдено' });
 
+    // Clan rank by rating_points
+    const { rows: [rankRow] } = await pool.query(
+      `SELECT rank FROM (
+         SELECT id, RANK() OVER (ORDER BY rating_points DESC NULLS LAST) AS rank FROM clans
+       ) ranked WHERE id=$1`,
+      [req.params.id]
+    );
+    const clanRank = rankRow ? parseInt(rankRow.rank) : null;
+
     const { rows: members } = await pool.query(
       `SELECT cm.role, p.id, p.username, p.level, p.glory, p.is_online, p.last_seen, p.faction
        FROM clan_members cm JOIN players p ON p.id = cm.player_id
@@ -416,20 +425,24 @@ router.get('/:id', async (req, res) => {
       [req.params.id]
     );
 
-    const { rows: buildings } = await pool.query(
+    const playerId = req.session.playerId;
+    const { rows: [myMembership] } = await pool.query(
+      'SELECT clan_id FROM clan_members WHERE player_id=$1', [playerId]
+    );
+    const isMember = myMembership?.clan_id === parseInt(req.params.id);
+
+    const { rows: buildingsRaw } = await pool.query(
       'SELECT * FROM clan_buildings WHERE clan_id=$1',
       [req.params.id]
     );
+    // Non-members can't see building levels
+    const buildings = isMember
+      ? buildingsRaw
+      : buildingsRaw.map(b => ({ building_key: b.building_key }));
 
-    // Check if current player has a pending application
-    const playerId = req.session.playerId;
     const { rows: [myApp] } = await pool.query(
       `SELECT id FROM clan_applications WHERE clan_id=$1 AND player_id=$2 AND status='pending'`,
       [req.params.id, playerId]
-    );
-
-    const { rows: [myMembership] } = await pool.query(
-      'SELECT clan_id FROM clan_members WHERE player_id=$1', [playerId]
     );
 
     const maxMembers = clan.max_members || 50;
@@ -437,14 +450,16 @@ router.get('/:id', async (req, res) => {
       clan: {
         id: clan.id, name: clan.name, tag: clan.tag, faction: clan.faction,
         description: clan.description, mode: clan.mode || 'open',
-        rating_points: clan.rating_points, wars_won: clan.wars_won || 0,
-        wars_lost: clan.wars_lost || 0, leader_name: clan.leader_name,
-        leader_id: clan.leader_id, member_count: clan.member_count,
-        max_members: maxMembers, free_spots: maxMembers - clan.member_count,
-        treasury_total: (clan.treasury_greens || 0) + (clan.treasury_gold || 0),
+        rating_points: clan.rating_points, clan_rank: clanRank,
+        wars_won: clan.wars_won || 0, wars_lost: clan.wars_lost || 0,
+        leader_name: clan.leader_name, leader_id: clan.leader_id,
+        member_count: clan.member_count, max_members: maxMembers,
+        free_spots: maxMembers - clan.member_count,
+        treasury_greens: clan.treasury_greens || 0,
+        treasury_gold: clan.treasury_gold || 0,
       },
-      members, buildings,
-      myApp: myApp ? true : false,
+      members, buildings, isMember,
+      myApp: !!myApp,
       myMembershipClanId: myMembership?.clan_id || null,
     });
   } catch (err) {

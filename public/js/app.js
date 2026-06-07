@@ -3614,7 +3614,8 @@ async function viewClan(id, backTo) {
     const c = r.clan;
     const members = r.members || [];
     const buildings = r.buildings || [];
-    const myClanId = r.myMembershipClanId;
+    const isMember  = !!r.isMember;
+    const myClanId  = r.myMembershipClanId;
     const isMyOwnClan = myClanId === c.id;
     const inAnotherClan = myClanId && !isMyOwnClan;
 
@@ -3651,8 +3652,11 @@ async function viewClan(id, backTo) {
     const buildingRows = Object.entries(BUILDING_LABELS).map(([key, info]) => {
       const b = buildings.find(b => b.building_key === key) || { level: 0 };
       const maxLvl = (BUILDING_COSTS[key] || []).length;
+      const lvlText = isMember
+        ? `Рів.${b.level ?? 0}/${maxLvl}`
+        : `<span style="color:#bbb">🔒 прихований</span>`;
       return `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 12px;border-bottom:1px solid var(--border);font-size:13px">
-        <span>${info.name}</span><span class="text-muted">Рів.${b.level}/${maxLvl}</span>
+        <span>${info.name}</span><span class="text-muted">${lvlText}</span>
       </div>`;
     }).join('');
 
@@ -3669,10 +3673,11 @@ async function viewClan(id, backTo) {
         ${infoRow('👑', 'Засновник', `<span style="cursor:pointer;color:var(--orange);text-decoration:underline dotted" onclick="viewProfile(${c.leader_id})">${c.leader_name || '—'}</span>`)}
         ${infoRow(IC.friends(14), 'Учасники', `${c.member_count} / ${c.max_members}`)}
         ${infoRow('🚪', 'Вільних місць', c.free_spots)}
-        ${infoRow('⭐', 'Рейтинг', fmtNum(c.rating_points))}
+        ${infoRow('⭐', 'Рейтинг', c.clan_rank ? `#${c.clan_rank} (${fmtNum(c.rating_points)} очок)` : fmtNum(c.rating_points))}
         ${infoRow('🏆', 'Перемог у войнах', c.wars_won)}
         ${infoRow('💀', 'Поразок у войнах', c.wars_lost)}
-        ${infoRow('💰', 'Скарбниця', fmtNum(c.treasury_total) + ' (загалом)')}
+        ${infoRow(IC.greens(13), 'Зелень у скарбниці', fmtNum(c.treasury_greens))}
+        ${infoRow(IC.gold(13), 'Золото у скарбниці', fmtNum(c.treasury_gold))}
       </div>
 
       <div class="panel mb-12">
