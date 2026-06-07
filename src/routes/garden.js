@@ -7,6 +7,11 @@ const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 router.use(requireAuth);
 
+const MAX_PLOTS = 15;
+// Cost to buy plot N (index = current plot count before purchase)
+// Slots 0 and 1 are given free at registration; buying starts at index 2
+const PLOT_COSTS = [0, 0, 200, 300, 400, 500, 600, 700, 800, 1000, 1200, 1500, 1800, 2200, 3000];
+
 // Get own plots + plants reference
 router.get('/', async (req, res) => {
   try {
@@ -47,10 +52,13 @@ router.get('/', async (req, res) => {
       [req.session.playerId]
     );
 
+    const count = parseInt(plotCount.rows[0].count);
     res.json({
       plots: plots.rows,
       plants: plantsRef.rows,
-      plotCount: parseInt(plotCount.rows[0].count)
+      plotCount: count,
+      maxPlots: MAX_PLOTS,
+      nextPlotCost: count < MAX_PLOTS ? PLOT_COSTS[count] : null,
     });
   } catch (err) {
     console.error(err);
@@ -70,7 +78,11 @@ router.post('/buy', async (req, res) => {
       [req.session.playerId]
     );
     const currentCount = parseInt(countRow[0].count);
-    const cost = 200 * (currentCount + 1);
+
+    if (currentCount >= MAX_PLOTS)
+      return res.status(400).json({ error: 'Досягнуто максимум грядок (15)' });
+
+    const cost = PLOT_COSTS[currentCount];
 
     if (player.gold < cost)
       return res.status(400).json({ error: `Недостатньо золота. Потрібно: ${cost}` });
@@ -81,7 +93,14 @@ router.post('/buy', async (req, res) => {
       [req.session.playerId, currentCount]
     );
 
-    res.json({ success: true, cost, newSlot: currentCount });
+    const newCount = currentCount + 1;
+    res.json({
+      success: true,
+      cost,
+      newSlot: currentCount,
+      nextPlotCost: newCount < MAX_PLOTS ? PLOT_COSTS[newCount] : null,
+      maxPlots: MAX_PLOTS,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

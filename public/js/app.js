@@ -535,6 +535,32 @@ function renderPlots() {
     grid.appendChild(div);
   });
 
+  // Buy-plot card
+  const plotCount  = gardenData.plotCount  || gardenData.plots.length;
+  const maxPlots   = gardenData.maxPlots   || 15;
+  const nextCost   = gardenData.nextPlotCost;
+  if (plotCount < maxPlots) {
+    const div = document.createElement('div');
+    div.className = 'plot-card empty buy-plot-card';
+    div.style.cssText = 'border:2px dashed #c8a96e;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;opacity:.85';
+    div.innerHTML = `
+      <div style="font-size:28px">+</div>
+      <div style="font-size:12px;font-weight:600;color:#8d6e3a">Нова грядка</div>
+      <div style="font-size:11px;color:#666">${plotCount}/${maxPlots}</div>
+      <div style="font-size:12px">${IC.gold(13)} ${fmtNum(nextCost)}</div>`;
+    div.onclick = () => buyPlot();
+    grid.appendChild(div);
+  } else {
+    const div = document.createElement('div');
+    div.className = 'plot-card empty';
+    div.style.cssText = 'border:2px dashed #ccc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;opacity:.5;cursor:default';
+    div.innerHTML = `
+      <div style="font-size:22px">🏆</div>
+      <div style="font-size:12px;font-weight:600;color:#8d6e3a">Максимум</div>
+      <div style="font-size:11px;color:#666">${maxPlots}/${maxPlots} грядок</div>`;
+    grid.appendChild(div);
+  }
+
   // Start timers
   startPlotTimers();
 }
@@ -686,7 +712,10 @@ function closeLevelUpModal(e) {
 async function buyPlot() {
   try {
     const r = await API.post('/api/garden/buy');
-    toast(`Куплено нову грядку за ${IC.gold(13)}${r.cost}`);
+    const nextInfo = r.nextPlotCost != null
+      ? ` · Наступна: ${IC.gold(13)}${fmtNum(r.nextPlotCost)}`
+      : ' · Досягнуто максимум!';
+    toast(`Куплено нову грядку за ${IC.gold(13)}${fmtNum(r.cost)}${nextInfo}`);
     await loadGarden();
     await refreshPlayer();
   } catch (e) { toast(e.message, true); }
