@@ -1122,7 +1122,9 @@ setInterval(async () => {
     `);
     // Update all existing pets to hp_max = 6000
     await pool.query(`UPDATE pets SET hp_max=6000, hp_current=6000 WHERE hp_max != 6000`);
-    console.log('[Houses] clan_houses table ready, pet HP updated to 6000');
+    // Clean up stale events older than 24h that inflate badge counts
+    await pool.query(`DELETE FROM events WHERE created_at < NOW() - INTERVAL '24 hours'`);
+    console.log('[Houses] clan_houses table ready, pet HP updated to 6000, old events purged');
   } catch (err) { console.error('[Houses migration]', err.message); }
 })();
 

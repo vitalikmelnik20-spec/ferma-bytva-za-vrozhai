@@ -11,7 +11,7 @@ async function writeEvent(playerId, { event_type, title, body = null, icon = 'ðŸ
     if (io) {
       io.to(`player:${playerId}`).emit('events:new', { event_type, title, icon, color });
       const { rows: [{ count }] } = await pool.query(
-        `SELECT COUNT(*) FROM events WHERE player_id=$1 AND is_read=false`, [playerId]
+        `SELECT COUNT(*) FROM events WHERE player_id=$1 AND is_read=false AND created_at > NOW() - INTERVAL '24 hours'`, [playerId]
       );
       io.to(`player:${playerId}`).emit('events:count', { unread_count: parseInt(count) });
     }
