@@ -102,6 +102,9 @@
         <div class="menu-btn" onclick="navigate('achievements')">
           <span class="menu-icon">🏆</span><span class="menu-label">Досягнення</span>
         </div>
+        <div class="menu-btn" onclick="navigate('houses')">
+          <span class="menu-icon">🏠</span><span class="menu-label">Будинки</span>
+        </div>
       </div>
     </section>
 
@@ -513,6 +516,21 @@
       <div id="ach-list" style="display:flex;flex-direction:column;gap:8px;padding-bottom:80px"></div>
     </section>
 
+    <!-- HOUSES -->
+    <section class="page" id="page-houses">
+      <div class="panel mb-12">
+        <div class="panel-header flex-between">
+          <span>🏠 Будинки</span>
+          <span id="houses-resources" style="font-size:12px;color:#888"></span>
+        </div>
+        <div class="panel-body" style="padding:8px 12px 4px;font-size:12px;color:#666">
+          Покращуй будинки щоб отримувати постійний бонус до характеристик у бою.<br>
+          Рівні кратні 10 (10, 20, 30…) — оплата <b>золотом</b>, решта — <b>зеленню</b>. Макс: 200 рівнів (+200 до стату).
+        </div>
+      </div>
+      <div id="houses-list" style="display:flex;flex-direction:column;gap:10px;padding-bottom:80px"></div>
+    </section>
+
     <!-- NOTIFICATIONS -->
     <section class="page" id="page-notifications">
       <div class="panel mb-12">
@@ -919,6 +937,6 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/api.js?v=7"></script>
-<script src="/js/app.js?v=26"></script>
+<script src="/js/app.js?v=27"></script>
 </body>
 </html>

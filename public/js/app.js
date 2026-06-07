@@ -304,6 +304,7 @@ function navigate(page) {
   if (page === 'messages')       loadMessages();
   if (page === 'achievements')   loadAchievements();
   if (page === 'notifications')  loadNotifications();
+  if (page === 'houses')         loadHouses();
   if (page !== 'caves')  stopCavesPolling();
   if (page !== 'clans' && _warTimerInterval) {
     clearInterval(_warTimerInterval);
@@ -988,6 +989,113 @@ async function skipTutorial() {
     _tutDone = true;
     toast('Туторіал пропущено');
   } catch (e) { toast(e.message, true); }
+}
+
+// ─── HOUSES ──────────────────────────────────────────────────────────────────
+const HOUSE_STAT_ICONS = { power: '⚔️', endurance: '🛡️', speed: '💨', accuracy: '🎯' };
+const HOUSE_STAT_LABELS = { power: 'Міць', endurance: 'Стійкість', speed: 'Швидкість', accuracy: 'Точність' };
+
+let _housesData = null;
+
+async function loadHouses() {
+  const el = document.getElementById('houses-list');
+  const resEl = document.getElementById('houses-resources');
+  if (!el) return;
+  el.innerHTML = '<p class="text-muted text-center" style="padding:20px">Завантаження...</p>';
+  try {
+    const r = await API.get('/api/houses');
+    _housesData = r;
+    if (resEl) resEl.textContent = `${IC.greens(12)} ${fmtNum(r.greens)} · ${IC.gold(12)} ${fmtNum(r.gold)}`;
+    renderHouses(r);
+  } catch (e) { el.innerHTML = `<p class="text-muted" style="padding:12px">${e.message}</p>`; }
+}
+
+function renderHouses(r) {
+  const el = document.getElementById('houses-list');
+  if (!el) return;
+  el.innerHTML = ['power','endurance','speed','accuracy'].map(stat => {
+    const h = r.houses[stat];
+    const pct = Math.round(h.level / r.maxLevel * 100);
+    const icon = HOUSE_STAT_ICONS[stat];
+    const nextCost = h.nextCost;
+    const costHtml = nextCost
+      ? (nextCost.type === 'greens'
+          ? `${IC.greens(13)} ${fmtNum(nextCost.amount)}`
+          : `${IC.gold(13)} ${fmtNum(nextCost.amount)} <span style="background:#ff9800;color:#fff;font-size:10px;padding:1px 5px;border-radius:4px;margin-left:3px">ЗОЛОТО</span>`)
+      : null;
+    return `
+      <div class="panel">
+        <div class="panel-body">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-weight:700;font-size:15px">${icon} ${h.label}</span>
+            <span style="font-size:18px;font-weight:700;color:#2e7d32">+${h.level}</span>
+          </div>
+          <div style="font-size:12px;color:#999;margin-bottom:6px">
+            Рівень <b>${h.level}</b> / ${r.maxLevel} · Бонус у бою: <b>+${h.bonus}</b> до ${h.label.toLowerCase()}
+          </div>
+          <div style="background:#f0f0f0;border-radius:6px;height:8px;margin-bottom:10px;overflow:hidden">
+            <div style="background:${pct===100?'#66bb6a':'#42a5f5'};height:100%;width:${pct}%;transition:width .3s"></div>
+          </div>
+          ${h.level < r.maxLevel
+            ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+                 <button class="btn btn-${nextCost?.type==='gold'?'orange':'green'} btn-sm" onclick="upgradeHouse('${stat}')">
+                   ▲ Покращити · ${costHtml}
+                 </button>
+                 ${[10,25,50,100].filter(t => t > h.level && t <= r.maxLevel).slice(0,2).map(t => {
+                   let gc = 0, gc2 = 0;
+                   for (let l = h.level+1; l <= t; l++) {
+                     const c = (l%10===0) ? {type:'gold',amount:l/10} : {type:'greens',amount:50*Math.ceil(l/10)};
+                     if (c.type==='gold') gc+=c.amount; else gc2+=c.amount;
+                   }
+                   const parts = [];
+                   if (gc2>0) parts.push(`${fmtNum(gc2)} ${IC.greens(12)}`);
+                   if (gc>0) parts.push(`${fmtNum(gc)} ${IC.gold(12)}`);
+                   return `<button class="btn btn-gray btn-sm" onclick="upgradeHouseTo('${stat}',${t})">→ рів.${t} · ${parts.join(' + ')}</button>`;
+                 }).join('')}
+               </div>`
+            : `<span style="color:#388e3c;font-weight:600;font-size:13px">✓ Максимум досягнуто</span>`}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function upgradeHouse(stat) {
+  try {
+    const r = await API.post(`/api/houses/upgrade/${stat}`);
+    const costStr = r.cost.type === 'greens'
+      ? `${fmtNum(r.cost.amount)} ${IC.greens(13)}`
+      : `${fmtNum(r.cost.amount)} ${IC.gold(13)}`;
+    toast(`${HOUSE_STAT_ICONS[stat]} ${HOUSE_STAT_LABELS[stat]} → рів.${r.newLevel}! Витрачено ${costStr}`);
+    await loadHouses();
+    refreshPlayer();
+  } catch(e) { toast(e.message, true); }
+}
+
+async function upgradeHouseTo(stat, targetLevel) {
+  if (!_housesData) return;
+  const currentLevel = _housesData.houses[stat]?.level ?? 0;
+  let greensTotal = 0, goldTotal = 0;
+  for (let l = currentLevel + 1; l <= targetLevel; l++) {
+    if (l % 10 === 0) goldTotal += l / 10;
+    else greensTotal += 50 * Math.ceil(l / 10);
+  }
+  const parts = [];
+  if (greensTotal > 0) parts.push(`${fmtNum(greensTotal)} зелені`);
+  if (goldTotal > 0) parts.push(`${fmtNum(goldTotal)} золота`);
+  showConfirmModal(
+    `Покращити ${HOUSE_STAT_LABELS[stat]} до рів.${targetLevel}?`,
+    `Вартість: ${parts.join(' + ')}`,
+    async () => {
+      try {
+        for (let l = currentLevel + 1; l <= targetLevel; l++) {
+          await API.post(`/api/houses/upgrade/${stat}`);
+        }
+        toast(`${HOUSE_STAT_ICONS[stat]} ${HOUSE_STAT_LABELS[stat]} → рів.${targetLevel}!`);
+        await loadHouses();
+        refreshPlayer();
+      } catch(e) { toast(e.message, true); }
+    }
+  );
 }
 
 // ─── ACHIEVEMENTS ────────────────────────────────────────────────────────────
@@ -6915,9 +7023,9 @@ async function renderPetsTrain() {
   const rows = ['power','endurance','speed','accuracy'].map(stat => {
     const lvl = training[`${stat}_level`] || 1;
     const nextLvl = lvl + 1;
-    const cost = lvl >= 50 ? null : Math.floor(nextLvl * nextLvl * 10 + nextLvl * 20);
-    const costNext = lvl >= 49 ? null : Math.floor((nextLvl+1)*(nextLvl+1)*10 + (nextLvl+1)*20);
-    const pct = Math.floor((lvl - 1) / 49 * 100);
+    const cost = Math.floor(nextLvl * nextLvl * 10 + nextLvl * 20);
+    const costNext = Math.floor((nextLvl+1)*(nextLvl+1)*10 + (nextLvl+1)*20);
+    const pct = Math.min(100, Math.floor((lvl - 1) / 199 * 100));
     const trainBonus = lvl - 1;
     const eqBonus = (stat === 'power' ? equipment.find(e=>e.slot==='collar')?.bonus_value
                    : stat === 'endurance' ? equipment.find(e=>e.slot==='amulet')?.bonus_value
@@ -6940,18 +7048,16 @@ async function renderPetsTrain() {
         <div style="background:#f0f0f0;border-radius:6px;height:6px;margin-bottom:8px;overflow:hidden">
           <div style="background:#66bb6a;height:100%;width:${pct}%;transition:width .3s"></div>
         </div>
-        ${lvl < 50
-          ? `<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-               <button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
-                 ▲ +1 · ${fmtNum(cost)} ${IC.greens(14)}
-               </button>
-               ${[5,10,20,50].filter(t => t > lvl).slice(0,2).map(t => {
-                 let bulkCost = 0;
-                 for (let l = lvl+1; l <= t; l++) bulkCost += Math.floor(l*l*10+l*20);
-                 return `<button class="btn btn-gray btn-sm" onclick="trainPetBulk('${stat}',${t})">до рів.${t} · ${fmtNum(bulkCost)} ${IC.greens(14)}</button>`;
-               }).join('')}
-             </div>`
-          : `<span style="color:#388e3c;font-size:13px;font-weight:600">${IC.ok(14)} Максимум</span>`}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-green btn-sm" onclick="trainPet('${stat}')">
+            ▲ +1 · ${fmtNum(cost)} ${IC.greens(14)}
+          </button>
+          ${[10,25,50,100,200].filter(t => t > lvl).slice(0,2).map(t => {
+            let bulkCost = 0;
+            for (let l = lvl+1; l <= t; l++) bulkCost += Math.floor(l*l*10+l*20);
+            return `<button class="btn btn-gray btn-sm" onclick="trainPetBulk('${stat}',${t})">до рів.${t} · ${fmtNum(bulkCost)} ${IC.greens(14)}</button>`;
+          }).join('')}
+        </div>
       </div>`;
   }).join(``);
 

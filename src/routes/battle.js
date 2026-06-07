@@ -198,10 +198,10 @@ function calcStats(player, training, gifts, runes) {
   const giftAccuracy  = Math.floor(statGifts.reduce((s, g) => s + (g.accuracy_bonus  || 0), 0) * luckMult);
 
   return {
-    power:     training.power_level     + player.equip_power     + giftPower     + (runes?.rune_power     || 0),
-    endurance: training.endurance_level + player.equip_endurance + giftEndurance + (runes?.rune_endurance || 0),
-    speed:     training.speed_level     + player.equip_speed     + giftSpeed     + (runes?.rune_speed     || 0),
-    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy  + (runes?.rune_accuracy  || 0),
+    power:     training.power_level     + player.equip_power     + giftPower     + (runes?.rune_power     || 0) + (player.house_power     || 0),
+    endurance: training.endurance_level + player.equip_endurance + giftEndurance + (runes?.rune_endurance || 0) + (player.house_endurance || 0),
+    speed:     training.speed_level     + player.equip_speed     + giftSpeed     + (runes?.rune_speed     || 0) + (player.house_speed     || 0),
+    accuracy:  training.accuracy_level  + player.equip_accuracy  + giftAccuracy  + (runes?.rune_accuracy  || 0) + (player.house_accuracy  || 0),
   };
 }
 
@@ -228,13 +228,26 @@ function fetchPlayerWithStats(playerId) {
             COALESCE(SUM(CASE WHEN i.is_equipped THEN it.power_bonus     ELSE 0 END), 0)::INTEGER AS equip_power,
             COALESCE(SUM(CASE WHEN i.is_equipped THEN it.endurance_bonus ELSE 0 END), 0)::INTEGER AS equip_endurance,
             COALESCE(SUM(CASE WHEN i.is_equipped THEN it.speed_bonus     ELSE 0 END), 0)::INTEGER AS equip_speed,
-            COALESCE(SUM(CASE WHEN i.is_equipped THEN it.accuracy_bonus  ELSE 0 END), 0)::INTEGER AS equip_accuracy
+            COALESCE(SUM(CASE WHEN i.is_equipped THEN it.accuracy_bonus  ELSE 0 END), 0)::INTEGER AS equip_accuracy,
+            COALESCE(ph.house_power,0)::INTEGER     AS house_power,
+            COALESCE(ph.house_endurance,0)::INTEGER AS house_endurance,
+            COALESCE(ph.house_speed,0)::INTEGER     AS house_speed,
+            COALESCE(ph.house_accuracy,0)::INTEGER  AS house_accuracy
      FROM players p
      LEFT JOIN training t  ON t.player_id = p.id
      LEFT JOIN inventory i ON i.player_id = p.id
      LEFT JOIN items it    ON it.id = i.item_id
+     LEFT JOIN (
+       SELECT player_id,
+         SUM(CASE WHEN stat='power'     THEN level ELSE 0 END) AS house_power,
+         SUM(CASE WHEN stat='endurance' THEN level ELSE 0 END) AS house_endurance,
+         SUM(CASE WHEN stat='speed'     THEN level ELSE 0 END) AS house_speed,
+         SUM(CASE WHEN stat='accuracy'  THEN level ELSE 0 END) AS house_accuracy
+       FROM player_houses GROUP BY player_id
+     ) ph ON ph.player_id = p.id
      WHERE p.id = $1
-     GROUP BY p.id, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level`,
+     GROUP BY p.id, t.power_level, t.endurance_level, t.speed_level, t.accuracy_level,
+              ph.house_power, ph.house_endurance, ph.house_speed, ph.house_accuracy`,
     [playerId]
   );
 }

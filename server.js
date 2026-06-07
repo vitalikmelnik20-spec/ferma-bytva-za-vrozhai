@@ -64,6 +64,7 @@ app.use('/api/tools',        require('./src/routes/tools'));
 app.use('/api/messages',      require('./src/routes/messages'));
 app.use('/api/tutorial',      require('./src/routes/tutorial'));
 app.use('/api/achievements',  require('./src/routes/achievements'));
+app.use('/api/houses',        require('./src/routes/houses'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -1106,6 +1107,23 @@ setInterval(async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at DESC)`);
     console.log('[Messenger] Tables ready');
   } catch (err) { console.error('[Messenger tables]', err.message); }
+})();
+
+// Houses migration
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_houses (
+        player_id INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        stat      VARCHAR(20) NOT NULL,
+        level     INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (player_id, stat)
+      )
+    `);
+    // Update all existing pets to hp_max = 6000
+    await pool.query(`UPDATE pets SET hp_max=6000, hp_current=6000 WHERE hp_max != 6000`);
+    console.log('[Houses] Table ready, pet HP updated to 6000');
+  } catch (err) { console.error('[Houses migration]', err.message); }
 })();
 
 // Caves stats + missing player columns migration
