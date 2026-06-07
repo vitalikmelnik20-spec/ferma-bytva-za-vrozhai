@@ -298,6 +298,7 @@ function navigate(page) {
   if (page === 'pets')         loadPets();
   if (page === 'events')       loadEvents();
   if (page === 'messages')     loadMessages();
+  if (page === 'achievements') loadAchievements();
   if (page !== 'caves')  stopCavesPolling();
   if (page !== 'clans' && _warTimerInterval) {
     clearInterval(_warTimerInterval);
@@ -974,6 +975,65 @@ async function skipTutorial() {
     _tutDone = true;
     toast('Туторіал пропущено');
   } catch (e) { toast(e.message, true); }
+}
+
+// ─── ACHIEVEMENTS ────────────────────────────────────────────────────────────
+let _achActiveCat = 'farmer';
+
+async function loadAchievements() {
+  const listEl = document.getElementById('ach-list');
+  const tabsEl = document.getElementById('ach-cat-tabs');
+  const totalEl = document.getElementById('ach-total-label');
+  if (!listEl) return;
+  listEl.innerHTML = `<p class="text-muted text-center" style="padding:20px">Завантаження...</p>`;
+  try {
+    const { achievements, categories, totalCompleted, totalAch } = await API.get('/api/achievements');
+    if (totalEl) totalEl.textContent = `${totalCompleted} / ${totalAch}`;
+
+    // Build category tabs
+    const cats = Object.entries(categories).sort((a,b) => a[1].order - b[1].order);
+    tabsEl.innerHTML = cats.map(([key, cat]) => {
+      const catAchs = achievements.filter(a => a.cat === key);
+      const done = catAchs.filter(a => a.is_completed).length;
+      const active = key === _achActiveCat ? 'background:var(--orange);color:#fff' : 'background:var(--card-bg);color:var(--text)';
+      return `<button class="btn btn-sm" style="font-size:11px;padding:4px 8px;${active}"
+        onclick="_achActiveCat='${key}';loadAchievements()">
+        ${cat.label} <span style="font-size:10px;opacity:.8">${done}/${catAchs.length}</span>
+      </button>`;
+    }).join('');
+
+    // Render achievements for active category
+    const catAchs = achievements.filter(a => a.cat === _achActiveCat);
+    listEl.innerHTML = catAchs.map(a => {
+      const pct = a.req > 0 ? Math.round(a.current_value / a.req * 100) : 100;
+      const col = a.is_completed ? '#4caf50' : pct >= 50 ? '#ff9800' : '#aaa';
+      const opacity = a.is_completed ? '1' : '0.75';
+      const reward = [];
+      if (a.greens) reward.push(`+${fmtNum(a.greens)}🌿`);
+      if (a.exp)    reward.push(`+${a.exp} досв.`);
+      if (a.gold)   reward.push(`+${a.gold}🪙`);
+      return `
+        <div class="panel" style="opacity:${opacity}">
+          <div class="panel-body" style="padding:10px 12px;display:flex;align-items:center;gap:10px">
+            <div style="font-size:26px;flex-shrink:0">${a.icon}</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px">
+                ${a.name}
+                ${a.is_completed ? '<span style="color:#4caf50;font-size:11px">✓ Виконано</span>' : ''}
+              </div>
+              <div style="font-size:12px;color:#777;margin:2px 0">${a.desc}</div>
+              <div style="font-size:11px;color:var(--orange);margin-bottom:4px">${reward.join(' ')}</div>
+              <div style="height:5px;background:#eee;border-radius:3px">
+                <div style="height:5px;background:${col};border-radius:3px;width:${pct}%;transition:width .4s"></div>
+              </div>
+              <div style="font-size:10px;color:#999;margin-top:2px">${fmtNum(a.current_value)} / ${fmtNum(a.req)}</div>
+            </div>
+          </div>
+        </div>`;
+    }).join('') || `<p class="text-muted text-center" style="padding:16px">Ачівок немає</p>`;
+  } catch (e) {
+    listEl.innerHTML = `<p class="text-muted text-center">${e.message}</p>`;
+  }
 }
 
 // ─── BATTLE ──────────────────────────────────────────────────────────────────
@@ -4498,6 +4558,15 @@ function initSocket() {
         el.style.color = '#4caf50';
       });
     }
+  });
+
+  socket.on('achievement:unlocked', ({ name, icon, reward }) => {
+    const parts = [];
+    if (reward.greens) parts.push(`+${fmtNum(reward.greens)}🌿`);
+    if (reward.exp)    parts.push(`+${reward.exp} досв.`);
+    if (reward.gold)   parts.push(`+${reward.gold}🪙`);
+    showToast(`${icon} Ачівка: «${name}»! ${parts.join(' ')}`);
+    refreshPlayer();
   });
 
   socket.on('tutorial:step', ({ step, reward, isCompleted }) => {

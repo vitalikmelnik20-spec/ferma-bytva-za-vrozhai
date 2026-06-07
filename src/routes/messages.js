@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -88,6 +89,7 @@ router.post('/:playerId', async (req, res) => {
     );
 
     await pool.query(`UPDATE conversations SET last_message_at=NOW() WHERE id=$1`, [conv.id]);
+    await pool.query(`UPDATE players SET messages_sent=COALESCE(messages_sent,0)+1 WHERE id=$1`, [myId]);
 
     // Enforce 200-message limit per conversation
     await pool.query(
@@ -110,6 +112,7 @@ router.post('/:playerId', async (req, res) => {
       });
     }
 
+    checkAchievements(myId, req.app.locals.io).catch(() => {});
     res.json({ message: msg, conversationId: conv.id });
   } catch (err) {
     console.error(err);

@@ -4,6 +4,7 @@ const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
 const { advanceTutorial } = require('../utils/tutorial');
+const { checkAchievements } = require('../utils/achievements');
 const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 router.use(requireAuth);
@@ -378,6 +379,7 @@ router.post('/:plotId/harvest', async (req, res) => {
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
     advanceTutorial(req.session.playerId, 'harvest', req.app.locals.io).catch(() => {});
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     const { updateDailyQuestProgress } = require('./daily');
     await updateDailyQuestProgress(req.session.playerId, 'harvest', 1);
 

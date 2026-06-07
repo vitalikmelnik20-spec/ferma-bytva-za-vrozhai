@@ -2,6 +2,7 @@ const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { updateClanTask, ensureClanTasks } = require('../utils/clanTasks');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -487,6 +488,7 @@ router.post('/join/:id', async (req, res) => {
       'INSERT INTO clan_members (clan_id, player_id, role) VALUES ($1,$2,$3)',
       [req.params.id, req.session.playerId, 'member']
     );
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     res.json({ success: true });
   } catch (err) {
     console.error(err);

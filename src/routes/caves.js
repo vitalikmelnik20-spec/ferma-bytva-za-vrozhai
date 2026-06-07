@@ -5,6 +5,7 @@ const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
 const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 const { advanceTutorial } = require('../utils/tutorial');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -252,6 +253,7 @@ router.post('/mine', async (req, res) => {
 
     updateClanTask(req.session.playerId, 'mine_gold', gold);
     advanceTutorial(req.session.playerId, 'mine5', req.app.locals.io).catch(() => {});
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     const { updateDailyQuestProgress } = require('./daily');
     await updateDailyQuestProgress(req.session.playerId, 'mines', 1);
     res.json({ gold, baseGold, talismanBonus, mineBonus, exp, levelUp, newLevel, goldBonus, newExpToNext, rareDrop, session: updatedSession, hpDiff: levelUp ? hpDiff : 0, newMaxHp: levelUp ? calcMaxHp(newLevel) : null });

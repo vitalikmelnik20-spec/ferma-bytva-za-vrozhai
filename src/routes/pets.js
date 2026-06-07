@@ -2,6 +2,7 @@ const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { advanceTutorial } = require('../utils/tutorial');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -187,6 +188,7 @@ router.post('/buy', async (req, res) => {
 
     await client.query('COMMIT');
     advanceTutorial(playerId, 'buy_pet', req.app.locals.io).catch(() => {});
+    checkAchievements(playerId, req.app.locals.io).catch(() => {});
     res.json({ ok: true, pet: { ...pet, icon: template.icon } });
   } catch (err) {
     await client.query('ROLLBACK');

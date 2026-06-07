@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -63,12 +64,16 @@ router.post('/friends/request/:targetId', async (req, res) => {
 
 router.post('/friends/accept/:friendId', async (req, res) => {
   try {
-    await pool.query(
+    const { rows: [fr] } = await pool.query(
       `UPDATE friends SET status='accepted'
-       WHERE id=$1 AND addressee_id=$2 AND status='pending'`,
+       WHERE id=$1 AND addressee_id=$2 AND status='pending' RETURNING requester_id`,
       [req.params.friendId, req.session.playerId]
     );
     res.json({ success: true });
+    if (fr) {
+      checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
+      checkAchievements(fr.requester_id, req.app.locals.io).catch(() => {});
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Помилка сервера' });

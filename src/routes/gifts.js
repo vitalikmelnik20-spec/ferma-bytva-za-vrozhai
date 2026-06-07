@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -108,6 +109,8 @@ router.post('/send', async (req, res) => {
       icon: '🎁', color: 'blue',
     }, io);
 
+    await pool.query(`UPDATE players SET gifts_sent=COALESCE(gifts_sent,0)+1 WHERE id=$1`, [req.session.playerId]);
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     res.json({ success: true, giftId: newGift.id });
   } catch (err) {
     console.error(err);

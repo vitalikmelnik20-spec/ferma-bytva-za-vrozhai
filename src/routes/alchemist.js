@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -200,6 +201,8 @@ router.post('/craft/:recipeId', async (req, res) => {
       [req.session.playerId, item.id]
     );
 
+    await pool.query(`UPDATE players SET potions_crafted=COALESCE(potions_crafted,0)+1 WHERE id=$1`, [req.session.playerId]);
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     res.json({ success: true, inventoryId: inv.id });
   } catch (err) {
     console.error(err);

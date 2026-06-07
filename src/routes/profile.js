@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 const multer  = require('multer');
 const path    = require('path');
 
@@ -426,9 +427,10 @@ router.post('/train/:stat', async (req, res) => {
       if (player.greens < cost)
         return res.status(400).json({ error: `Недостатньо зелені. Потрібно: ${cost}` });
 
-      await pool.query('UPDATE players SET greens = greens - $1 WHERE id=$2', [cost, req.session.playerId]);
+      await pool.query('UPDATE players SET greens = greens - $1, stat_trains=COALESCE(stat_trains,0)+1 WHERE id=$2', [cost, req.session.playerId]);
       await pool.query(`UPDATE training SET ${col} = ${col} + 1 WHERE player_id=$1`, [req.session.playerId]);
 
+      checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
       res.json({ success: true, newLevel: currentLevel + 1, nextCost: trainCost(currentLevel + 1) });
 
     } else {

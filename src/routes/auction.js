@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { checkAchievements } = require('../utils/achievements');
 
 router.use(requireAuth);
 
@@ -117,6 +118,8 @@ router.post('/list', async (req, res) => {
        currency, priceNum]
     );
 
+    await pool.query(`UPDATE players SET market_sells=COALESCE(market_sells,0)+1 WHERE id=$1`, [req.session.playerId]);
+    checkAchievements(req.session.playerId, req.app.locals.io).catch(() => {});
     res.json({ success: true, lotId: lot.id, minPrice });
   } catch (err) {
     console.error(err);

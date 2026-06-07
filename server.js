@@ -61,8 +61,9 @@ app.use('/api/bank',         require('./src/routes/bank'));
 app.use('/api/events',       require('./src/routes/events'));
 app.use('/api/clan-war',     require('./src/routes/clanWar'));
 app.use('/api/tools',        require('./src/routes/tools'));
-app.use('/api/messages',     require('./src/routes/messages'));
-app.use('/api/tutorial',     require('./src/routes/tutorial'));
+app.use('/api/messages',      require('./src/routes/messages'));
+app.use('/api/tutorial',      require('./src/routes/tutorial'));
+app.use('/api/achievements',  require('./src/routes/achievements'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -1105,6 +1106,36 @@ setInterval(async () => {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at DESC)`);
     console.log('[Messenger] Tables ready');
   } catch (err) { console.error('[Messenger tables]', err.message); }
+})();
+
+// Achievements migration
+(async () => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS player_achievements (
+        id               SERIAL PRIMARY KEY,
+        player_id        INTEGER NOT NULL REFERENCES players(id) ON DELETE CASCADE,
+        achievement_key  VARCHAR(64) NOT NULL,
+        is_completed     BOOLEAN NOT NULL DEFAULT false,
+        completed_at     TIMESTAMP,
+        UNIQUE(player_id, achievement_key)
+      )
+    `);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_player_ach ON player_achievements(player_id)`);
+    // New player counter columns
+    const achCols = [
+      'gifts_sent INTEGER DEFAULT 0',
+      'stat_trains INTEGER DEFAULT 0',
+      'potions_crafted INTEGER DEFAULT 0',
+      'market_buys INTEGER DEFAULT 0',
+      'market_sells INTEGER DEFAULT 0',
+      'messages_sent INTEGER DEFAULT 0',
+    ];
+    for (const col of achCols) {
+      try { await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS ${col}`); } catch(e) {}
+    }
+    console.log('[Achievements] Tables ready');
+  } catch (err) { console.error('[Achievements tables]', err.message); }
 })();
 
 // Rating system migration
