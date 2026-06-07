@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
+const { advanceTutorial } = require('../utils/tutorial');
 const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 router.use(requireAuth);
@@ -150,6 +151,7 @@ router.post('/:plotId/plant', async (req, res) => {
       await pool.query('UPDATE players SET greens=greens-$1, plants_planted=plants_planted+1 WHERE id=$2', [plant.seed_price, req.session.playerId]);
     }
     updateClanTask(req.session.playerId, 'plant_seeds', 1);
+    advanceTutorial(req.session.playerId, 'plant', req.app.locals.io).catch(() => {});
     const { rows: [updated] } = await pool.query(
       `UPDATE plots SET plant_id=$1, planted_at=NOW(),
          ready_at=NOW() + ($2 * INTERVAL '1 minute'),
@@ -242,6 +244,7 @@ router.post('/friend/:plotId/water', async (req, res) => {
       [req.session.playerId, req.params.plotId]
     );
     await pool.query('UPDATE players SET greens=greens+5 WHERE id=$1', [req.session.playerId]);
+    advanceTutorial(req.session.playerId, 'water_friend', req.app.locals.io).catch(() => {});
 
     const { rows: [waterer] } = await pool.query('SELECT username FROM players WHERE id=$1', [req.session.playerId]);
     const writeEvent = require('../helpers/writeEvent');
@@ -374,6 +377,7 @@ router.post('/:plotId/harvest', async (req, res) => {
        hpDiff, greensEarned, req.session.playerId, expEarned, newHpRegen]
     );
     updateClanTask(req.session.playerId, 'harvest_greens', greensEarned);
+    advanceTutorial(req.session.playerId, 'harvest', req.app.locals.io).catch(() => {});
     const { updateDailyQuestProgress } = require('./daily');
     await updateDailyQuestProgress(req.session.playerId, 'harvest', 1);
 

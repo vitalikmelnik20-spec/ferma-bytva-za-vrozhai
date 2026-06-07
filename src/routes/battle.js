@@ -3,6 +3,7 @@ const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
 const { getClanBonuses } = require('../utils/clanBonuses');
 const { updateClanTask } = require('../utils/clanTasks');
+const { advanceTutorial } = require('../utils/tutorial');
 const { PET_CATALOG } = require('./pets');
 const petCombat = require('../utils/petCombat');
 const { applyHpRegenNow } = require('../helpers/hpRegen');
@@ -1119,6 +1120,7 @@ router.post('/fight', async (req, res) => {
     ]);
 
     if (!isWarBattle && attackerWon) updateClanTask(attacker.id, 'win_battles', 1);
+    advanceTutorial(attacker.id, 'battle', req.app.locals.io).catch(() => {});
     if (isWarBattle) {
       delete req.session.clanWarFight;
       await recordWarBattle(cw, attacker.id, defender.id,

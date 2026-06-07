@@ -62,6 +62,7 @@ app.use('/api/events',       require('./src/routes/events'));
 app.use('/api/clan-war',     require('./src/routes/clanWar'));
 app.use('/api/tools',        require('./src/routes/tools'));
 app.use('/api/messages',     require('./src/routes/messages'));
+app.use('/api/tutorial',     require('./src/routes/tutorial'));
 
 app.locals.io = io;
 setupSocket(io);
@@ -1038,6 +1039,24 @@ setInterval(async () => {
     } catch (err) { console.error('[ClanWar cleanup]', err.message); }
   }, 7 * 24 * 60 * 60 * 1000);
 }
+
+// Tutorial progress table + novice_badge column
+(async () => {
+  try {
+    await pool.query(`ALTER TABLE players ADD COLUMN IF NOT EXISTS novice_badge BOOLEAN NOT NULL DEFAULT false`);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tutorial_progress (
+        id            SERIAL PRIMARY KEY,
+        player_id     INTEGER NOT NULL UNIQUE REFERENCES players(id) ON DELETE CASCADE,
+        current_step  INTEGER NOT NULL DEFAULT 1,
+        is_completed  BOOLEAN NOT NULL DEFAULT false,
+        started_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+        completed_at  TIMESTAMP
+      )
+    `);
+    console.log('[Tutorial] Table ready');
+  } catch (err) { console.error('[Tutorial table]', err.message); }
+})();
 
 // Refund gold for plots beyond 15 (old formula: 200*(slot_index+1))
 (async () => {

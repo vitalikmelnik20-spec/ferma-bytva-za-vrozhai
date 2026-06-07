@@ -141,6 +141,7 @@ const SLOT_NAMES    = { collar: 'Ошийник', amulet: 'Амулет', armor:
   initSocket();
   navigate('home');
   refreshEventsCount();
+  loadTutorialStatus();
   // Auto-refresh header stats every 5 seconds
   setInterval(refreshPlayer, 5000);
   // Global caves mine notifier — runs on every page
@@ -905,6 +906,74 @@ function _onMsgSearch(val) {
       resultsEl.style.display = '';
     } catch (e) { /* ignore */ }
   }, 400);
+}
+
+// ─── TUTORIAL ────────────────────────────────────────────────────────────────
+
+const TUTORIAL_STEPS = {
+  1: { npc: '👴', name: 'Дід Панас',    page: 'garden',  text: 'Привіт, фермере! Посади свою першу рослину — Пшеницю. Натисни "Город" і вибери Пшеницю.' },
+  2: { npc: '👴', name: 'Дід Панас',    page: 'garden',  text: 'Чудово! Тепер зачекай поки виросте, збери Пшеницю і посади Моркву.' },
+  3: { npc: '⚔️', name: 'Козак Тарас',  page: 'battle',  text: 'Я Козак Тарас! Час показати силу — вступи в перший PvP бій з будь-яким гравцем!' },
+  4: { npc: '⚔️', name: 'Козак Тарас',  page: 'pets',    text: 'Молодець! Купи тваринку в Питомнику — вона допоможе у боях!' },
+  5: { npc: '⛏️', name: 'Шахтар Гриць', page: 'village', text: 'Привіт! Я Шахтар Гриць. Відвідай Печери (у Деревні) і добудь золото з 5 шахт!' },
+  6: { npc: '👵', name: 'Бабуся Ганна', page: 'village', text: 'Я Бабуся Ганна! Відвідай Деревню → Ювелір, а потім полий грядку свого друга.' },
+};
+
+let _tutStep = 0;
+let _tutDone = false;
+
+async function loadTutorialStatus() {
+  try {
+    const r = await API.get('/api/tutorial/progress');
+    const p = r.progress;
+    _tutDone = p.is_completed;
+    _tutStep = p.is_completed ? 0 : p.current_step;
+    if (_tutStep >= 1 && _tutStep <= 6 && !sessionStorage.getItem(`tut_seen_${_tutStep}`)) {
+      showTutorialPopup(_tutStep);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+function showTutorialPopup(step) {
+  const info = TUTORIAL_STEPS[step];
+  if (!info) return;
+  const popup = document.getElementById('tutorial-popup');
+  if (!popup) return;
+  document.getElementById('tut-npc-avatar').textContent = info.npc;
+  document.getElementById('tut-npc-name').textContent = `${info.name} • Крок ${step}/6`;
+  document.getElementById('tut-text').textContent = info.text;
+  // Progress bar
+  const bar = document.getElementById('tut-progress-bar');
+  bar.innerHTML = [1,2,3,4,5,6].map(i =>
+    `<div style="flex:1;height:4px;border-radius:2px;background:${i < step ? '#4caf50' : i === step ? '#ffcc02' : '#e0e0e0'}"></div>`
+  ).join('');
+  // "Йти туди" button
+  const gotoBtn = document.getElementById('tut-goto-btn');
+  gotoBtn.onclick = () => { hideTutorialPopup(); navigate(info.page); };
+  popup.style.display = '';
+  sessionStorage.setItem(`tut_seen_${step}`, '1');
+}
+
+function hideTutorialPopup() {
+  const popup = document.getElementById('tutorial-popup');
+  if (popup) popup.style.display = 'none';
+}
+
+function reopenTutorial() {
+  if (_tutDone) { toast('🎉 Туторіал вже завершено! Ти справжній фермер!'); return; }
+  if (_tutStep >= 1) showTutorialPopup(_tutStep);
+  else loadTutorialStatus();
+}
+
+async function skipTutorial() {
+  if (!confirm('Пропустити туторіал? Ти втратиш нагороди за невиконані кроки.')) return;
+  try {
+    await API.post('/api/tutorial/skip');
+    hideTutorialPopup();
+    _tutStep = 0;
+    _tutDone = true;
+    toast('Туторіал пропущено');
+  } catch (e) { toast(e.message, true); }
 }
 
 // ─── BATTLE ──────────────────────────────────────────────────────────────────
@@ -2191,10 +2260,13 @@ async function loadProfile() {
         </div>
       </div>
 
-      ${r.titles?.length ? `
+      ${(r.titles?.length || p.novice_badge) ? `
       <div class="panel mb-12">
         <div class="panel-header">👑 Активні титули</div>
-        <div class="profile-titles">${r.titles.map(t => `<span class="title-badge">${t.title_name}</span>`).join('')}</div>
+        <div class="profile-titles">
+          ${p.novice_badge ? `<span class="title-badge">Новачок 🌱</span>` : ''}
+          ${r.titles?.map(t => `<span class="title-badge">${t.title_name}</span>`).join('') || ''}
+        </div>
       </div>` : ''}
 
       <div class="panel mb-12">
@@ -3724,10 +3796,13 @@ async function viewProfile(id) {
         </div>
       </div>
 
-      ${r.titles?.length ? `
+      ${(r.titles?.length || p.novice_badge) ? `
       <div class="panel mb-12">
         <div class="panel-header">👑 Активні титули</div>
-        <div class="profile-titles">${r.titles.map(t => `<span class="title-badge">${t.title_name}</span>`).join('')}</div>
+        <div class="profile-titles">
+          ${p.novice_badge ? `<span class="title-badge">Новачок 🌱</span>` : ''}
+          ${r.titles?.map(t => `<span class="title-badge">${t.title_name}</span>`).join('') || ''}
+        </div>
       </div>` : ''}
 
       <div class="panel mb-12">
@@ -4422,6 +4497,28 @@ function initSocket() {
         el.textContent = '✓✓';
         el.style.color = '#4caf50';
       });
+    }
+  });
+
+  socket.on('tutorial:step', ({ step, reward, isCompleted }) => {
+    if (isCompleted) {
+      _tutStep = 0;
+      _tutDone = true;
+      hideTutorialPopup();
+      showToast(`🎉 Квест завершено! Отримано: +${reward.greens}🌿 +${reward.exp} досв. +${reward.gold}🪙 і значок Новачок 🌱`);
+      refreshPlayer();
+    } else {
+      _tutStep = step;
+      sessionStorage.removeItem(`tut_seen_${step}`);
+      showTutorialPopup(step);
+      if (reward && (reward.greens || reward.exp || reward.gold)) {
+        const parts = [];
+        if (reward.greens) parts.push(`+${reward.greens}🌿`);
+        if (reward.exp)    parts.push(`+${reward.exp} досв.`);
+        if (reward.gold)   parts.push(`+${reward.gold}🪙`);
+        showToast(`Крок виконано! ${parts.join(' ')}`);
+        refreshPlayer();
+      }
     }
   });
 

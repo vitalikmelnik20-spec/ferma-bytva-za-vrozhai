@@ -38,10 +38,8 @@ router.post('/register', async (req, res) => {
 
     await pool.query('INSERT INTO training (player_id) VALUES ($1)', [playerId]);
     await pool.query('INSERT INTO pets (player_id) VALUES ($1)', [playerId]);
-    await pool.query(
-      'INSERT INTO plots (player_id, slot_index) VALUES ($1,0), ($1,1)',
-      [playerId]
-    );
+    await pool.query('INSERT INTO plots (player_id, slot_index) VALUES ($1,0), ($1,1)', [playerId]);
+    await pool.query('INSERT INTO tutorial_progress (player_id) VALUES ($1) ON CONFLICT DO NOTHING', [playerId]);
 
     req.session.playerId = playerId;
     await pool.query('UPDATE players SET is_online=true WHERE id=$1', [playerId]);
@@ -184,9 +182,8 @@ router.post('/telegram-webapp', async (req, res) => {
       );
       await pool.query('INSERT INTO training (player_id) VALUES ($1)', [newPlayer.id]);
       await pool.query('INSERT INTO pets (player_id) VALUES ($1)',     [newPlayer.id]);
-      await pool.query(
-        'INSERT INTO plots (player_id, slot_index) VALUES ($1,0),($1,1)', [newPlayer.id]
-      );
+      await pool.query('INSERT INTO plots (player_id, slot_index) VALUES ($1,0),($1,1)', [newPlayer.id]);
+      await pool.query('INSERT INTO tutorial_progress (player_id) VALUES ($1) ON CONFLICT DO NOTHING', [newPlayer.id]);
       player = newPlayer;
     }
 

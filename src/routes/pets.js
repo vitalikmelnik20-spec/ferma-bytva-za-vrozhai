@@ -1,6 +1,7 @@
 const router = require('express').Router();
 const requireAuth = require('../middleware/requireAuth');
 const { pool } = require('../db');
+const { advanceTutorial } = require('../utils/tutorial');
 
 router.use(requireAuth);
 
@@ -185,6 +186,7 @@ router.post('/buy', async (req, res) => {
     await client.query('INSERT INTO pet_stats (pet_id) VALUES ($1)', [pet.id]);
 
     await client.query('COMMIT');
+    advanceTutorial(playerId, 'buy_pet', req.app.locals.io).catch(() => {});
     res.json({ ok: true, pet: { ...pet, icon: template.icon } });
   } catch (err) {
     await client.query('ROLLBACK');
