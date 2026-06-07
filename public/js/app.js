@@ -1030,7 +1030,7 @@ async function loadAchievements() {
             </div>
           </div>
         </div>`;
-    }).join('') || `<p class="text-muted text-center" style="padding:16px">Ачівок немає</p>`;
+    }).join('') || `<p class="text-muted text-center" style="padding:16px">Досягнень немає</p>`;
   } catch (e) {
     listEl.innerHTML = `<p class="text-muted text-center">${e.message}</p>`;
   }
@@ -4565,7 +4565,7 @@ function initSocket() {
     if (reward.greens) parts.push(`+${fmtNum(reward.greens)}🌿`);
     if (reward.exp)    parts.push(`+${reward.exp} досв.`);
     if (reward.gold)   parts.push(`+${reward.gold}🪙`);
-    showToast(`${icon} Ачівка: «${name}»! ${parts.join(' ')}`);
+    showToast(`${icon} Досягнення: «${name}»! ${parts.join(' ')}`);
     refreshPlayer();
   });
 
