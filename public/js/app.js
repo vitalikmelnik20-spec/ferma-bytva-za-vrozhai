@@ -1033,10 +1033,10 @@ function renderHouses(r) {
         <div class="panel-body">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
             <span style="font-weight:700;font-size:15px">${icon} ${h.label}</span>
-            <span style="font-size:18px;font-weight:700;color:#2e7d32">+${h.level}</span>
+            <span style="font-size:18px;font-weight:700;color:#2e7d32">+${h.level}%</span>
           </div>
           <div style="font-size:12px;color:#999;margin-bottom:6px">
-            Рівень <b>${h.level}</b> / ${r.maxLevel} · Бонус у бою: <b>+${h.bonus}</b> до ${h.label.toLowerCase()}
+            Рівень <b>${h.level}</b> / ${r.maxLevel} · Бонус у бою: <b>+${h.level}%</b> від прокачаного параметру гравця
           </div>
           <div style="background:#f0f0f0;border-radius:6px;height:8px;margin-bottom:10px;overflow:hidden">
             <div style="background:${pct===100?'#66bb6a':'#42a5f5'};height:100%;width:${pct}%;transition:width .3s"></div>
@@ -1049,7 +1049,9 @@ function renderHouses(r) {
                  ${[10,25,50,100].filter(t => t > h.level && t <= r.maxLevel).slice(0,2).map(t => {
                    let gc = 0, gc2 = 0;
                    for (let l = h.level+1; l <= t; l++) {
-                     const c = (l%10===0) ? {type:'gold',amount:Math.round(l/5)} : {type:'greens',amount:100*Math.ceil(l/10)};
+                     const c = (l%10===0)
+                       ? {type:'gold',   amount: 100 * Math.pow(2, l/10 - 1)}
+                       : {type:'greens', amount: Math.floor(l*l*10 + l*20) * 5};
                      if (c.type==='gold') gc+=c.amount; else gc2+=c.amount;
                    }
                    const parts = [];
@@ -1081,8 +1083,8 @@ async function upgradeHouseTo(stat, targetLevel) {
   const currentLevel = _housesData.houses[stat]?.level ?? 0;
   let greensTotal = 0, goldTotal = 0;
   for (let l = currentLevel + 1; l <= targetLevel; l++) {
-    if (l % 10 === 0) goldTotal += Math.round(l / 5);
-    else greensTotal += 100 * Math.ceil(l / 10);
+    if (l % 10 === 0) goldTotal += 100 * Math.pow(2, l / 10 - 1);
+    else greensTotal += Math.floor(l * l * 10 + l * 20) * 5;
   }
   const parts = [];
   if (greensTotal > 0) parts.push(`${fmtNum(greensTotal)} зелені`);

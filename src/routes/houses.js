@@ -10,9 +10,11 @@ const MAX_LEVEL = 200;
 
 function houseCost(newLevel) {
   if (newLevel % 10 === 0) {
-    return { type: 'gold', amount: Math.round(newLevel / 5) };
+    // 10→100, 20→200, 30→400, 40→800, 50→1600... (doubles every tier)
+    return { type: 'gold', amount: 100 * Math.pow(2, newLevel / 10 - 1) };
   }
-  return { type: 'greens', amount: 100 * Math.ceil(newLevel / 10) };
+  // Greens: same formula as player training × 5
+  return { type: 'greens', amount: Math.floor(newLevel * newLevel * 10 + newLevel * 20) * 5 };
 }
 
 // GET /api/houses
