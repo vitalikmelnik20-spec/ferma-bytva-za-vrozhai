@@ -1411,6 +1411,7 @@ function showBattleResult(r) {
         ${r.greensReward > 0 ? `${IC.greens(14)} ${won?'+':'-'}${fmtNum(r.greensReward)} зелені` : ''}
         ${(() => { const totalGold = (r.goldReward||0) + (r.ringEffect?.triggered ? r.ringEffect.stolenGold : 0); return totalGold > 0 ? `&nbsp; ${IC.gold(14)} ${won?'+':''}${fmtNum(totalGold)} золота` : ''; })()}
         ${won ? (r.attackerGlory > 0 ? `&nbsp; ${IC.glory(14)} +1 слава` : ``) : `&nbsp; ${IC.down(14)} -5 рейтингу`}
+        ${won && r.expGained > 0 ? `&nbsp; ${IC.exp(14)} +${r.expGained} досвіду` : ''}
       </div>
     </div>
 
@@ -1476,6 +1477,8 @@ function showBattleResult(r) {
     <div style="margin-top:8px">
       <button class="btn btn-blue btn-sm btn-full" onclick="openPrivChat(${r.defenderId},'${(r.defenderName||'').replace(/'/g,"\\'")}',null)">💬 Написати ${r.defenderName||'суперника'}</button>
     </div>`;
+
+  if (r.levelUp) showLevelUpModal(r);
 }
 
 // ─── MARKET ──────────────────────────────────────────────────────────────────

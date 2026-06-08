@@ -8,6 +8,7 @@ const { checkAchievements } = require('../utils/achievements');
 const { PET_CATALOG } = require('./pets');
 const petCombat = require('../utils/petCombat');
 const { applyHpRegenNow } = require('../helpers/hpRegen');
+const { calcMaxHp, calcHpRegen } = require('../helpers/calcMaxHp');
 
 // Завантажити тваринку гравця для бою (лише якщо активна і жива)
 async function fetchPetForBattle(playerId) {
@@ -704,6 +705,48 @@ router.post('/round', async (req, res) => {
         ringEffect = await checkRingEffect(attacker.id, defender.id, battleId, req.app.locals.io);
       }
 
+      // ── §XP: досвід атакеру за перемогу ─────────────────────────────────────
+      let expGained = 0, levelUp = false, newLevel = attacker.level, levelReward = 0, goldBonus = 0;
+      if (attackerWon) {
+        expGained = Math.floor(Math.random() * 60) + 1;
+        const { rows: [aPlayer] } = await pool.query(
+          'SELECT level, experience, exp_to_next FROM players WHERE id=$1', [attacker.id]
+        );
+        let newExp = aPlayer.experience + expGained;
+        newLevel = aPlayer.level;
+        let newExpToNext = aPlayer.exp_to_next;
+        while (newExp >= newExpToNext) {
+          newExp -= newExpToNext;
+          newLevel++;
+          newExpToNext = Math.floor(newExpToNext * 1.5);
+          levelUp = true;
+          levelReward += newLevel * 500;
+          goldBonus   += newLevel * 5;
+        }
+        const newMaxHp   = calcMaxHp(newLevel);
+        const hpDiff     = levelUp ? newMaxHp - calcMaxHp(aPlayer.level) : 0;
+        const newHpRegen = calcHpRegen(newMaxHp);
+        await pool.query(
+          `UPDATE players SET experience=$1, exp_to_next=$2, level=$3,
+             max_hp=max_hp+$4, hp=LEAST(max_hp+$4, hp+$4), hp_regen=$5,
+             greens=greens+$6, gold=gold+$7,
+             exp_day=COALESCE(exp_day,0)+$8, exp_week=COALESCE(exp_week,0)+$8
+           WHERE id=$9`,
+          [newExp, newExpToNext, newLevel, hpDiff, newHpRegen,
+           levelReward, goldBonus, expGained, attacker.id]
+        );
+        if (levelUp) {
+          const writeEventLocal = require('../helpers/writeEvent');
+          await writeEventLocal(attacker.id, {
+            event_type: 'level_up',
+            title: `Новий рівень ${newLevel}!`,
+            body: `+${levelReward} 🌿 +${goldBonus} 🏅`,
+            icon: '🎉', color: 'gold',
+          }, req.app.locals.io);
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────────
+
       await decrementPotions(attacker.id, defender.id);
 
       // ── §5 Зберегти результати тваринок ──────────────────────────────────
@@ -786,6 +829,7 @@ router.post('/round', async (req, res) => {
         attackerHpBefore: fight.attackerHpBefore, attackerHpAfter: attackerAfter.hp,
         defenderHpBefore: fight.defenderHpBefore, defenderHpAfter: defenderAfter.hp,
         attackerMaxHp: fight.attackerMaxHp, defenderMaxHp: fight.defenderMaxHp,
+        expGained, levelUp, newLevel, levelReward, goldBonus,
         ringEffect,
         // Тваринки
         aPet: fight.aPet ? { name: fight.aPet.name, icon: fight.aPet.icon,
